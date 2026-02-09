@@ -47,7 +47,7 @@ You are using an external driver/amplifier because:
 - The driver IC + MOSFET stage provides current drive and switching power behavior.
 - The series capacitor blocks DC to the speaker.
 - Your microcontroller pin provides a logic-level square wave only.
-![](../../Images/classD.png)
+![](images/classD.png)
 Figure 1: Class D Amplifier  
 You do **not** need to write a full amplifier theory essay for this lab. You do need to wire it correctly and not cook the MCU.
 
