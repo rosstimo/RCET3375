@@ -1,4 +1,4 @@
-# Lab 05 - Muzak
+# Lab 04 - Muzak
 
 PIC16F883 | pic-as | Software Timing | Look-Up Tables | Input Polling
 
@@ -431,8 +431,70 @@ Part 3 is complete when all 16 physical keys produce the assigned notes, adjacen
 
 ---
 
-# Part 5 - Mastery
+# Part 4 - Mastery: Key Display with Touch-Tone Feedback
 
-TBD.
+**Optional. Complete Parts 1-3 first.**
 
-Part 5 is optional and is reserved for a later mastery challenge. Complete Parts 1-3 first.
+### Goal
+
+Recreate the matrix-keypad application from the earlier I/O lab so the DLG7137 displays the key that was pressed, then add a short audible tone when a new key press is detected.
+
+The added tone is feedback only. It must not interfere with the normal keypad-display behavior.
+
+### Before Lab
+
+Start from the behavior of the earlier keypad-display program rather than from the Part 3 musical keyboard behavior.
+
+The completed program must:
+
+- continuously scan the 4 x 4 keypad;
+- display the same assigned key value used in the earlier I/O lab;
+- update the display with no noticeable lag after a key is pressed;
+- produce one short touch-tone-style beep when a new key press is detected;
+- avoid repeatedly retriggering the beep simply because the same key remains held through multiple scans;
+- continue to behave correctly for subsequent key presses after the beep completes.
+
+Reuse appropriate keypad-scanning, display, tone-generation, and delay routines from earlier work. Organize the program so adding the audible feedback does not require rewriting the working keypad-display logic.
+
+Do not use a long blocking tone-generation path that makes the keypad or display feel unresponsive. The displayed key value should appear immediately when the key press is recognized rather than waiting for the audible feedback to finish.
+
+Update the flowchart to show how the program distinguishes a new key press from a key that is still being held.
+
+### In the Lab
+
+1. Verify the original keypad-display behavior first.
+2. Confirm that every key displays the correct assigned value.
+3. Add the audible feedback and verify that each new key press produces one short beep.
+4. Hold a key and confirm that it does not continuously retrigger short beeps on every keypad scan.
+5. Press several keys in normal succession and verify that the display responds immediately and consistently.
+6. Confirm that the audible feedback does not create a noticeable delay in displaying the detected key.
+7. Document any changes needed to preserve responsive keypad scanning and display behavior.
+
+### Evidence
+
+Include or reference:
+
+- earlier keypad-display schematic, loading analysis, and scan-state documentation;
+- updated flowchart showing new-key detection and audible feedback;
+- final source;
+- verification of all 16 displayed key values;
+- demonstration that one new key press produces one short beep;
+- held-key test showing that repeated scans do not cause repeated beeps;
+- explanation of how the program keeps the display responsive while producing the tone;
+- troubleshooting notes.
+
+### Demonstrate
+
+Demonstrate the completed keypad-display application with audible feedback.
+
+The instructor may press and hold arbitrary keys and may enter several keys in succession. Be prepared to explain:
+
+- how the current key value is detected and displayed;
+- how the program determines that a press is new rather than the same held key being scanned again;
+- how the short tone is produced;
+- why the tone does not noticeably delay the display response;
+- which earlier routines were reused and what had to change for this application.
+
+### Complete When
+
+Part 4 mastery is complete when all 16 keys display correctly, each new key press produces one short audible tone, a held key does not repeatedly retrigger the beep, and the added tone produces no noticeable lag in the keypad-display response.
