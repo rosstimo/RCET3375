@@ -101,7 +101,8 @@ flowchart TB
     NOTE[[Retrieve Note Delay]]
     DELAY[[Delay One Half-Cycle]]
     LOW[/Set tone output LOW/]
-    LOOP((A))
+    %% LOOP is here to make the flow layout cleaner
+    LOOP(( ))
 
     START --> SETUP
     SETUP --> GETKEY
@@ -116,6 +117,8 @@ flowchart TB
     LOW --> LOOP
 
     LOOP --> GETKEY
+    %% Adjust the look of the LOOP path combiner 
+    style LOOP opacity:0.5,stroke-dasharray: 5 5
 ```
 
 Use the RCET Flowchart Guide when developing the child flowcharts for the subprocesses. The supplied chart is an architectural starting point, not a replacement for documenting the algorithms you design or adapt.
@@ -346,8 +349,6 @@ Use this mapping:
 The physical label printed on the key no longer determines priority.
 
 If multiple keys are detected, the **highest assigned musical note** must win. The keypad-scanning logic should therefore produce the highest active **note index**, not the numerically or alphabetically largest printed keypad character.
-
-No key pressed must produce note index `0` and force the tone output LOW.
 
 ### Before Lab
 
