@@ -1,255 +1,437 @@
-# Lab 05 – Funky Muzak
-PIC16F883 • pic-as • Timing + Look-Up Tables + Input Polling
+# Lab 05 - Muzak
 
+PIC16F883 | pic-as | Software Timing | Look-Up Tables | Input Polling
 
----
+## Purpose
 
-## Equipment / Materials
-- MPLAB X IDE + XC8 / `pic-as`
-- Programmer/debugger (PICkit or equivalent)
-- Oscilloscope (**required**)
-- Frequency counter (**strongly recommended**)
-- Breadboard + jumpers
-- 4x4 keypad
-- DIP switch bank (at least 3 switches, more is fine)
-- Speaker + Class D driver circuit (per provided schematic)
-- Lab notebook
+Build a reusable software tone generator that converts an active button, switch, or keypad selection into a musical note.
 
----
+This lab builds directly on earlier work with PIC instruction timing, software delay subroutines, priority input scanning, and matrix keypad scanning. The new work is to organize those pieces into reusable program sections, use a program-memory look-up table to select note timing, and preserve predictable output timing while the processor continues to poll inputs.
 
-## Core Objectives
-By the end of this lab, you will be able to:
-1. Generate an **exact 1 kHz** square wave on a pin using software timing.
-2. Build and use a **look-up table** (LUT) to convert an input “note selection” into a delay value.
-3. Maintain a stable output frequency while **polling DIP switches**.
-4. Maintain a stable output frequency while **scanning a 4x4 keypad**.
-5. Verify timing with an oscilloscope and explain differences between “calculated” and “measured.”
+The final program should behave as a system of cooperating tasks rather than one large block of note-specific code.
 
----
+## Standards and references
 
-## Background Notes
-This lab is about **timing discipline**:
-- Generate a stable square wave at a target frequency
-- Use a **look-up table** of delay values to produce different notes
-- Keep your output pin toggling at the correct rate **while polling inputs**
-- Integrate a 4x4 keypad scan without wrecking your waveform
+- [RCET 3375 Lab Standard](../LAB_STANDARD.md)
+- [RCET PIC-AS Style Guide](../Notes/RCET_PIC-AS_Style_Guide.md)
+- [RCET Flowchart Guide](https://github.com/rosstimo/RCET3371/blob/main/Guides/Flowcharts/RCET-Flowchart-Guide.md)
+- [PIC16F883 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
+- [PICmicro Mid-Range MCU Family Reference Manual](https://ww1.microchip.com/downloads/en/DeviceDoc/33023a.pdf)
+- Previous RCET3375 lab-book documentation and source for software delays, priority switch scanning, and matrix keypad scanning
 
-In other words: you will learn how software timing falls apart the moment you add “one more thing.”
-### Instruction cycle timing
-For midrange PICs, the instruction cycle is typically:
-- `TCY = 4 / FOSC`
+## Equipment and materials
 
-Your delay routines must be based on **instruction cycles** because oscillator frequency may vary.
+- MPLAB X IDE and pic-as toolchain
+- PICkit programmer/debugger
+- PIC16F883 circuit
+- 4 MHz crystal oscillator circuit
+- Oscilloscope
+- Frequency counter
+- 8-position DIP-switch assembly
+- 4 x 4 matrix keypad
+- Speaker and Class D driver circuit
+- Breadboard, jumpers, resistors, and other interface components as required
+- Lab book
 
-### “Class D amplifier” notes
-You are using an external driver/amplifier because:
-- A PIC GPIO pin is not a speaker driver.
-- The driver IC + MOSFET stage provides current drive and switching power behavior.
-- The series capacitor blocks DC to the speaker.
-- Your microcontroller pin provides a logic-level square wave only.
+## Class D driver
 
+The PIC output provides a logic-level square wave only. Do not attempt to drive the speaker directly from a PIC GPIO pin.
 
-![Figure 1: Class D Amplifier](images/classD.png)
+Use the provided Class D driver circuit for the speaker interface.
 
+![Figure 1: Class D amplifier](images/classD.png)
 
+Before applying power, include the driver and speaker interface in the normal loading and electrical-limit analysis required by the RCET3375 lab standard.
 
-You do **not** need to write a full amplifier theory essay for this lab. You do need to wire it correctly and not cook the MCU.
+## Program design expectations
 
----
+Use this lab as an opportunity to make working code reusable.
 
-# Part 1 – 1 kHz Tone (Button-Gated)
-**Goal:** Prove you can generate a clean 1 kHz square wave at the amplifier input.
+The final design should separate the major jobs of the program so that changing the input device does not require rewriting the tone-generation system. Useful responsibilities include:
 
-## Part 1 Objectives
-1. Wire the amplifier input node (**PWM IN**) to **RA0** (or the lab-standard output pin).
-2. Select a button input pin (recommended: **RB0**, active-low with pull-up).
-3. Output a **1.000 kHz** square wave (≈50% duty) **only while the button is pressed**.
-4. Capture the waveform and measure frequency/period.
+- obtaining the current button, switch, or keypad status;
+- converting that physical input into a normalized note-selection value;
+- retrieving the delay value associated with that note;
+- performing the half-cycle delay;
+- controlling the tone output.
 
-## Required Behavior
-- Button not pressed: output pin forced low (silence)
-- Button pressed: output pin toggles continuously at 1 kHz
-- Your code must poll the button while running (do not “freeze” the program in a giant delay that ignores input for seconds)
+Store the current normalized note selection in a general-purpose register of your choosing. Use:
 
-## Calculations
-- Show:
-  - `FOSC`
-  - `TCY`
-  - Half-period target for 1 kHz: `0.5 ms`
-- Show the cycle math for your delay routine (or calibrated loop structure).
+- `0` = no active note / silence;
+- a nonzero value = the selected musical note.
 
-## Measurements
-- Oscilloscope capture of RA0 (or PWM IN) showing:
-  - Frequency near 1.000 kHz
-  - Duty cycle at 50%
-  - At least one full cycle with readable scale
-- Record measured frequency and compare to your calculated expectation.
+The note-selection value should be suitable for use by the look-up process that updates the delay-count value. The delay routine should then use that delay-count value without needing to know which physical input device produced it.
 
-## Instructor Checkpoint
-Demonstrate:
-- Button-gated 1 kHz tone
-- Measured frequency shown on the scope and frequency counter
+Previously developed routines may be reused and adapted. Do not recreate working input-scanning or delay algorithms simply because they are being used in a new application.
 
----
+### Output rule
 
-# Part 2 – DIP Switch Notes (First 8 Notes via LUT)
-**Goal:** Get the LUT + note timing working *before* the keypad scan timing chaos.
+The tone output must remain **logic LOW whenever no valid note-selection input is active**.
 
-## Part 2 Objectives
-1. Use DIP switches on **PORTB** to select one of the first 8 notes from the table.
-2. Implement a **look-up table** returning a delay value for the selected note.
-3. Toggle the output pin (RA0) at the correct frequency for the selected note.
-4. Poll the DIP switches continuously while generating the tone.
+Only toggle the tone output while a button, switch, or keypad key is actively requesting a note.
 
-## DIP Switch Input Definition (Required)
-Use:
-- `RB0:RB7` as a priority encoded note select:
-  - `0x00` = silence
-  - `0x01` = Note 1 (C3)
-  - `0x02` = Note 2 (D3)
-  - ...
-  - `0x07` = Note 7 (B3)
+### One generalized note delay
 
-- If multiple switches are on, the highest-priority (highest-numbered) switch determines the note.
+Use the **provided hexadecimal delay value only** for each musical note.
 
-## LUT Requirement (Required Implementation)
-Your delay values must be stored in a LUT in program memory, e.g.:
-- computed jump (`ADDWF PCL`) + `RETLW` values
+Do not individually tune notes with:
 
-The main loop structure must be:
-1. Read DIP switch selection
-2. Determine highest-priority switch
-   - Convert selection → LUT index
-   - Fetch delay value from LUT
-   - Toggle output pin
-   - Delay using fetched value
-3. If no switch: force output low (silence)
-4. Repeat
+- `NOP` padding;
+- alternate note-specific delay paths;
+- custom timing code for individual notes;
+- modified look-up values chosen to make one particular measured frequency closer to ideal.
 
-**Important:** I/O polling consumes time. That time affects your period. You must account for it.
+The same generalized delay mechanism must be used for every note. Any fixed timing overhead that is part of that common execution path applies to all notes.
 
-## First 8 Notes Table
-(From the original handout table)
+> **Hint:** The provided values were chosen to work with one common delay mechanism. Compare the relationship between the count values and the required half-cycle times before designing anything note-specific.
 
-| Select | Note | Frequency (Hz) | Table Value (Hex) | Dec |
-|---:|---|---:|---:|---:|
-| 1 | C3 | 130.81 | EE | 238 |
-| 2 | D3 | 146.83 | D4 | 212 |
-| 3 | E3 | 164.81 | BD | 189 |
-| 4 | F3 | 174.61 | B2 | 178 |
-| 5 | G3 | 196.00 | 9F | 159 |
-| 6 | A3 | 220.00 | 8E | 142 |
-| 7 | B3 | 246.94 | 7E | 126 |
+## Supplied top-level flowchart
 
+The following chart shows the intended **main-program architecture only**. It deliberately does not show how the subprocesses are implemented.
 
-## Timing Constraint
-Your waveform must remain stable while DIP switches are being polled.
-- If your polling or branching causes jitter, you will see it on the scope.
-- You must decide *where* in the toggle/delay loop you sample inputs.
+[Open this flowchart in Mermaid Live Editor](https://mermaid.live/edit#pako:eNplkl1vgjAUQP9K0ydNNLzzsIVNwhKdGOmymM6HBq5KBpSU2y1E-e9riyLb-tSc-9F70numqcyA-vRQyO_0JBQS9vRREXMSFmzZhCdo4H56ZSF723CeAOp6v-9ZFLJluOM8AiRLaG_YsHNQteQTWlIraBrIHrs-xOIoWoXcY_J4LICgrIBIjbVG71q8jlnI-RZQ5fAFZC0RyAIKMXRfhKvAvOkYiU39iygO8-c2LeCWsorfuWcmHfe30Bvi8WYyCaZGbSRM5vOHXnNk7GDvOXZ22LFB2aLLDprLVXIs7NKt2d3RIecy0nLQTve371perMCg9y_R3n_NSme0BFWKPKP-meIJSvvXGRyELpB2Myo0yqStUuqj0jCjus4EwiIXRyXKG4QsR6le-0Vx-9L9AGeOqXA)
 
-## Measurements
-- Show at least **two measured note frequencies**:
-  - One low note (ex: C3)
-  - One higher note (ex: B3)
-- Record measured frequency vs expected.
-- Oscilloscope captures showing stable waveform and readable frequency.
-- Frequency counter measurements.
+```mermaid
+flowchart TB
+    START([Start])
+    SETUP[[Setup]]
+    GETKEY[[Get Key]]
+    KEY{Any key pressed?}
+    TOGGLE[/Toggle tone output/]
+    NOTE[[Retrieve Note Delay]]
+    DELAY[[Delay One Half-Cycle]]
+    LOW[/Set tone output LOW/]
+    LOOP((A))
 
-## Instructor Checkpoint
-Demonstrate:
-- DIP switches select notes
-- Output frequency changes correctly
-- Measured waveforms are stable and free of jitter
-- You can explain how the LUT indexing works
-- Be prepared to measure and verify frequencies on the scope
----
+    START --> SETUP
+    SETUP --> GETKEY
+    GETKEY --> KEY
 
-# Part 3 – 4x4 Keypad Piano (All 16 Notes)
-**Goal:** Integrate keypad scanning while keeping tone timing under control.
+    KEY -->|Yes| TOGGLE
+    TOGGLE --> NOTE
+    NOTE --> DELAY
+    DELAY --> LOOP
 
-## Part 3 Objectives
-1. Scan a 4x4 keypad and determine which key is pressed (0–15).
-2. Use a LUT to convert key number → delay value.
-3. Toggle RA0 to generate the note while the key is held.
-4. Demonstrate all 16 notes.
+    KEY -->|No| LOW
+    LOW --> LOOP
 
-## Wiring Suggestion (Recommended)
-For the final stage, remove the DIP switches and use PORTB for the keypad:
+    LOOP --> GETKEY
+```
 
-- `RB3:RB0` = row outputs (be sure output do not short out when more than one key is pressed; use diodes or some other method to prevent damage to the PIC) 
-- `RB7:RB4` = column inputs (with pull-ups enabled or external resistors)
-
-If your lab hardware uses a different port mapping, that’s fine, but your schematic and code must match.
-
-## Required Behavior
-- No key pressed: output low (silence)
-- Key pressed: play the corresponding note continuously while held
-- Multiple keys pressed: choose and document one behavior:
-  - first-detected wins
-  - lowest-numbered wins
-  - ignore until a single key is pressed
-
-## Program Flow
-Your top-level loop must follow this pattern:
-1. Scan keypad
-2. If key pressed:
-   - key → LUT index
-   - fetch delay value
-   - toggle output
-   - delay
-3. If no key:
-   - force output low
-4. Repeat
-
-**Important:** keypad scanning consumes time. That time affects your period unless you account for it.
-You are expected to see and deal with this.
-
-## Full 16-Note Table (Use these values)
-(From the original handout table)
-
-| Key | Note | Frequency (Hz) | Table Value (Hex) | Dec |
-|---:|---|---:|---:|---:|
-| 1 | C3 | 130.81 | EE | 238 |
-| 2 | D3 | 146.83 | D4 | 212 |
-| 3 | E3 | 164.81 | BD | 189 |
-| 4 | F3 | 174.61 | B2 | 178 |
-| 5 | G3 | 196.00 | 9F | 159 |
-| 6 | A3 | 220.00 | 8E | 142 |
-| 7 | B3 | 246.94 | 7E | 126 |
-| 8 | C4 | 261.63 | 77 | 119 |
-| 9 | D4 | 293.66 | 6A | 106 |
-| 10 | E4 | 329.63 | 5E | 94 |
-| 11 | F4 | 349.23 | 59 | 89 |
-| 12 | G4 | 392.00 | 4F | 79 |
-| 13 | A4 | 440.00 | 47 | 71 |
-| 14 | B4 | 493.88 | 3F | 63 |
-| 15 | C5 | 523.25 | 3B | 59 |
-| 16 | D5 | 587.33 | 35 | 53 |
-
-## Measurements
-- Oscilloscope capture of:
-  - One low note and one high note
-  - Record measured frequency vs expected
-- Frequency counter measurements for the same notes
-
-## Instructor Final Checkoff
-🎵 Play all 16 notes from the keypad reliably. 🎵
+Use the RCET Flowchart Guide when developing the child flowcharts for the subprocesses. The supplied chart is an architectural starting point, not a replacement for documenting the algorithms you design or adapt.
 
 ---
 
-## Submission Requirements (All Parts)
-Your lab notebook / submission must include:
-- Schematic(s) for each stage (Part 1, Part 2, Part 3)
-- Loading calculations for all components, I/O pins etc.
-- Delay routine calculations for all notes (show all math with explanations)
-- Flowchart immediately before code listing
-- Code listing with comments explaining:
-  - LUT indexing method
-  - delay routine
-  - keypad scan method
-- Required oscilloscope screenshots and measured frequencies
-- Short analysis: what broke, what you changed, and what finally made it work
-## Final Analysis (Conclusion)
-- Discussion of timing discipline: how did you account for the time taken by input polling and branching?
-- Look-up tables: Pros and Cons of directly writing to the program counter.
+# Part 1 - Generate and Amplify a Single Tone
 
+### Goal
+
+Generate a nominal 1.000 kHz, approximately 50% duty-cycle square wave and reproduce it only while a button is actively pressed. Drive the speaker through the provided Class D circuit and verify the waveform with test equipment.
+
+### Before Lab
+
+Start from the software-timing knowledge and reusable delay work developed in the previous delay lab.
+
+Prepare the circuit and program so that:
+
+- the tone output is logic LOW when the button is not pressed;
+- the button status is read continuously;
+- the active/inactive button condition is stored in a general-purpose register;
+- the same program path repeatedly toggles the output and delays one half-cycle while the button remains active;
+- the delay is implemented as reusable logic rather than embedded repeatedly in the main loop.
+
+Using the nominal value:
+
+$$
+T_{CY}=1\ \mu s
+$$
+
+calculate the required period and half-period for a nominal 1.000 kHz square wave.
+
+Account for the instructions that execute between output transitions. Do not treat the delay subroutine as though it were the only code consuming time.
+
+Use the measured instruction-cycle time from the previous delay lab to predict the expected real output frequency of the same program on your processor.
+
+Prepare or reference:
+
+- schematic and Class D interface documentation;
+- applicable PIC SFR documentation;
+- loading calculations and electrical-limit checks;
+- top-level flowchart and any needed child flowcharts;
+- timing calculations;
+- source code.
+
+Reference unchanged work from previous labs rather than copying it.
+
+### In the Lab
+
+1. Build and program the circuit.
+2. Verify that the tone output remains LOW when the button is not pressed.
+3. Press and hold the button and verify that the tone output toggles continuously.
+4. Measure PW, PS, period, frequency, and duty cycle with the oscilloscope.
+5. Measure frequency with the frequency counter.
+6. Compare the measurements with both the nominal prediction and the prediction based on the previously measured instruction-cycle time.
+7. Listen to the amplified output and verify that pressing and releasing the button starts and stops the tone cleanly.
+8. Document troubleshooting changes.
+
+### Evidence
+
+Include or reference:
+
+- circuit schematic and Class D interface;
+- loading/electrical analysis;
+- flowchart set;
+- final source;
+- nominal timing calculations;
+- expected timing using the previously measured instruction-cycle time;
+- oscilloscope capture and measurements;
+- frequency-counter measurement;
+- comparison of predicted and measured behavior;
+- verification that no active button forces the output LOW;
+- troubleshooting notes.
+
+### Demonstrate
+
+Demonstrate the button-gated tone using the oscilloscope, frequency counter, and speaker.
+
+Be prepared to explain:
+
+- why a square-wave output requires a half-cycle delay between transitions;
+- which instructions contribute to the measured half-cycle time;
+- how the input status is represented in the program;
+- why the speaker requires the external driver circuit;
+- why the output is explicitly forced LOW when no note is active.
+
+### Complete When
+
+Part 1 is complete when the nominal 1 kHz tone has been predicted, generated, measured, compared with the expected real timing, reproduced only while the button is active, and demonstrated through the Class D speaker driver.
+
+---
+
+# Part 2 - Select Notes with DIP Switches and a Look-Up Table
+
+### Goal
+
+Reuse the priority switch-scanning work from the earlier PIC lab to select musical notes, retrieve the associated hexadecimal delay value from a program-memory look-up table, and generate each selected note with one generalized delay mechanism.
+
+### Note selection
+
+Use the eight DIP switches to select the first eight notes.
+
+| Switch | Note index | Note | Frequency (Hz) | Delay value (Hex) |
+| ---: | ---: | --- | ---: | ---: |
+| RB0 | 1 | C3 | 130.81 | EE |
+| RB1 | 2 | D3 | 146.83 | D4 |
+| RB2 | 3 | E3 | 164.81 | BD |
+| RB3 | 4 | F3 | 174.61 | B2 |
+| RB4 | 5 | G3 | 196.00 | 9F |
+| RB5 | 6 | A3 | 220.00 | 8E |
+| RB6 | 7 | B3 | 246.94 | 7E |
+| RB7 | 8 | C4 | 261.63 | 77 |
+
+If no switch is active, the normalized note-selection value must be `0` and the tone output must remain LOW.
+
+If multiple switches are active, the **highest musical note** has priority. With the assignment above, that also means the highest active note index wins.
+
+### Before Lab
+
+Reuse and adapt the priority-switch scanning algorithm developed previously. The input-scanning portion should determine the active note and store the normalized note index in a general-purpose register.
+
+Create a program-memory look-up table that uses the note index to retrieve the provided hexadecimal delay value.
+
+A computed look-up using `PCL` and `RETLW` is appropriate. Research and document any PIC program-counter behavior or SFR information required to use the selected method correctly.
+
+The look-up process should update a delay-count value used by the same generalized half-cycle delay mechanism for every note.
+
+Do **not** modify the provided hexadecimal values. Do **not** create a different delay algorithm for each note.
+
+Before implementing note-specific timing corrections, stop and examine the table and your generalized delay. The intended solution does not require individually tuning eight different frequencies.
+
+Prepare or reference:
+
+- switch schematic and loading analysis;
+- applicable SFR and program-counter documentation;
+- input-selection and look-up flowcharts;
+- final planned source structure;
+- expected timing for representative notes using the provided values.
+
+### In the Lab
+
+1. Verify the no-switch condition first. The tone output must remain LOW.
+2. Verify each switch individually.
+3. Verify that each switch selects the assigned musical note.
+4. Test multiple-switch combinations and confirm that the highest musical note wins.
+5. Measure at least one low note and one high note using the oscilloscope and frequency counter.
+6. Compare the measured frequencies with the listed target frequencies and with the timing expected from your common delay implementation.
+7. Observe whether switch polling or program branching introduces measurable instability or timing error.
+8. Document troubleshooting changes without individually tuning the notes.
+
+### Evidence
+
+Include or reference:
+
+- switch schematic and loading analysis;
+- required SFR/program-counter documentation;
+- flowcharts for the reused/adapted input scan and new look-up behavior;
+- final source;
+- the normalized note-selection representation;
+- the program-memory look-up table;
+- representative timing analysis showing how the supplied delay value is used by the generalized delay;
+- low-note and high-note oscilloscope captures;
+- frequency-counter measurements;
+- predicted/expected/measured comparison;
+- no-switch LOW-output verification;
+- multiple-switch priority results;
+- troubleshooting notes.
+
+### Demonstrate
+
+Demonstrate note selection with the DIP switches.
+
+The instructor may select individual or multiple switches. Be prepared to:
+
+- identify the selected musical note;
+- explain how input status becomes a normalized note index;
+- explain how the note index retrieves the delay value;
+- explain how the same delay mechanism serves every note;
+- demonstrate that no active switch forces the output LOW;
+- measure and interpret a selected note frequency.
+
+### Complete When
+
+Part 2 is complete when all eight switches select the assigned notes, multiple-switch priority is deterministic by musical note, the look-up table supplies the provided hexadecimal values to one generalized delay mechanism, representative frequencies have been measured and explained, and silence is guaranteed when no switch is active.
+
+---
+
+# Part 3 - Build the 16-Key Muzak Keyboard
+
+### Goal
+
+Replace the DIP-switch input with the previously developed 4 x 4 keypad scanner while preserving the reusable note-selection, look-up, delay, and output structure.
+
+The purpose of this part is integration. Keypad scanning itself has already been developed and verified in an earlier lab and does not require a separate instructor checkoff here.
+
+### Keypad note assignment
+
+Assign notes in ascending musical order following the physical adjacency of the keypad:
+
+```text
+1   2   3   A
+4   5   6   B
+7   8   9   C
+*   0   #   D
+```
+
+Use this mapping:
+
+| Physical key | Note index | Note | Frequency (Hz) | Delay value (Hex) |
+| --- | ---: | --- | ---: | ---: |
+| 1 | 1 | C3 | 130.81 | EE |
+| 2 | 2 | D3 | 146.83 | D4 |
+| 3 | 3 | E3 | 164.81 | BD |
+| A | 4 | F3 | 174.61 | B2 |
+| 4 | 5 | G3 | 196.00 | 9F |
+| 5 | 6 | A3 | 220.00 | 8E |
+| 6 | 7 | B3 | 246.94 | 7E |
+| B | 8 | C4 | 261.63 | 77 |
+| 7 | 9 | D4 | 293.66 | 6A |
+| 8 | 10 | E4 | 329.63 | 5E |
+| 9 | 11 | F4 | 349.23 | 59 |
+| C | 12 | G4 | 392.00 | 4F |
+| * | 13 | A4 | 440.00 | 47 |
+| 0 | 14 | B4 | 493.88 | 3F |
+| # | 15 | C5 | 523.25 | 3B |
+| D | 16 | D5 | 587.33 | 35 |
+
+The physical label printed on the key no longer determines priority.
+
+If multiple keys are detected, the **highest assigned musical note** must win. The keypad-scanning logic should therefore produce the highest active **note index**, not the numerically or alphabetically largest printed keypad character.
+
+No key pressed must produce note index `0` and force the tone output LOW.
+
+### Before Lab
+
+Reuse the matrix keypad circuit, electrical analysis, scan-state work, and scanning algorithm developed previously. Reference unchanged lab-book pages and source instead of recreating them.
+
+Adapt the keypad result so that the input-handling portion of the program stores the normalized musical note index shown in the table above.
+
+The rest of the tone-generation path should continue to operate from that normalized value:
+
+```text
+physical keypad
+      ↓
+normalized note selection
+      ↓
+provided hexadecimal delay value
+      ↓
+generalized half-cycle delay
+      ↓
+tone output
+```
+
+Changing from DIP switches to the keypad should not require redesigning the complete tone-generation system.
+
+Review the multiple-key electrical concern from the earlier keypad lab before testing simultaneous key presses. Any previously required protection remains required unless the circuit has been redesigned and reanalyzed.
+
+Update the flowchart set so that it accurately describes the final program and its subprocesses.
+
+Do not create note-specific delay corrections. Use the supplied hexadecimal table values and the same generalized delay mechanism used in Part 2.
+
+### In the Lab
+
+1. Connect the keypad using the previously verified interface.
+2. Confirm that no key pressed forces the tone output LOW.
+3. Verify each of the 16 keys individually.
+4. Confirm that physically adjacent keys produce the expected ascending note sequence shown in the assignment.
+5. Verify multiple-key behavior only after the electrical current paths are known to be safe.
+6. Confirm that the highest active musical note has priority.
+7. Measure at least one low note and one high note with the oscilloscope and frequency counter.
+8. Observe the output while the keypad is being scanned. Determine how input polling, selection logic, look-up activity, branching, and subroutine overhead affect the half-cycle timing.
+9. Compare the measured frequencies with the target values and with the behavior of the generalized delay implementation.
+10. Document troubleshooting and integration changes.
+
+### Evidence
+
+Include or reference:
+
+- keypad schematic and multiple-key electrical analysis from the earlier lab;
+- any changed schematic or loading work;
+- updated flowchart set;
+- final source;
+- key-to-note mapping;
+- normalized note-selection behavior;
+- verification of all 16 keys;
+- multiple-key highest-note priority results;
+- low-note and high-note oscilloscope captures;
+- frequency-counter measurements;
+- explanation of how keypad polling and other program overhead affect tone timing;
+- confirmation that all notes use the supplied hexadecimal values and one generalized delay path;
+- verification that no active key forces the output LOW;
+- troubleshooting notes.
+
+### Demonstrate
+
+Play all 16 notes reliably from the keypad.
+
+The instructor may press individual or multiple keys. Be prepared to:
+
+- identify the expected note from its physical key position;
+- demonstrate highest-musical-note priority;
+- demonstrate immediate silence when no key is active;
+- explain what changed when the DIP-switch input was replaced by the keypad;
+- identify which parts of the tone-generation program were reused unchanged;
+- explain how the selected key becomes the delay value used by the common delay routine;
+- measure and interpret a selected output frequency;
+- explain the effect of polling and program overhead on the generated tone.
+
+### Complete When
+
+Part 3 is complete when all 16 physical keys produce the assigned notes, adjacent keys follow the intended musical sequence, highest-note priority works safely and deterministically, no-key behavior forces the output LOW, the same look-up/delay architecture serves every note, representative timing has been measured and explained, and the complete keyboard has passed the instructor checkoff.
+
+---
+
+# Part 5 - Mastery
+
+TBD.
+
+Part 5 is optional and is reserved for a later mastery challenge. Complete Parts 1-3 first.
