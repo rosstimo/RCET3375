@@ -1,4 +1,4 @@
-# Lab 04 - Muzak
+# Lab 04 - Funky Muzak
 
 PIC16F883 | pic-as | Software Timing | Look-Up Tables | Input Polling
 
@@ -55,14 +55,11 @@ The final design should separate the major jobs of the program so that changing 
 - performing the half-cycle delay;
 - controlling the tone output.
 
-Store the current normalized note selection in a general-purpose register of your choosing. Use:
-
-- `0` = no active note / silence;
-- a nonzero value = the selected musical note.
+Store the current normalized note selection in a general-purpose register of your choosing. 
 
 The note-selection value should be suitable for use by the look-up process that updates the delay-count value. The delay routine should then use that delay-count value without needing to know which physical input device produced it.
 
-Previously developed routines may be reused and adapted. Do not recreate working input-scanning or delay algorithms simply because they are being used in a new application.
+Previously developed routines may be reused and adapted. Where necessary refactor your previous code to improve reusability and maintainability. Code execution should be easy to follow and understand. Program flow should be clear and well documented. Use the [RCET Flowchart Guide](https://github.com/rosstimo/RCET3371/blob/main/Guides/Flowcharts/RCET-Flowchart-Guide.md) to document your design. Document and discuss any changes/improvements made to previously developed code.
 
 ### Output rule
 
@@ -74,7 +71,7 @@ Only toggle the tone output while a button, switch, or keypad key is actively re
 
 Use the **provided hexadecimal delay value only** for each musical note.
 
-Do not individually tune notes with:
+**Do not individually tune notes with:**
 
 - `NOP` padding;
 - alternate note-specific delay paths;
@@ -87,7 +84,7 @@ The same generalized delay mechanism must be used for every note. Any fixed timi
 
 ## Supplied top-level flowchart
 
-The following chart shows the intended **main-program architecture only**. It deliberately does not show how the subprocesses are implemented.
+The following chart shows the intended **main-program architecture only**. It deliberately does not show how the subprocesses are implemented. Use this to to describe/document the overall program structure. Your final code must match this structure and flow. **You will need to fully design and document the subprocesses.** Include the subprocess flowcharts in your lab book and reference them in your evidence.
 
 [Open this flowchart in Mermaid Live Editor](https://mermaid.live/edit#pako:eNplk1GPmkAUhf_KzSSbuAkqooDy0MauxCbrillpmi36MIWrUoEhw9CWqv-9w6CWbHlh5sw9516-MCcSsgiJQ3YJ-xUeKBfgf9pkIJ-1P331O8FaSHH7eNVc_8sqCNYoyny7bbS56z-7b0EwRwHPWN1kqZ2mWQVHrCDnWBQYfbw0R743ny_coO-z_T5BECxDYKXIS9G_mpee7wbBKwoe40-EJRMIM0zoPX3mLqayp9LAk_7PNNl1n6owwVvJwvsa9OWk7fxavPV4eJA7bwVxAQfk9RiQ0qN8HxBqGiCjpQtkJM2Q30K9VacDj5JHixJ0ux8aNi1MSmzgtEEpWWl3TrV0fsPifCXTpqTKaxz_wChJAWixUGI93fvcJTvXX31n8l-hgvB-VglnGv0oC6FwJIwdge3UWpXnVBwgZOn3WJKBxlKIKrkes5yGsagcvWdqheDsiN2IFvLv4rRywASTaGTP44g4gpeokRR5SustOdVZGyIbpbghjlxGuKNlIjZkk12kLafZN8bSm5Ozcn8gzo4mhdyVeUQFzmK65zS9qxyzCPkTKzNBnIGhGyqFOCfymziGZfd027TMoW5bA3sw0Uglqwbj3nBoWBNT1-2hMTKMi0b-qL56z7L1sTEZjGzTNo3xyNYIRrFg_KW5SepCaYSWgq2rLGwmvfwFWPwE7g)
 
@@ -121,7 +118,7 @@ flowchart TB
     style LOOP opacity:0.5,stroke-dasharray: 5 5
 ```
 
-Use the RCET Flowchart Guide when developing the child flowcharts for the subprocesses. The supplied chart is an architectural starting point, not a replacement for documenting the algorithms you design or adapt.
+Use the [RCET Flowchart Guide](https://github.com/rosstimo/RCET3371/blob/main/Guides/Flowcharts/RCET-Flowchart-Guide.md) when developing the child flowcharts for the subprocesses. The supplied chart is an architectural starting point, not a replacement for documenting the algorithms you design or adapt.
 
 ---
 
@@ -129,7 +126,9 @@ Use the RCET Flowchart Guide when developing the child flowcharts for the subpro
 
 ### Goal
 
-Generate a nominal 1.000 kHz, approximately 50% duty-cycle square wave and reproduce it only while a button is actively pressed. Drive the speaker through the provided Class D circuit and verify the waveform with test equipment.
+Generate a nominal 1.000 kHz, with a 50% duty-cycle square wave and reproduce it only while a button is actively pressed. Drive the speaker through the provided Class D circuit and verify the waveform with test equipment.
+
+> **Hint**: Read the entire lab assignment before starting. The first part is a simple button-gated tone generator, but the later parts require a more complex input-selection and look-up process. Design this part so the note delay value retrieval works the same way as will be required for later parts. In this case there will be no button determination or note lookup. 
 
 ### Before Lab
 
@@ -158,9 +157,10 @@ Use the measured instruction-cycle time from the previous delay lab to predict t
 Prepare or reference:
 
 - schematic and Class D interface documentation;
-- applicable PIC SFR documentation;
+- applicable PIC SFR documentation including register maps I/O, TRIS, and PORT registers;
+- register map for any GPR (General Purpose Registers) used to store the button status and any other needed state;
 - loading calculations and electrical-limit checks;
-- top-level flowchart and any needed child flowcharts;
+- top-level flowchart and any/all needed child flowcharts;
 - timing calculations;
 - source code.
 
@@ -171,11 +171,10 @@ Reference unchanged work from previous labs rather than copying it.
 1. Build and program the circuit.
 2. Verify that the tone output remains LOW when the button is not pressed.
 3. Press and hold the button and verify that the tone output toggles continuously.
-4. Measure PW, PS, period, frequency, and duty cycle with the oscilloscope.
-5. Measure frequency with the frequency counter.
-6. Compare the measurements with both the nominal prediction and the prediction based on the previously measured instruction-cycle time.
-7. Listen to the amplified output and verify that pressing and releasing the button starts and stops the tone cleanly.
-8. Document troubleshooting changes.
+4. Measure PW, PS, period, frequency, and duty cycle with the oscilloscope and frequency counter when corroborating measurement evidence is required.
+5. Compare the measurements with both the nominal prediction and the prediction based on the previously measured instruction-cycle time.
+6. Listen to the amplified output and verify that pressing and releasing the button starts and stops the tone cleanly.
+7. Document troubleshooting issues, attempts, and changes.
 
 ### Evidence
 
@@ -183,15 +182,15 @@ Include or reference:
 
 - circuit schematic and Class D interface;
 - loading/electrical analysis;
-- flowchart set;
-- final source;
+- complete flowchart set;
+- final source code. fully included or referenced and easily accessible;
 - nominal timing calculations;
 - expected timing using the previously measured instruction-cycle time;
 - oscilloscope capture and measurements;
 - frequency-counter measurement;
 - comparison of predicted and measured behavior;
 - verification that no active button forces the output LOW;
-- troubleshooting notes.
+- detailed troubleshooting/change notes.
 
 ### Demonstrate
 
