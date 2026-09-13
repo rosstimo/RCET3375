@@ -288,7 +288,7 @@ Part 3 is complete when all eight PORTB IOC inputs work, software identifies the
 
 Recreate the inherited `1 / 6 / 7` priority-interrupt behavior using the **DLG7137 display on PORTC** from the earlier I/O labs.
 
-This part intentionally allows one interrupt to interrupt another so you can investigate nested interrupt execution, subroutine calls, context preservation, and worst-case hardware stack depth.
+This part intentionally allows the higher-priority 7 behavior to interrupt the lower-priority 6 behavior so you can investigate nested interrupt execution, subroutine calls, context preservation, and worst-case hardware stack depth.
 
 ### Required visible behavior
 
@@ -297,13 +297,14 @@ Reuse the existing DLG7137/PORTC interface. Reference the earlier lab-book schem
 - Main displays **1** continuously.
 - Falling-edge `RB0/INT` initiates the **6** behavior.
 - IOC on **RB1** initiates the **7** behavior.
-- 6 displays for approximately two seconds.
-- 7 displays for approximately two seconds.
-- 7 can interrupt an active 6.
-- When 7 completes, the interrupted 6 resumes and finishes its remaining time.
-- 6 cannot interrupt an active 7.
-- 7 must be able to interrupt 6 repeatedly.
-- When all interrupt work finishes, main again displays 1.
+- 6 displays for approximately two seconds of its own active time, then always returns to 1.
+- 7 displays for approximately two seconds and has absolute priority over 6.
+- 7 may interrupt 6 at any time while 6 is active.
+- While 7 is active, no lower-priority behavior may interrupt it.
+- When 7 finishes, execution returns to the state that was active when 7 began.
+  - If 7 interrupted 6, 6 resumes and completes its remaining time before returning to 1.
+  - If 7 interrupted the normal 1 state, the display returns to 1.
+- 7 may interrupt the same 6 behavior multiple times. Each time, 6 resumes from its remaining time after 7 finishes.
 
 ### Delay and subroutine requirement
 
@@ -322,7 +323,7 @@ Account for every return address that can be active in the worst case, including
 - calls made while executing the 6 behavior;
 - the nested 7 interrupt return address;
 - calls made while executing the 7 behavior;
-- any repeated nesting your design permits before prior stack entries unwind.
+- repeated 7 interruptions of 6 as allowed by the design.
 
 Show the worst-case stack as a drawing or table. Do not submit only a final number.
 
@@ -347,10 +348,10 @@ Prepare or reference:
 ### In the Lab
 
 1. Verify that main displays `1`.
-2. Trigger `RB0/INT` and verify the approximately two-second `6` behavior.
-3. Trigger RB1 IOC and verify the approximately two-second `7` behavior.
-4. Trigger 7 while 6 is active and verify `6 -> 7 -> 6 -> 1`.
-5. Trigger 7 repeatedly while 6 is active and verify correct return behavior.
+2. Trigger `RB0/INT` and verify the approximately two-second `6` behavior followed by a return to `1`.
+3. Trigger RB1 IOC while `1` is active. Verify `1 -> 7 -> 1`.
+4. Trigger 7 while 6 is active. Verify `6 -> 7 -> 6 -> 1`, with 6 completing the time that remained when it was interrupted.
+5. Trigger 7 repeatedly at different points during one active 6 behavior. Each 7 must complete without interruption, then return to the interrupted 6 until 6 eventually completes and returns to 1.
 6. Attempt to trigger 6 while 7 is active and verify that 6 does not interrupt 7.
 7. Compare observed execution with the stack-depth analysis.
 8. The instructor will intentionally exercise the design near its worst-case nesting condition and may attempt to expose stack or context problems.
@@ -368,7 +369,8 @@ Include or reference:
 - delay-subroutine structure;
 - worst-case stack table/drawing;
 - context-save approach used for nested execution;
-- observed `1`, `6`, `7`, and nested behavior;
+- observed `1 -> 7 -> 1` behavior;
+- observed `6 -> 7 -> 6 -> 1` behavior, including repeated 7 interruptions of one 6;
 - instructor stress-test results;
 - troubleshooting record.
 
@@ -378,8 +380,9 @@ The instructor will vary the order and timing of the two interrupt inputs and ma
 
 Be prepared to explain:
 
-- how 7 is allowed to interrupt 6;
-- why 6 cannot interrupt 7;
+- why 7 always has priority;
+- how 7 returns to the state it interrupted;
+- why 6 always returns to 1 after completing its active time;
 - what the hardware stack contains;
 - how every `CALL` changes worst-case stack depth;
 - what happens if the eight-level hardware stack is exceeded;
@@ -388,7 +391,7 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 4 is complete when the required priority behavior works, nested 7 events return correctly to 6, and the demonstrated execution agrees with the documented worst-case stack analysis.
+Part 4 is complete when 7 can interrupt 6 at any point and repeatedly without itself being interrupted, 7 always returns to the state it interrupted, 6 resumes its remaining time and ultimately returns to 1, and the demonstrated execution agrees with the documented worst-case stack analysis.
 
 ---
 
@@ -398,18 +401,24 @@ Part 4 is complete when the required priority behavior works, nested 7 events re
 
 ### Goal
 
-Recreate the visible Part 4 behavior without allowing one ISR to interrupt another and without remaining inside an ISR for the long display delay.
+Recreate the externally visible Part 4 priority behavior without allowing one ISR to interrupt another and without remaining inside an ISR for the long display delay.
 
 Use short ISRs to record events/state. Perform the longer behavior from main.
 
 ### Required behavior
 
-- main displays `1`;
+Preserve the same visible state rules as Part 4:
+
+- normal state displays `1`;
 - external INT requests the `6` behavior;
 - RB1 IOC requests the `7` behavior;
-- 7 has priority over 6;
-- a 7 request during an active 6 shows 7, then resumes the remaining 6 behavior;
-- the system eventually returns to 1;
+- 6 runs for approximately two seconds of its own active time and always returns to 1 when complete;
+- 7 has absolute priority and can take over from 6 at any point;
+- while 7 is active, no lower-priority behavior may replace it;
+- after 7 finishes, the system returns to the state that was active when 7 began;
+- if 7 interrupted 6, the remaining 6 time resumes;
+- if 7 interrupted 1, the system returns to 1;
+- one 6 behavior may be interrupted by 7 multiple times and must still complete its remaining active time before returning to 1;
 - no ISR contains the approximately two-second blocking delay;
 - no ISR deliberately re-enables interrupts to create nested interrupt execution.
 
@@ -420,11 +429,17 @@ Prepare:
 - revised architecture/flowchart;
 - source code;
 - register-style map defining the state/status storage used by the design;
-- expected event sequence for `1 -> 6 -> 7 -> 6 -> 1`.
+- expected state sequences for `1 -> 7 -> 1`, `1 -> 6 -> 1`, and `1 -> 6 -> 7 -> 6 -> 1`.
 
 ### In the Lab
 
-Demonstrate the same event sequences used in Part 4, including a 7 request during an active 6 behavior.
+Demonstrate the same visible state behavior used in Part 4:
+
+1. `1 -> 6 -> 1`;
+2. `1 -> 7 -> 1`;
+3. `1 -> 6 -> 7 -> 6 -> 1`;
+4. repeated 7 events interrupting one active 6 at different points, with 6 eventually completing and returning to 1;
+5. an attempted 6 event while 7 is active must not interrupt the active 7 behavior.
 
 ### Evidence
 
@@ -434,13 +449,14 @@ Include or reference:
 - final source;
 - state/status register map;
 - explanation of what each ISR does and deliberately does not do;
+- explanation of how the interrupted state and remaining 6 time are represented without nested ISR execution;
 - comparison of Part 4 and Mastery interrupt duration, stack use, and program structure;
-- demonstration that the visible priority behavior is preserved.
+- demonstration that the visible priority/state behavior is preserved.
 
 ### Demonstrate
 
-Be prepared to explain why the Mastery version is easier to reason about with respect to interrupt duration, stack depth, processor context, and program state.
+Be prepared to explain why the Mastery version produces the same 1/6/7 behavior without nested ISR execution, and why it is easier to reason about with respect to interrupt duration, stack depth, processor context, and program state.
 
 ### Complete When
 
-Mastery is complete when the Part 4 priority behavior has been reproduced using short non-nested ISRs and explicit state/status management in main.
+Mastery is complete when it reproduces the Part 4 state rules using short non-nested ISRs and explicit state/status management in main: 7 always has priority and returns to the state it interrupted, while 6 may be interrupted repeatedly by 7 but eventually completes its remaining time and returns to 1.
