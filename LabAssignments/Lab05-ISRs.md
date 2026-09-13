@@ -219,6 +219,7 @@ Display the detected pin number in binary on three PORTA LEDs.
 
 - Disable the dedicated external interrupt for this part.
 - Enable IOC for `RB0` through `RB7` using `IOCB`.
+- Establish the initial PORTB comparison state before enabling IOC.
 - Treat the IOC flag as notification that a PORTB change occurred, not as identification of a particular pin.
 - Determine which PORTB bit changed from the current and previous port states or an equivalent method.
 - Display the pin number on three PORTA outputs:
@@ -227,7 +228,7 @@ Display the detected pin number in binary on three PORTA LEDs.
   - ...
   - `111` = RB7
 - Define a deterministic rule for the case where more than one changed bit is present when the ISR evaluates the event.
-- Correctly establish/update the PORTB state used for comparison.
+- Correctly update the PORTB state used for comparison.
 - Correctly service and clear IOC before leaving the handler.
 
 ### Before Lab
@@ -241,7 +242,8 @@ Prepare or reference:
 - flowchart;
 - deterministic multi-change rule;
 - source code;
-- register-style map for any named state/status storage used by the design.
+- register-style map for any named state/status storage used by the design;
+- the effect of the PICkit/ICSP connection on RB6 and RB7 while those pins are used as IOC inputs.
 
 ### In the Lab
 
@@ -252,6 +254,7 @@ Prepare or reference:
 5. Create at least one condition where more than one change may be present and verify the documented rule.
 6. Confirm that the ISR does not become stuck servicing an uncleared IOC condition.
 7. Record any effect of bounce or closely spaced input changes on source determination.
+8. Verify RB6 and RB7 with the PICkit/ICSP connection in the configuration you intend to use during normal operation.
 
 ### Evidence
 
@@ -264,6 +267,7 @@ Include or reference:
 - final source;
 - results for all eight pins;
 - multi-change test and rule;
+- any relevant RB6/RB7 ICSP observations;
 - troubleshooting record.
 
 ### Demonstrate
@@ -322,7 +326,9 @@ Account for every return address that can be active in the worst case, including
 
 Show the worst-case stack as a drawing or table. Do not submit only a final number.
 
-Your context-save method must also remain correct when 7 interrupts 6. Use the device-data-sheet context-saving method as the starting point and adapt the design as necessary for nested execution.
+Treat the hardware return stack and software context storage as separate analyses. The hardware stack contains return addresses; the W/STATUS save area is in data memory.
+
+Your context-save method must also remain correct when 7 interrupts 6. Use the device-data-sheet W/STATUS method as the starting point and adapt the design as necessary for nested execution.
 
 ### Before Lab
 
