@@ -1,0 +1,6 @@
+ - [ ] add emphasis to document register maps for port pin assignments, general purpose registers used for status flags and state tracking. the register maps should be just like the sfr register documentation in the datasheet. 
+ - [ ] make sure the layout and format stays consistent with prior lab assignment instruction migrations.
+ - [ ] for all lab assignment instructions already merged into main consider all further edits and changes as planned for Spring 2027 semester rollout. so as the standardized format evolves the changes can be applied to all lab assignments without causing confusion for current students.
+ - [ ] all relevant component datasheets should be included in the references in the student lab book documentation.
+ - [ ] student's git url should be included in the references in the student lab book documentation.
+ - [ ] whenever possible reduce wordiness of the lab instructions to improve clarity reduce visual and mental clutter.
