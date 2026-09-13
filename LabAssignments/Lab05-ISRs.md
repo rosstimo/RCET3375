@@ -28,7 +28,8 @@ The goal is not only to make the interrupt code work. You should be able to expl
 - Momentary pushbuttons/switches as required
 - LEDs and current-limiting resistors
 - Existing PORTC-connected digit display used in previous labs
-- Oscilloscope with at least three channels available for the required Part 1 measurement
+- 4-Channel Oscilloscope
+- Logic Analyzer (optional)
 - Breadboard, jumpers, and interface components as required
 - Lab book
 
@@ -40,14 +41,15 @@ For each interrupt source used in this lab, document:
 
 - the interrupt enable bit;
 - the interrupt flag bit;
-- any edge or change configuration required;
+- any/all configuration required;
 - the global/peripheral enable relationship where applicable;
+- the condition required to set the interrupt request correctly;
 - the condition required to clear the interrupt request correctly;
 - any related PORT, TRIS, ANSEL, OPTION, INTCON, IOC, or other SFR settings.
 
 Context saving must be deliberate. Record what processor state your ISR must preserve and explain why the interrupted main code must resume with the correct state.
 
-When multiple interrupt handlers are used, each handler must service its own source and clear its own interrupt condition before transferring to the common ISR exit path.
+When multiple interrupt service routines are used, each must service its own source and clear its own interrupt condition before transferring to the common ISR exit path.
 
 ---
 
