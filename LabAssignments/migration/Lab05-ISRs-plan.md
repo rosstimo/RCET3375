@@ -66,7 +66,7 @@ The progression is deliberately experiential: simple external interrupt, multipl
   - CH1: `RB0/INT`;
   - CH2: selected PORTA monitoring pin;
   - CH3: `RC0`.
-- Context save/restore starts from PIC16F883 data sheet Section 14.4, Example 14-1.
+- Context save/restore starts from the W/STATUS sequence in PIC16F883 data sheet Section 14.4, Example 14-1.
 - Switch bounce remains visible and is documented rather than automatically hidden.
 
 ### Part 2 - Two interrupt sources, one vector
@@ -76,23 +76,28 @@ The progression is deliberately experiential: simple external interrupt, multipl
 - RB4 IOC increments PORTC.
 - `RB0/INT` clears PORTC.
 - Main retains the PORTA monitoring signal selected in Part 1.
-- Required four-channel capture:
+- Keep four scope channels connected:
   - CH1: `RB0/INT`;
   - CH2: PORTA monitoring pin;
   - CH3: `RC0`;
   - CH4: RB4 IOC input.
-- ISR structure remains source determination -> source handler -> common restore/`RETFIE`.
-- Each handler services and clears its own source.
-- IOC handling must include the correct PORTB read/service sequence before clearing the IOC flag.
+- Require separate single-sequence captures for an RB4 IOC event and an `RB0/INT` clear event so both interrupt paths are directly evidenced.
+- Before the external-clear capture, leave PORTC at an odd count so `RC0` is HIGH and the clear-to-zero transition is visible.
+- Close-event testing remains required; a close-event capture is useful when it adds evidence but is not a substitute for the two individual source captures.
+- ISR structure remains source determination -> source service -> common restore/`RETFIE`.
+- Each service path must leave its source in a non-requesting state before common exit.
+- IOC handling must include the correct PORTB read/mismatch-resolution sequence before clearing the IOC flag.
 
 ### Part 3 - Determine which PORTB pin changed
 
 - Disable the dedicated external interrupt for this part.
 - Enable IOC on RB0 through RB7 using `IOCB`.
+- Establish the initial PORTB comparison state before enabling IOC.
 - The common IOC flag only reports that a change occurred; software determines which bit changed.
 - Use three PORTA outputs to display the pin number in binary (`000` = RB0 through `111` = RB7).
 - Require previous/current PORTB state tracking or an equivalent source-determination method.
 - Require deterministic behavior if multiple changed bits are present.
+- Because RB6/RB7 are also ICSP pins, require students to account for the PICkit/ICSP connection when verifying those two IOC inputs rather than assuming the programmer connection is electrically irrelevant.
 
 ### Part 4 - Priority interrupts and stack-depth investigation
 
@@ -115,6 +120,8 @@ Part 4 intentionally uses nested interrupt execution. Do not steer students away
 
 Before demonstration, students determine worst-case hardware stack depth and show occupied stack levels as a table or drawing.
 
+Keep the hardware return-stack analysis separate from software context storage. The hardware stack holds return addresses. The W/STATUS save area is data memory.
+
 Context saving for nesting must begin with the device-data-sheet method and be adapted as needed. The lab should not enumerate every application register that might be corrupted by nesting. In particular, do **not** explicitly warn students to save delay counters or other GPRs. That is an intended opportunity for discovery during stress testing and troubleshooting.
 
 ### Mastery - Same priority behavior without nested interrupts
@@ -129,6 +136,12 @@ Recreate the externally visible Part 4 behavior while:
 - preserving 7-over-6 priority and resuming the remaining 6 behavior after 7 completes.
 
 This closes the lab by comparing the deliberately difficult nested design with a state-driven alternative.
+
+### Mastery review question
+
+The current draft clearly specifies the required behavior when a `7` request occurs during an active `6`, but it does not yet explicitly define what should happen to a new `6` request that occurs while `7` is active in the non-nested Mastery design.
+
+Part 4 only requires that `6` cannot interrupt an active `7`; it does not clearly distinguish between ignoring the request and deferring it until `7` completes. Leave this unresolved until Tim decides which externally visible behavior should be required. Do not silently choose one in the student instructions.
 
 ## Context-saving source strategy
 
@@ -156,6 +169,8 @@ Useful instructor/supporting references found during this migration:
 - **AN566, Using the PORTB Interrupt on Change as an External Interrupt**: useful historical/conceptual discussion of IOC as additional external interrupt sources, but written for older PIC16C devices. Its RB7:RB4-only description does not match the PIC16F883's individually enabled IOCB<7:0>, so it should not be a primary student reference for this lab.
 - **TB3061, Interrupt-on-Change Operation for Mid-Range Microcontrollers**: useful discussion of classic mid-range IOC mismatch-latch/read timing and the possibility of missing a change when a port read/write occurs at the wrong time. Relevant as deeper instructor/reference material, but not necessary in the basic lab instructions.
 - **AN556, Implementing a Table Read**: the appropriate supplemental source for computed `GOTO`, PCL, and PCLATH behavior. This belongs with program-counter/table-read instruction rather than inside the ISR lab.
+
+These documents now also belong in the shared `pic_projects` Microchip documentation guide so future labs and instructors can find them without rebuilding a lab-specific list.
 
 ## PCLATH teaching boundary
 
@@ -202,8 +217,9 @@ An XC8 comparison may be added later, but it should not replace the hardware/sof
 - interrupt-related SFR maps and official references;
 - port/state register maps;
 - flowcharts showing main/ISR interaction and source determination;
-- source with vector, handler, flag, and context handling visible;
+- source with vector, service path, flag, and context handling visible;
 - oscilloscope evidence of interrupt effects on main execution;
+- separate Part 2 captures proving both interrupt paths;
 - proof that prohibited polling is not used;
 - IOC source-identification evidence;
 - Part 4 worst-case stack-depth analysis;
@@ -219,3 +235,7 @@ An XC8 comparison may be added later, but it should not replace the hardware/sof
 - **Starter context code:** PIC16F883 data sheet Section 14.4 / Example 14-1 is the starting point.
 - **PCLATH:** taught separately with computed `GOTO`; not introduced as a Lab 05 requirement.
 - **Additional GPR preservation during nested execution:** intentionally not called out in student instructions; left as a discovery/troubleshooting opportunity.
+
+## Remaining review question
+
+- **Mastery low-priority request during active high-priority behavior:** decide whether a new `6` request received while `7` is active should be ignored or deferred until `7` completes. The student-facing draft currently avoids specifying either behavior.
