@@ -6,18 +6,24 @@ PIC16F883 | pic-as | External Interrupts | PORTB Interrupt-on-Change | Context S
 
 Use the PIC16F883 interrupt system to observe how asynchronous hardware events temporarily change program execution, how multiple interrupt sources share one interrupt vector, and why interrupt service routines must preserve processor context.
 
-The lab begins with one interrupt source and an observable main program, then adds a second interrupt source, expands PORTB interrupt-on-change to multiple pins, and finally recreates the inherited priority-interrupt behavior with deliberately nested interrupt execution. Mastery asks you to produce the same visible behavior without nested interrupts or long blocking delays inside an ISR.
+The lab begins with one interrupt source and an observable main program, adds a second source, expands PORTB interrupt-on-change to multiple pins, and then recreates the inherited priority-interrupt behavior with deliberately nested interrupt execution. Mastery reproduces the same visible behavior without nested interrupts or long blocking delays inside an ISR.
 
-The goal is not only to make the interrupt code work. You should be able to explain what the processor was doing before the interrupt, what hardware caused execution to change, what software must preserve, how the source is identified and serviced, and how execution returns safely to the interrupted code.
+You should be able to explain what the processor was doing before an interrupt, what caused execution to change, how the source is identified and serviced, what context must be preserved, and how execution safely resumes.
 
 ## Standards and references
 
 - [RCET 3375 Lab Standard](../LAB_STANDARD.md)
 - [RCET PIC-AS Style Guide](../Notes/RCET_PIC-AS_Style_Guide.md)
 - [RCET Flowchart Guide](https://github.com/rosstimo/RCET3371/blob/main/Guides/Flowcharts/RCET-Flowchart-Guide.md)
-- [PIC16F883 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
-- [PICmicro Mid-Range MCU Family Reference Manual](https://ww1.microchip.com/downloads/en/DeviceDoc/33023a.pdf)
-- Previous RCET3375 lab-book documentation and source for PIC I/O, software delays, subroutines, and stack use
+- [PIC16F882/883/884/886/887 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf), especially:
+  - Section 2.3.2 - Stack
+  - Section 3.4.3 - Interrupt-on-Change
+  - Section 14.3 - Interrupts
+  - Section 14.4 and Example 14-1 - Context Saving During Interrupts
+- [PICmicro Mid-Range MCU Family Reference Manual](https://ww1.microchip.com/downloads/en/DeviceDoc/33023a.pdf), Section 8 - Interrupts
+- previous RCET3375 lab-book documentation and source for PIC I/O, software delays, subroutines, the DLG7137 display, and stack use
+
+The PIC16F883 data sheet is the authority for device-specific behavior. Use Section 14.4 and Example 14-1 as the starting point for context save/restore code.
 
 ## Equipment and materials
 
@@ -25,31 +31,28 @@ The goal is not only to make the interrupt code work. You should be able to expl
 - PICkit programmer/debugger
 - PIC16F883 circuit
 - 4 MHz crystal oscillator circuit
-- Momentary pushbuttons/switches as required
+- momentary pushbuttons/switches as required
 - LEDs and current-limiting resistors
-- Existing PORTC-connected digit display used in previous labs
-- 4-Channel Oscilloscope
-- Logic Analyzer (optional)
-- Breadboard, jumpers, and interface components as required
-- Lab book
+- DLG7137 display used in previous labs
+- 4-channel oscilloscope
+- logic analyzer, optional
+- breadboard, jumpers, and interface components as required
+- lab book
 
-## Interrupt design expectations
+## Lab-book documentation
 
-The PIC16F883 uses a single interrupt vector. When more than one interrupt source is enabled, your software must determine which source or sources require service.
+Follow the lab standard and reference earlier complete documentation rather than copying unchanged work.
 
-For each interrupt source used in this lab, document:
+For this assignment also include:
 
-- the interrupt enable bit;
-- the interrupt flag bit;
-- any/all configuration required;
-- the global/peripheral enable relationship where applicable;
-- the condition required to set the interrupt request correctly;
-- the condition required to clear the interrupt request correctly;
-- any related PORT, TRIS, ANSEL, OPTION, INTCON, IOC, or other SFR settings.
+- a register-style map for assigned port pins;
+- register-style maps for any GPRs intentionally used as named state/status storage;
+- datasheets for relevant external components in the lab-book references;
+- the GitHub URL for your assignment repository in the lab-book references.
 
-Context saving must be deliberate. Record what processor state your ISR must preserve and explain why the interrupted main code must resume with the correct state.
+For every interrupt source used, document the enable bit, flag bit, required configuration, what causes the request to be set, what is required to clear it, and the related SFR settings.
 
-When multiple interrupt service routines are used, each must service its own source and clear its own interrupt condition before transferring to the common ISR exit path.
+When multiple interrupt sources are enabled, each handler is responsible for servicing its own source and clearing its own interrupt condition before the common ISR exit.
 
 ---
 
@@ -57,77 +60,74 @@ When multiple interrupt service routines are used, each must service its own sou
 
 ### Goal
 
-Configure the `RB0/INT` external interrupt for a falling-edge event from a momentary pushbutton. Each valid interrupt increments PORTC while the main program continuously toggles a PORTA monitoring pin.
+Configure `RB0/INT` for a falling-edge interrupt. Each valid interrupt increments PORTC while main continuously toggles a PORTA monitoring pin.
 
-Use an oscilloscope single-sequence capture to observe the interrupt request, the temporary interruption of main-line execution, and the resulting PORTC count change.
+Use a single-sequence oscilloscope capture to observe the interrupt request, interruption of main-line execution, and the resulting count change.
 
 ### Required behavior
 
 - Configure `RB0/INT` for a falling-edge external interrupt.
-- Main continuously toggles one designated PORTA pin as fast as the program structure reasonably allows. Use a PORTA pin that does not conflict with later parts and document the choice.
+- Choose any suitable unused PORTA digital output as the main-loop monitoring pin. Document the choice.
+- Main toggles the selected PORTA pin continuously and as quickly as the program structure reasonably allows.
 - Each external interrupt increments PORTC by one.
-- Connect LEDs to PORTC so the count is visible in binary.
-- Do not poll the external interrupt input in main code.
-- Save the required processor context on interrupt entry and restore it before `RETFIE`.
+- Display PORTC on LEDs as a binary count.
+- Do not poll `RB0/INT` from main.
+- Use PIC16F883 data sheet Section 14.4 and Example 14-1 as the starting point for saving and restoring processor context.
 
-Mechanical switch bounce is not automatically a failure in this part. If one physical press produces multiple valid falling edges and therefore multiple counts, observe and document what happened.
+Mechanical switch bounce is not automatically a failure. If one physical press creates several valid falling edges, observe and document the result.
 
 ### Before Lab
 
 Prepare or reference:
 
-- schematic for the pushbutton, PORTC LEDs, and PORTA monitoring point;
-- loading and electrical-limit analysis;
-- all newly encountered SFR maps and relevant bits;
-- external interrupt setup sequence;
-- context-save/context-restore plan;
-- top-level main/interrupt flowchart;
+- pushbutton, PORTC LED, and PORTA monitoring-point schematic;
+- loading/electrical-limit analysis;
+- new SFR maps and relevant bits;
+- port-pin assignment map;
+- external-interrupt setup sequence;
+- context save/restore plan based on data sheet Example 14-1;
+- main/interrupt flowchart;
 - source code;
-- prediction of what the three oscilloscope channels should show when an interrupt occurs.
+- predicted oscilloscope behavior.
 
 ### In the Lab
 
-1. Verify that main continuously toggles the selected PORTA monitoring pin.
-2. Verify that PORTC begins at the intended initial count.
-3. Press the `RB0/INT` button and confirm that the PORTC count increments.
-4. Observe whether switch bounce causes additional interrupt events.
-5. Configure a single-sequence oscilloscope acquisition triggered on the falling edge of the interrupt input.
+1. Verify the PORTA monitoring signal.
+2. Verify the initial PORTC count.
+3. Press the `RB0/INT` button and confirm that PORTC increments.
+4. Observe whether switch bounce creates additional interrupt events.
+5. Configure a single-sequence oscilloscope acquisition triggered on the falling edge of `RB0/INT`.
 6. Capture:
    - **CH1:** `RB0/INT` button signal;
    - **CH2:** PORTA main-loop monitoring pin;
-   - **CH3:** `RC0`, the least-significant bit of the PORTC count.
-7. Use the capture to identify where main-line execution is temporarily interrupted and where the count changes.
-8. Save a readable capture and annotate or explain the important timing relationships in the lab book.
+   - **CH3:** `RC0`, the count LSB.
+7. Identify where main execution is interrupted and where the count changes.
+8. Save and explain the capture in the lab book.
 
 ### Evidence
 
 Include or reference:
 
 - schematic and loading analysis;
-- interrupt-related SFR documentation;
-- flowchart showing main execution and ISR entry/exit;
-- final source code;
-- context-save/context-restore explanation;
-- single-sequence oscilloscope capture with CH1, CH2, and CH3 identified;
-- explanation of what the capture proves about interrupt execution;
-- notes on any observed switch bounce;
+- interrupt SFR documentation;
+- port-pin assignment map;
+- main/ISR flowchart;
+- final source;
+- context save/restore explanation;
+- required oscilloscope capture;
+- explanation of what the capture demonstrates;
+- switch-bounce observations;
 - troubleshooting record.
 
 ### Demonstrate
 
-Demonstrate the running main-loop signal, the PORTC interrupt count, and a repeatable external interrupt.
+Show the main-loop monitoring signal, PORTC count, and repeatable external interrupt.
 
-Be prepared to explain:
-
-- what causes the interrupt request;
-- why main does not need to poll the button;
-- what processor state is preserved by your code;
-- what changes on PORTA while the ISR is executing;
-- why one physical button press may result in more than one interrupt.
+Be prepared to explain what sets the interrupt request, why main does not poll the button, what Example 14-1 is preserving, and what the scope capture shows about main execution during the ISR.
 
 ### Complete When
 
-Part 1 is complete when the external interrupt reliably changes the PORTC count, main resumes correctly after every interrupt, and the required three-channel single-sequence measurement has been captured and explained.
+Part 1 is complete when the external interrupt changes the count correctly, main resumes after every interrupt, and the three-channel capture has been explained.
 
 ---
 
@@ -135,74 +135,75 @@ Part 1 is complete when the external interrupt reliably changes the PORTC count,
 
 ### Goal
 
-Add a single PORTB interrupt-on-change source while retaining the external interrupt. Use the PORTB interrupt-on-change event to increment the PORTC count and use the external `RB0/INT` event to clear PORTC.
+Add `RB4` interrupt-on-change while retaining `RB0/INT`.
 
-The emphasis is now on sharing one interrupt vector, determining which source caused the request, servicing the correct source, and returning through one common ISR exit path.
+- `RB4` IOC increments PORTC.
+- falling-edge `RB0/INT` clears PORTC.
+
+The emphasis is source determination, per-source service, and one common ISR exit path.
 
 ### Required behavior
 
-- Retain the continuously toggling PORTA main-loop monitoring pin.
-- Retain PORTC LEDs as the visible binary count.
-- Configure one PORTB interrupt-on-change input in addition to `RB0/INT`.
-- A valid PORTB interrupt-on-change event increments PORTC.
-- A falling-edge `RB0/INT` external interrupt clears PORTC to zero.
-- Main must not poll either interrupt source.
+- Retain the PORTA main-loop monitoring signal chosen in Part 1.
+- Retain PORTC LEDs as the binary count.
+- Configure **RB4** as the IOC input.
+- An RB4 change event increments PORTC.
+- A falling-edge `RB0/INT` event clears PORTC to zero.
+- Main polls neither source.
 - Both sources enter through the same interrupt vector.
-- The ISR must save context once, determine which source requires service, transfer to the appropriate handler, and use one common exit path to restore context and execute `RETFIE`.
-- Each handler must clear its own interrupt condition immediately before leaving the handler for the common exit path.
-- The PORTB interrupt-on-change handler must perform the required PORTB read/service sequence before clearing the PORTB interrupt-on-change flag.
+- Save context once, determine the source, service the appropriate source, and restore context once at the common exit before `RETFIE`.
+- Each source handler clears its own interrupt condition immediately before leaving for the common exit.
+- Correctly service the PORTB mismatch/change condition before clearing the IOC flag.
 
 ### Before Lab
 
 Prepare or reference:
 
-- updated schematic showing both interrupt inputs;
-- all newly encountered IOC-related SFR documentation;
-- flowchart showing one interrupt vector and two handler paths;
-- context-save/common-exit structure;
-- planned handling of the PORTB mismatch/change condition;
+- updated schematic with `RB0/INT` and `RB4` IOC inputs;
+- IOC SFR documentation;
+- updated port-pin assignment map;
+- flowchart showing one vector, source determination, two service paths, and one exit;
+- context save/common-exit structure;
 - source code;
-- predicted behavior when the two interrupt events occur close together.
+- predicted behavior when events occur close together.
 
 ### In the Lab
 
-1. Verify that the PORTB interrupt-on-change source increments PORTC.
-2. Generate several IOC events and confirm that the binary count accumulates.
-3. Trigger `RB0/INT` and confirm that PORTC clears to zero.
-4. Repeat the test with interrupt events occurring close together.
-5. Observe the main-loop PORTA signal while each interrupt source is serviced.
-6. Capture oscilloscope evidence that makes the two interrupt sources and their effect on main execution understandable. Use additional captures if all useful signals cannot be shown clearly at once.
-7. Verify that the system returns to correct main-line execution after either interrupt source.
+1. Verify that RB4 IOC increments PORTC.
+2. Generate several RB4 changes and confirm that the count accumulates.
+3. Trigger `RB0/INT` and confirm that PORTC clears.
+4. Test events occurring close together.
+5. Capture a single-sequence measurement showing:
+   - **CH1:** `RB0/INT`;
+   - **CH2:** PORTA main-loop monitoring pin;
+   - **CH3:** `RC0`;
+   - **CH4:** RB4 IOC input.
+6. Use the capture to explain which source executed and how main-line execution was affected.
 
 ### Evidence
 
 Include or reference:
 
-- updated schematic and loading analysis;
-- IOC and external-interrupt SFR documentation;
-- complete ISR flowchart including source determination and common exit;
-- final source code;
-- oscilloscope evidence for both interrupt sources;
-- proof that IOC increments and external INT clears PORTC;
-- explanation of how the IOC condition is correctly serviced and cleared;
+- updated schematic/loading analysis;
+- external INT and IOC SFR documentation;
+- updated pin-assignment map;
+- complete ISR flowchart;
+- final source;
+- four-channel interrupt capture;
+- proof that RB4 IOC increments and RB0/INT clears PORTC;
+- explanation of the IOC service/clear sequence;
 - close-event test results;
 - troubleshooting record.
 
 ### Demonstrate
 
-The instructor may generate either interrupt source repeatedly and in different sequences.
+The instructor may generate either source repeatedly and in different sequences.
 
-Be prepared to explain:
-
-- why both sources enter through one vector;
-- how your software determines which source needs service;
-- why the PORTB input must be read as part of servicing interrupt-on-change;
-- why each handler is responsible for clearing its own interrupt condition;
-- why context restoration occurs only at the common exit.
+Be prepared to explain why both sources enter through one vector, how software identifies the source, why PORTB must be read while servicing IOC, and why context is restored only at the common exit.
 
 ### Complete When
 
-Part 2 is complete when the IOC event reliably increments PORTC, the external interrupt reliably clears PORTC, both sources share one correctly structured ISR, and main resumes correctly after every event.
+Part 2 is complete when RB4 IOC reliably increments PORTC, `RB0/INT` reliably clears it, both sources share one correctly structured ISR, and main resumes correctly.
 
 ---
 
@@ -210,68 +211,70 @@ Part 2 is complete when the IOC event reliably increments PORTC, the external in
 
 ### Goal
 
-Enable PORTB interrupt-on-change on all applicable PORTB pins and add the software step required to determine which pin changed.
+Use interrupt-on-change on all eight PORTB pins and determine in software which pin changed.
 
-Display the detected PORTB pin number in binary on three PORTA outputs connected to LEDs.
+Display the detected pin number in binary on three PORTA LEDs.
 
 ### Required behavior
 
-- Configure all PORTB interrupt-on-change inputs required for this part.
-- A PORTB interrupt-on-change request indicates that one or more enabled PORTB inputs changed.
-- The ISR must determine which PORTB pin changed rather than treating the common IOC flag as though it identifies a specific pin.
-- Use three PORTA output pins and LEDs to display the identified PORTB pin number in binary.
-- `000` represents RB0, `001` represents RB1, through `111` representing RB7.
-- Document a deterministic rule for the case where more than one PORTB bit is detected as changed before the ISR finishes source determination.
-- Correctly update whatever previous/current PORTB state information your algorithm requires.
-- Correctly service and clear the IOC condition before leaving the handler.
+- Disable the dedicated external interrupt for this part.
+- Enable IOC for `RB0` through `RB7` using `IOCB`.
+- Treat the IOC flag as notification that a PORTB change occurred, not as identification of a particular pin.
+- Determine which PORTB bit changed from the current and previous port states or an equivalent method.
+- Display the pin number on three PORTA outputs:
+  - `000` = RB0
+  - `001` = RB1
+  - ...
+  - `111` = RB7
+- Define a deterministic rule for the case where more than one changed bit is present when the ISR evaluates the event.
+- Correctly establish/update the PORTB state used for comparison.
+- Correctly service and clear IOC before leaving the handler.
 
 ### Before Lab
 
 Prepare or reference:
 
 - PORTB input and PORTA LED schematic;
-- IOC enable/mask documentation;
-- algorithm for comparing current PORTB state with the previously known state;
-- flowchart for determining which pin changed;
+- IOC configuration documentation;
+- pin-assignment map;
+- source-determination algorithm;
+- flowchart;
 - deterministic multi-change rule;
 - source code;
-- any newly required SFR or GPR documentation.
+- register-style map for any named state/status storage used by the design.
 
 ### In the Lab
 
-1. Verify each PORTB input individually.
-2. Confirm that the three PORTA LEDs display the correct binary pin number for RB0 through RB7.
-3. Test repeated changes on the same input.
-4. Test changes on different inputs in sequence.
-5. Create at least one condition where more than one PORTB bit may be observed as changed and verify that your documented rule is followed.
-6. Confirm that the ISR does not become stuck repeatedly servicing an uncleared IOC condition.
-7. Document any cases where switch bounce or closely spaced input changes make source determination more difficult.
+1. Verify RB0 through RB7 individually.
+2. Confirm the correct three-bit pin number for every input.
+3. Test repeated changes on the same pin.
+4. Test different pins in sequence.
+5. Create at least one condition where more than one change may be present and verify the documented rule.
+6. Confirm that the ISR does not become stuck servicing an uncleared IOC condition.
+7. Record any effect of bounce or closely spaced input changes on source determination.
 
 ### Evidence
 
 Include or reference:
 
-- schematic and loading analysis;
-- IOC configuration documentation;
+- schematic/loading analysis;
+- IOC documentation;
+- pin/state register maps;
 - source-determination flowchart;
-- final source code;
-- explanation of how previous and current PORTB states are used;
-- results for all eight PORTB inputs;
-- multi-change test and deterministic selection rule;
+- final source;
+- results for all eight pins;
+- multi-change test and rule;
 - troubleshooting record.
 
 ### Demonstrate
 
-The instructor may change any PORTB input and ask you to identify the corresponding binary value on PORTA.
+The instructor may change any PORTB input and ask you to identify the corresponding value on PORTA.
 
-Be prepared to explain the difference between:
-
-- knowing that a PORTB change interrupt occurred; and
-- determining which PORTB pin actually changed.
+Be prepared to explain the difference between detecting that an IOC occurred and determining which pin changed.
 
 ### Complete When
 
-Part 3 is complete when all required PORTB IOC inputs work, the changed pin is identified in software, and the correct pin number is displayed in binary on the three PORTA LEDs.
+Part 3 is complete when all eight PORTB IOC inputs work, software identifies the changed pin, and PORTA displays the correct pin number.
 
 ---
 
@@ -279,148 +282,158 @@ Part 3 is complete when all required PORTB IOC inputs work, the changed pin is i
 
 ### Goal
 
-Recreate the inherited priority-interrupt behavior using the same PORTC-connected digit display used in previous labs.
+Recreate the inherited `1 / 6 / 7` priority-interrupt behavior using the **DLG7137 display on PORTC** from the earlier I/O labs.
 
-This part intentionally allows one interrupt to interrupt another so you can investigate nested interrupt execution, nested subroutine calls, software context preservation, and worst-case hardware stack depth.
+This part intentionally allows one interrupt to interrupt another so you can investigate nested interrupt execution, subroutine calls, context preservation, and worst-case hardware stack depth.
 
 ### Required visible behavior
 
-Use the existing digit display connected to PORTC.
+Reuse the existing DLG7137/PORTC interface. Reference the earlier lab-book schematic and display encoding unless something changes.
 
 - Main displays **1** continuously.
-- A falling-edge `RB0/INT` external interrupt initiates the **6** behavior.
-- A PORTB interrupt-on-change event on **RB1** initiates the **7** behavior.
-- The 6 behavior displays **6** for approximately two seconds.
-- The 7 behavior displays **7** for approximately two seconds.
-- While the 6 behavior is active, the 7 interrupt must be able to interrupt it.
-- When the 7 behavior completes, execution must return to the interrupted 6 behavior and finish the remaining 6 time.
-- The 6 interrupt must not interrupt an active 7 behavior.
-- The 7 behavior must be able to interrupt the 6 behavior repeatedly.
-- When all interrupt work is complete, execution returns to main and the display again shows **1**.
+- Falling-edge `RB0/INT` initiates the **6** behavior.
+- IOC on **RB1** initiates the **7** behavior.
+- 6 displays for approximately two seconds.
+- 7 displays for approximately two seconds.
+- 7 can interrupt an active 6.
+- When 7 completes, the interrupted 6 resumes and finishes its remaining time.
+- 6 cannot interrupt an active 7.
+- 7 must be able to interrupt 6 repeatedly.
+- When all interrupt work finishes, main again displays 1.
 
 ### Delay and subroutine requirement
 
-Implement the long delays using callable delay subroutines and `CALL`/`RETURN`.
+Implement the long delays with callable subroutines using `CALL`/`RETURN`.
 
-Use nested delay-loop/subroutine structure as needed rather than flattening the entire delay into main ISR code. The purpose is to make normal subroutine stack use part of the stack-depth analysis.
+Use nested delay/subroutine calls as appropriate. Normal subroutine calls are intentionally part of the stack-depth problem in this part.
 
 ### Required stack analysis
 
-Before demonstrating the final program, determine the **worst-case hardware stack depth** your design can reach.
+Before demonstration, determine the **worst-case hardware stack depth** of the final design.
 
-Your analysis must account for every return address that can be active in the worst case, including:
+Account for every return address that can be active in the worst case, including:
 
-- the call depth of code executing before the first interrupt;
-- the interrupt return address for the 6 interrupt;
-- any `CALL`s made while servicing/displaying/delaying the 6 behavior;
-- the nested interrupt return address when 7 interrupts 6;
-- any `CALL`s made while servicing/displaying/delaying the 7 behavior;
-- repeated 7 interrupts if your design permits them before prior stack entries have unwound.
+- call depth before the first interrupt;
+- the 6 interrupt return address;
+- calls made while executing the 6 behavior;
+- the nested 7 interrupt return address;
+- calls made while executing the 7 behavior;
+- any repeated nesting your design permits before prior stack entries unwind.
 
-Show the worst-case stack as a drawing or table that makes each occupied stack level understandable. Do not merely state a number.
+Show the worst-case stack as a drawing or table. Do not submit only a final number.
 
-Also document how software-saved context is protected when an interrupt occurs while another interrupt context is already active. Hardware return-stack depth and software context storage are related problems, but they are not the same thing.
+Your context-save method must also remain correct when 7 interrupts 6. Use the device-data-sheet context-saving method as the starting point and adapt the design as necessary for nested execution.
 
 ### Before Lab
 
 Prepare or reference:
 
-- existing PORTC digit-display schematic and encoding;
-- RB0 external interrupt and RB1 IOC input wiring;
-- interrupt and IOC SFR documentation;
-- complete nested-interrupt flowchart;
-- context-save strategy for nested execution;
+- earlier DLG7137/PORTC schematic, encoding, and component datasheet;
+- RB0 external-interrupt and RB1 IOC wiring;
+- interrupt/IOC SFR documentation;
+- pin-assignment map;
+- nested-interrupt flowchart;
+- nested context-save strategy;
 - delay-subroutine structure;
-- worst-case hardware stack-depth analysis;
+- worst-case hardware stack analysis;
 - source code.
 
 ### In the Lab
 
-1. Verify that main continuously displays `1`.
-2. Trigger the external interrupt and verify the approximately two-second `6` behavior.
+1. Verify that main displays `1`.
+2. Trigger `RB0/INT` and verify the approximately two-second `6` behavior.
 3. Trigger RB1 IOC and verify the approximately two-second `7` behavior.
-4. Trigger 7 while 6 is active. Verify the visible sequence `6 -> 7 -> 6` before returning to `1`.
-5. Trigger 7 repeatedly while 6 is active and verify that execution still unwinds correctly.
+4. Trigger 7 while 6 is active and verify `6 -> 7 -> 6 -> 1`.
+5. Trigger 7 repeatedly while 6 is active and verify correct return behavior.
 6. Attempt to trigger 6 while 7 is active and verify that 6 does not interrupt 7.
-7. Compare observed behavior with the stack-depth analysis.
-8. The instructor will intentionally exercise the design near its worst-case nesting condition and may attempt to expose a stack-overflow or context-corruption problem.
-9. Record any failure mode and relate it to the actual execution/stack/context path that caused it.
+7. Compare observed execution with the stack-depth analysis.
+8. The instructor will intentionally exercise the design near its worst-case nesting condition and may attempt to expose stack or context problems.
+9. Record and explain any failure observed.
 
 ### Evidence
 
 Include or reference:
 
-- schematic and loading analysis;
-- interrupt-related SFR documentation;
+- schematic/loading analysis;
+- interrupt SFR documentation;
+- pin-assignment map;
 - nested-interrupt flowchart;
-- final source code;
-- delay-subroutine structure using `CALL`/`RETURN`;
-- worst-case hardware stack-depth table or drawing;
-- software context-storage analysis;
-- observed `1`, `6`, `7`, and nested `6 -> 7 -> 6` behavior;
+- final source;
+- delay-subroutine structure;
+- worst-case stack table/drawing;
+- context-save approach used for nested execution;
+- observed `1`, `6`, `7`, and nested behavior;
 - instructor stress-test results;
-- explanation of any stack or context failure observed;
 - troubleshooting record.
 
 ### Demonstrate
 
-The instructor will test the order and timing of the two interrupt inputs and may repeatedly trigger the higher-priority 7 event during the 6 behavior.
+The instructor will vary the order and timing of the two interrupt inputs and may repeatedly trigger 7 during an active 6.
 
 Be prepared to explain:
 
 - how 7 is allowed to interrupt 6;
 - why 6 cannot interrupt 7;
-- where interrupt return addresses are stored;
-- where your saved processor context is stored;
-- how every `CALL` affects worst-case stack depth;
-- what happens if the hardware stack capacity is exceeded;
-- why this architecture becomes difficult to reason about as nesting grows.
+- what the hardware stack contains;
+- how every `CALL` changes worst-case stack depth;
+- what happens if the eight-level hardware stack is exceeded;
+- how context is preserved across the nested interrupt;
+- why this architecture becomes harder to reason about as nesting grows.
 
 ### Complete When
 
-Part 4 is complete when the required priority behavior works, nested 7 events can interrupt and return to the 6 behavior correctly, and the demonstrated execution agrees with a documented worst-case stack/context analysis.
+Part 4 is complete when the required priority behavior works, nested 7 events return correctly to 6, and the demonstrated execution agrees with the documented worst-case stack analysis.
 
 ---
 
 # Mastery - Same Priority Behavior Without Nested Interrupts
 
+**Optional. Complete Parts 1-4 first.**
+
 ### Goal
 
-Recreate the externally visible Part 4 behavior without allowing one ISR to interrupt another and without remaining inside an ISR for the long display delay.
+Recreate the visible Part 4 behavior without allowing one ISR to interrupt another and without remaining inside an ISR for the long display delay.
 
-Use short interrupt service routines to capture events and update state/status information. Perform the longer behavior from main using state and status flags.
+Use short ISRs to record events/state. Perform the longer behavior from main.
 
 ### Required behavior
 
-The visible behavior must remain equivalent to Part 4:
-
 - main displays `1`;
-- the external interrupt requests the `6` behavior;
+- external INT requests the `6` behavior;
 - RB1 IOC requests the `7` behavior;
-- `7` has priority over `6`;
-- a 7 request during an active 6 behavior causes the display to show `7` and then resume the remaining 6 behavior;
-- the system eventually returns to displaying `1`;
+- 7 has priority over 6;
+- a 7 request during an active 6 shows 7, then resumes the remaining 6 behavior;
+- the system eventually returns to 1;
 - no ISR contains the approximately two-second blocking delay;
 - no ISR deliberately re-enables interrupts to create nested interrupt execution.
 
-The main program should make decisions from explicit state/status information rather than depending on being trapped inside an interrupt routine.
+### Before Lab
+
+Prepare:
+
+- revised architecture/flowchart;
+- source code;
+- register-style map defining the state/status storage used by the design;
+- expected event sequence for `1 -> 6 -> 7 -> 6 -> 1`.
+
+### In the Lab
+
+Demonstrate the same event sequences used in Part 4, including a 7 request during an active 6 behavior.
 
 ### Evidence
 
 Include or reference:
 
 - revised architecture/flowchart;
-- final source code;
-- definition of the state/status flags or registers used;
-- explanation of what each ISR does and what it deliberately does not do;
+- final source;
+- state/status register map;
+- explanation of what each ISR does and deliberately does not do;
 - comparison of Part 4 and Mastery interrupt duration, stack use, and program structure;
 - demonstration that the visible priority behavior is preserved.
 
 ### Demonstrate
 
-Demonstrate the same event sequence used to test Part 4, including a 7 request during an active 6 behavior.
-
-Be prepared to explain why the Mastery version is easier to reason about with respect to interrupt duration, stack depth, and processor context.
+Be prepared to explain why the Mastery version is easier to reason about with respect to interrupt duration, stack depth, processor context, and program state.
 
 ### Complete When
 
