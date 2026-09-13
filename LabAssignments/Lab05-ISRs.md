@@ -52,7 +52,7 @@ For this assignment also include:
 
 For every interrupt source used, document the enable bit, flag bit, required configuration, what causes the request to be set, what is required to clear it, and the related SFR settings.
 
-When multiple interrupt sources are enabled, each handler is responsible for servicing its own source and clearing its own interrupt condition before the common ISR exit.
+When multiple interrupt sources are enabled, each service path must leave its source in a non-requesting state before the common ISR exit.
 
 ---
 
@@ -72,7 +72,7 @@ Use a single-sequence oscilloscope capture to observe the interrupt request, int
 - Each external interrupt increments PORTC by one.
 - Display PORTC on LEDs as a binary count.
 - Do not poll `RB0/INT` from main.
-- Use PIC16F883 data sheet Section 14.4 and Example 14-1 as the starting point for saving and restoring processor context.
+- Use the W/STATUS save/restore sequence in PIC16F883 data sheet Section 14.4, Example 14-1 as the starting point for processor context handling.
 
 Mechanical switch bounce is not automatically a failure. If one physical press creates several valid falling edges, observe and document the result.
 
@@ -123,7 +123,7 @@ Include or reference:
 
 Show the main-loop monitoring signal, PORTC count, and repeatable external interrupt.
 
-Be prepared to explain what sets the interrupt request, why main does not poll the button, what Example 14-1 is preserving, and what the scope capture shows about main execution during the ISR.
+Be prepared to explain what sets the interrupt request, why main does not poll the button, what the W/STATUS save/restore sequence preserves, and what the scope capture shows about main execution during the ISR.
 
 ### Complete When
 
@@ -135,10 +135,7 @@ Part 1 is complete when the external interrupt changes the count correctly, main
 
 ### Goal
 
-Add `RB4` interrupt-on-change while retaining `RB0/INT`.
-
-- `RB4` IOC increments PORTC.
-- falling-edge `RB0/INT` clears PORTC.
+Add `RB4` interrupt-on-change while retaining `RB0/INT`. RB4 IOC increments PORTC; falling-edge `RB0/INT` clears PORTC.
 
 The emphasis is source determination, per-source service, and one common ISR exit path.
 
@@ -151,9 +148,9 @@ The emphasis is source determination, per-source service, and one common ISR exi
 - A falling-edge `RB0/INT` event clears PORTC to zero.
 - Main polls neither source.
 - Both sources enter through the same interrupt vector.
-- Save context once, determine the source, service the appropriate source, and restore context once at the common exit before `RETFIE`.
-- Each source handler clears its own interrupt condition immediately before leaving for the common exit.
-- Correctly service the PORTB mismatch/change condition before clearing the IOC flag.
+- Save context once, determine the source, service it, and restore context once at the common exit before `RETFIE`.
+- Each service path must resolve and clear its own interrupt condition before leaving for the common exit.
+- Correctly resolve the PORTB mismatch/change condition before clearing the IOC flag.
 
 ### Before Lab
 
@@ -173,12 +170,14 @@ Prepare or reference:
 2. Generate several RB4 changes and confirm that the count accumulates.
 3. Trigger `RB0/INT` and confirm that PORTC clears.
 4. Test events occurring close together.
-5. Capture a single-sequence measurement showing:
+5. Keep these four signals connected to the oscilloscope:
    - **CH1:** `RB0/INT`;
    - **CH2:** PORTA main-loop monitoring pin;
    - **CH3:** `RC0`;
    - **CH4:** RB4 IOC input.
-6. Use the capture to explain which source executed and how main-line execution was affected.
+6. Capture an RB4 IOC event in single-sequence mode and explain the request, main-line interruption, and count change.
+7. Set the PORTC count so `RC0` is HIGH, then capture an `RB0/INT` event in single-sequence mode and explain the request, main-line interruption, and clear-to-zero result.
+8. If useful, capture a close-event sequence with both sources occurring near one another and compare it with your predicted behavior.
 
 ### Evidence
 
@@ -189,8 +188,9 @@ Include or reference:
 - updated pin-assignment map;
 - complete ISR flowchart;
 - final source;
-- four-channel interrupt capture;
-- proof that RB4 IOC increments and RB0/INT clears PORTC;
+- four-channel capture of an RB4 IOC event;
+- four-channel capture of an `RB0/INT` clear event;
+- proof that RB4 IOC increments and `RB0/INT` clears PORTC;
 - explanation of the IOC service/clear sequence;
 - close-event test results;
 - troubleshooting record.
@@ -203,7 +203,7 @@ Be prepared to explain why both sources enter through one vector, how software i
 
 ### Complete When
 
-Part 2 is complete when RB4 IOC reliably increments PORTC, `RB0/INT` reliably clears it, both sources share one correctly structured ISR, and main resumes correctly.
+Part 2 is complete when RB4 IOC reliably increments PORTC, `RB0/INT` reliably clears it, both sources share one correctly structured ISR, both interrupt paths have been captured and explained, and main resumes correctly.
 
 ---
 
