@@ -32,7 +32,7 @@ For each inherited PDF lab:
 4. **Create the redesigned student-facing draft.** Use the current RCET3375 lab structure and documentation expectations.
 5. **Review for consistency.** Compare the draft against earlier migrated labs and the current lab standard so students encounter the same assignment grammar and documentation pattern.
 6. **Resolve migration notes.** Move durable course-wide decisions into this workflow or the appropriate future lab standard. Keep lab-specific decisions in that lab's migration plan.
-7. **Merge only when the assignment is ready for its intended semester.** Do not mix unfinished migration planning into student-facing instructions.
+7. **Keep the lab branch as the working version until it is ready to merge.** The branch may continue evolving even when an earlier version of that lab is already live on `main`.
 
 ## Standardized student-facing structure
 
@@ -92,42 +92,49 @@ Lab instructions should be detailed enough that requirements are unambiguous, bu
 
 The goal is lower visual and mental clutter without hiding engineering expectations.
 
-## Semester rollout and change control
+## Semester rollout and branch workflow
 
-### Fall 2026 live material
+The stability boundary is the released material on `main`, not the lab-specific working branches.
 
-Once a Fall 2026 lab assignment has been merged into `main` and released to students, treat its requirements and standardized format as live course material.
+Each lab-assignment migration branch may continue to be updated at any time. A branch is the working version of that lab until it is reviewed and merged.
 
-Do not make broad formatting, documentation, or curriculum changes to an already-live assignment merely because the migration standard has continued to improve. Make immediate changes only when needed to correct a factual error, safety problem, broken instruction, or other issue that materially affects current students.
+### Fall 2026 labs already live
 
-### Spring 2027 target
+If the Fall 2026 version of a lab has already been merged to `main` and released to students, leave that live version stable except for corrections that current students actually need, such as factual errors, safety problems, broken instructions, or other material issues.
 
-Further improvements discovered after a lab is live should be treated as planned Spring 2027 rollout changes.
+Continue improving that lab on its existing lab-assignment branch. Once the F26 version is live, further branch work is naturally treated as the planned Spring 2027 version.
 
-This includes, when applicable:
+There is no need to stop improving the branch or create a separate S27 branch merely because the current semester version has already been released.
 
-- refinements to the standardized part structure;
-- expanded register-map expectations;
-- reference/documentation requirements;
-- Git-repository reference requirements;
-- wording and layout cleanup;
-- improved evidence/checkoff structure; and
-- other course-wide consistency changes found while later labs are migrated.
+### Fall 2026 labs not yet live
 
-Accumulate these decisions during the Fall 2026 migration work, then apply them coherently across the lab sequence for the Spring 2027 rollout rather than changing individual live assignments piecemeal.
+If a lab has not yet been released during Fall 2026, its existing lab-assignment branch may continue to evolve and may still be reviewed and merged for F26 when ready.
 
-### Labs not yet released
+It may adopt improvements discovered during the migration of earlier labs before it goes live.
 
-A lab that has not yet been released to students may adopt the current migration target immediately. This allows later Fall 2026 labs to benefit from lessons learned during migration without retroactively changing assignments students have already begun or completed.
+### Spring 2027 rollout
+
+During Fall 2026, continue updating the existing lab-assignment branches as migration work reveals better curriculum, clearer wording, improved documentation requirements, or a better standardized format.
+
+After the Fall 2026 semester concludes and before Spring 2027 begins:
+
+1. review the accumulated work on all lab-assignment branches;
+2. reconcile course-wide formatting and documentation expectations across the full lab sequence;
+3. update the active lab standard as needed for S27;
+4. verify links, numbering, references, hardware assumptions, and cross-lab consistency;
+5. merge the reviewed lab branches into `main` for the Spring 2027 rollout.
+
+This allows the course to improve continuously during F26 without changing live assignments underneath current students, while still producing one coherent S27 lab sequence rather than a collection of piecemeal edits.
 
 ## Where decisions belong
 
 Use the narrowest durable home for each decision:
 
-- **Student-facing lab file:** requirements that apply to that assignment.
+- **Student-facing lab file on a lab branch:** the developing requirements for that assignment.
+- **Student-facing lab file on `main`:** the currently released version students should follow.
 - **Lab-specific migration plan:** curriculum reasoning, inherited-material analysis, and unresolved questions for one lab.
 - **This migration workflow:** rules and decisions that apply across legacy-lab migrations or future standardized assignments.
-- **`../../LAB_STANDARD.md`:** the active student-facing/course-wide lab standard for the semester in which it is released.
+- **`../../LAB_STANDARD.md`:** the active course-wide lab standard for the version currently released on `main`.
 - **`notes.md`:** temporary capture of ideas that have not yet been classified or resolved.
 
 Once a note has a durable home, it can be removed from `notes.md` rather than leaving multiple competing sources of truth.
