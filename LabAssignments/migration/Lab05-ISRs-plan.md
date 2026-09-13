@@ -103,18 +103,21 @@ The progression is deliberately experiential: simple external interrupt, multipl
 
 Reuse the **DLG7137 display connected to PORTC** from Lab 02. The earlier lab already establishes the hardware and display use, so Lab 05 should reference the earlier schematic/encoding rather than duplicate it unless the circuit changes.
 
-Required visible behavior:
+Required visible/state behavior:
 
-- main displays `1`;
+- normal state displays `1`;
 - falling-edge `RB0/INT` initiates `6`;
 - RB1 IOC initiates `7`;
-- 6 displays for about two seconds;
-- 7 displays for about two seconds;
-- 7 can interrupt 6;
-- after 7 finishes, 6 resumes and completes its remaining time;
-- 6 cannot interrupt 7;
-- 7 may interrupt 6 repeatedly;
-- main returns to 1 after interrupt work completes.
+- 6 displays for about two seconds of its own active time and always returns to 1 when complete;
+- 7 displays for about two seconds and has absolute priority;
+- 7 may interrupt 6 at any point while 6 is active;
+- 7 itself is never preempted by the lower-priority 6 behavior;
+- after 7 finishes, execution returns to the state that was present when 7 began;
+- if 7 interrupted 6, 6 resumes its remaining active time and eventually returns to 1;
+- if 7 interrupted 1, the display returns to 1;
+- the same 6 behavior may be interrupted by 7 repeatedly, with 6 resuming after each 7 and completing only its remaining active time.
+
+This state/priority behavior is the contract for both Part 4 and Mastery. Part 4 implements it with deliberate nested interrupt execution; Mastery reproduces the same visible behavior without nested ISR execution.
 
 Part 4 intentionally uses nested interrupt execution. Do not steer students away from `CALL`/`RETURN`. Require callable delay subroutines so ordinary subroutine calls contribute to stack depth.
 
@@ -131,17 +134,15 @@ Recreate the externally visible Part 4 behavior while:
 - not deliberately nesting interrupts;
 - not remaining inside an ISR for the two-second display delay;
 - keeping handlers short;
-- recording requests in explicit state/status storage;
-- allowing main to perform longer behavior;
-- preserving 7-over-6 priority and resuming the remaining 6 behavior after 7 completes.
+- recording requests and active/previous state in explicit state/status storage;
+- allowing main to perform the longer behavior;
+- giving 7 absolute priority over 6;
+- returning from 7 to whatever state was active when 7 began;
+- resuming the remaining 6 active time after every 7 interruption;
+- allowing one 6 behavior to be interrupted by 7 multiple times;
+- always returning from a completed 6 behavior to 1.
 
-This closes the lab by comparing the deliberately difficult nested design with a state-driven alternative.
-
-### Mastery review question
-
-The current draft clearly specifies the required behavior when a `7` request occurs during an active `6`, but it does not yet explicitly define what should happen to a new `6` request that occurs while `7` is active in the non-nested Mastery design.
-
-Part 4 only requires that `6` cannot interrupt an active `7`; it does not clearly distinguish between ignoring the request and deferring it until `7` completes. Leave this unresolved until Tim decides which externally visible behavior should be required. Do not silently choose one in the student instructions.
+This closes the lab by comparing the deliberately difficult nested design with a state-driven alternative while preserving the same externally visible state rules.
 
 ## Context-saving source strategy
 
@@ -224,6 +225,8 @@ An XC8 comparison may be added later, but it should not replace the hardware/sof
 - IOC source-identification evidence;
 - Part 4 worst-case stack-depth analysis;
 - instructor stress-test results;
+- proof of `1 -> 7 -> 1` and `6 -> 7 -> 6 -> 1` state restoration;
+- proof that one 6 can be interrupted repeatedly by 7 and still complete its remaining time before returning to 1;
 - Mastery comparison between nested and state-driven architectures;
 - troubleshooting record for bounce, missed/repeated events, stack problems, or context corruption.
 
@@ -235,7 +238,4 @@ An XC8 comparison may be added later, but it should not replace the hardware/sof
 - **Starter context code:** PIC16F883 data sheet Section 14.4 / Example 14-1 is the starting point.
 - **PCLATH:** taught separately with computed `GOTO`; not introduced as a Lab 05 requirement.
 - **Additional GPR preservation during nested execution:** intentionally not called out in student instructions; left as a discovery/troubleshooting opportunity.
-
-## Remaining review question
-
-- **Mastery low-priority request during active high-priority behavior:** decide whether a new `6` request received while `7` is active should be ignored or deferred until `7` completes. The student-facing draft currently avoids specifying either behavior.
+- **Part 4/Mastery priority-state semantics:** 7 has absolute priority and returns to the state it interrupted; 6 may be interrupted by 7 any number of times, resumes its remaining active time after each 7, and always returns to 1 when complete. Both parts must implement the same externally visible state rules.
