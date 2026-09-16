@@ -4,6 +4,37 @@ RCET3375 is self-paced. Current F26 material is organized as lab assignments, no
 
 The goal of the lab standard is consistency. Students should encounter the same assignment grammar, documentation expectations, repository structure, and evidence pattern throughout the course even as the technical topics become more advanced.
 
+## Maintaining and propagating the standard
+
+Treat this document as the canonical course-wide lab-instruction standard rather than copying global rules independently into each lab.
+
+When live teaching or student execution reveals a problem, classify the observation before changing documents:
+
+- **lab-specific** - the issue belongs only to one assignment or technical topic;
+- **global** - the issue reflects assignment structure, evidence expectations, lab-book practice, repository workflow, documentation, or another rule that should apply across labs.
+
+For a global change:
+
+1. update this standard first so the rule has one durable source;
+2. inspect every active Markdown lab and every open lab-migration branch for the affected pattern;
+3. propagate the substantive change in the same maintenance pass wherever it applies;
+4. preserve legitimate topic-specific differences rather than mechanically forcing identical wording;
+5. record any lab that intentionally does not adopt the rule and why.
+
+Do not let a global standard change apply only to the lab where the problem was first observed.
+
+Preserve the distinction between semester releases and next-version work. Fall 2026 material already released on `main` remains the live semester version unless an immediate teaching correction is required. Broader consistency improvements can be staged on a next-version/feature branch and reviewed together for Spring 2027.
+
+When migrating an inherited PDF lab:
+
+1. preserve the legacy PDF as source evidence;
+2. create the initial Markdown draft as a faithful recreation before redesigning it;
+3. correct the lab number for the current sequence when the draft is created;
+4. keep a migration plan beside or with the working branch that identifies what to keep, remove, restructure, or create and why;
+5. only then adapt the assignment to the current lab standard, current hardware/toolchain, and the desired progression across labs.
+
+A propagation pass should change instruction where the standard or verified teaching evidence changed. Do not manufacture bulk cosmetic rewrites solely to make files look recently updated.
+
 ## Lab structure
 
 Each current lab should use this progression unless the topic gives a clear reason not to:
