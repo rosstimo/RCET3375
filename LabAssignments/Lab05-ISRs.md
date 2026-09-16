@@ -45,8 +45,8 @@ Follow the lab standard and reference earlier complete documentation rather than
 
 For this assignment also include:
 
-- a register-style map for assigned port pins;
-- register-style maps for any GPRs intentionally used as named state/status storage;
+- a register map for assigned port pins;
+- register maps for any GPRs intentionally used as named state/status storage;
 - datasheets for relevant external components in the lab-book references;
 - the GitHub URL for your assignment repository in the lab-book references.
 
@@ -185,7 +185,7 @@ Include or reference:
 
 - updated schematic/loading analysis;
 - external INT and IOC SFR documentation;
-- updated pin-assignment map;
+- updated pin-assignment/register map;
 - complete ISR flowchart;
 - final source;
 - four-channel capture of an RB4 IOC event;
@@ -286,7 +286,7 @@ Part 3 is complete when all eight PORTB IOC inputs work, software identifies the
 
 ### Goal
 
-Recreate the inherited `1 / 6 / 7` priority-interrupt behavior using the **DLG7137 display on PORTC** from the earlier I/O labs.
+Create `1 / 6 / 7` priority-interrupt behavior using the **DLG7137 display on PORTC** from the earlier I/O labs.
 
 This part intentionally allows the higher-priority 7 behavior to interrupt the lower-priority 6 behavior so you can investigate nested interrupt execution, subroutine calls, context preservation, and worst-case hardware stack depth.
 
@@ -294,17 +294,18 @@ This part intentionally allows the higher-priority 7 behavior to interrupt the l
 
 Reuse the existing DLG7137/PORTC interface. Reference the earlier lab-book schematic and display encoding unless something changes.
 
+- The display on PORTC must precisly display **1**, **6**, or **7** at any time to reflect the current state of the system.
 - Main displays **1** continuously.
 - Falling-edge `RB0/INT` initiates the **6** behavior.
 - IOC on **RB1** initiates the **7** behavior.
-- 6 displays for approximately two seconds of its own active time, then always returns to 1.
-- 7 displays for approximately two seconds and has absolute priority over 6.
+- 6 displays for two seconds. 
+- 7 displays for two seconds and has absolute priority over 6.
 - 7 may interrupt 6 at any time while 6 is active.
 - While 7 is active, no lower-priority behavior may interrupt it.
 - When 7 finishes, execution returns to the state that was active when 7 began.
   - If 7 interrupted 6, 6 resumes and completes its remaining time before returning to 1.
   - If 7 interrupted the normal 1 state, the display returns to 1.
-- 7 may interrupt the same 6 behavior multiple times. Each time, 6 resumes from its remaining time after 7 finishes.
+- 7 may interrupt the same 6 behavior multiple times. Each time, 6 resumes its remaining time after 7 finishes.
 
 ### Delay and subroutine requirement
 
@@ -412,7 +413,7 @@ Preserve the same visible state rules as Part 4:
 - normal state displays `1`;
 - external INT requests the `6` behavior;
 - RB1 IOC requests the `7` behavior;
-- 6 runs for approximately two seconds of its own active time and always returns to 1 when complete;
+- 6 runs for two seconds;
 - 7 has absolute priority and can take over from 6 at any point;
 - while 7 is active, no lower-priority behavior may replace it;
 - after 7 finishes, the system returns to the state that was active when 7 began;
