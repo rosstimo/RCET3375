@@ -400,6 +400,8 @@ Part 4 is complete when 7 can interrupt 6 at any point and repeatedly without it
 
 **Optional. Complete Parts 1-4 first.**
 
+**Bonus:** Completing this Mastery challenge earns **+5 percentage points on this lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty.
+
 ### Goal
 
 Recreate the externally visible Part 4 priority behavior without allowing one ISR to interrupt another and without remaining inside an ISR for the long display delay.
