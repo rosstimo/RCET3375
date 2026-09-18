@@ -31,6 +31,4 @@ Requirements for a full local build are `typst`, `latexmk`, and `pdflatex`, plus
 
 The automated publisher uses Typst 0.15.1 and installs Liberation Sans/Mono on the runner so the generated output is reproducible.
 
-## Account information
 
-The final account/page names reflect the list supplied by Karli Snyder, Digital and Social Media Manager for the Idaho State University College of Technology.
