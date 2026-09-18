@@ -8,7 +8,12 @@ This repository is the published student authority for current lab instructions.
 
 - [`LabAssignments/`](LabAssignments/) - current student lab instructions.
 - [`LAB_STANDARD.md`](LAB_STANDARD.md) - common lab structure, evidence, documentation, and quality expectations.
+- [`ExtraCredit/`](ExtraCredit/) - optional Mastery and weekly social-media extra-credit information.
 - [`HowTo/`](HowTo/) - supporting setup and workflow guidance.
 - [`Notes/`](Notes/) - supplemental course notes. Assignment-specific requirements in `LabAssignments/` take precedence when they differ.
+
+## Mastery
+
+Lab assignments may include an optional **Part 5 - Mastery** challenge. Completing the Mastery section earns **+5 percentage points on that lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty. Mastery is not required for ordinary full credit, and Parts 1-4 remain the required lab work.
 
 Use the current file on `main` rather than an old PDF, copied instruction, or planning draft when completing a released lab.
