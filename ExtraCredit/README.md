@@ -15,6 +15,4 @@ Students may also earn up to **+5% on the current week's lab grade** through qua
 - [Student handout PDF](https://github.com/rosstimo/RCET3375/releases/download/extra-credit-handouts/RCET_Lab_Video_Extra_Credit_Student.pdf)
 - [Editable source](RCET_Social_Media_Handouts_Source/)
 
-The PDF link above is intentionally stable. GitHub Actions rebuilds the handout from the canonical Typst source and replaces the asset at the same release URL when the source changes on `main`.
 
-Workflow artifacts shown on individual Actions runs are for review only and should not be used as permanent Canvas or course links.
