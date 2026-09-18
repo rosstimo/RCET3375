@@ -1,37 +1,35 @@
 # RCET Social Media Extra Credit Handouts
 
-Final shareable PDFs plus editable source for the student and instructor handouts.
+Editable source for the student and instructor social-media handouts.
 
-## Folders
+## Publishing source
 
-- `Original/`: original PDFs for comparison; the build script leaves these untouched.
-- `LaTeX/`: `.tex` sources and their compiled PDFs.
-- `Typst/`: `.typ` sources and their compiled PDFs.
+The files in `Typst/` are the canonical publishing sources. The files in `LaTeX/` are retained as alternate editable versions but are not used by the automated publisher.
 
-## Regenerate all PDFs
+The GitHub Actions workflow at `.github/workflows/publish-extra-credit-pdfs.yml` compiles the Typst sources whenever they change. Pull requests receive short-lived workflow artifacts for review. After the change reaches `main`, the workflow replaces the PDF assets on the fixed `extra-credit-handouts` release.
+
+Stable published URLs:
+
+- Student handout: https://github.com/rosstimo/RCET3375/releases/download/extra-credit-handouts/RCET_Lab_Video_Extra_Credit_Student.pdf
+- Instructor guide: https://github.com/rosstimo/RCET3375/releases/download/extra-credit-handouts/RCET_Student_Social_Media_Instructor_Guide.pdf
+
+These release-asset URLs remain the same across rebuilds as long as the release tag and filenames remain unchanged.
+
+## Local builds
+
+Run:
 
 ```bash
 ./build-pdfs.sh
 ```
 
-The script builds every `.typ` file directly in `Typst/` and every `.tex` file
-directly in `LaTeX/`. It saves each PDF beside its source, replacing the previous
-compiled copy only after that source builds successfully. It works from any
-working directory when invoked by its path. Temporary build files are cleaned
-up automatically; no preview images are generated.
+The script builds every `.typ` file directly in `Typst/` and every `.tex` file directly in `LaTeX/`. It saves each PDF beside its source, replacing the previous compiled copy only after that source builds successfully. PDFs are ignored by Git in `ExtraCredit/`.
 
-The script stops on a build error and prints the compiler diagnostics. PDFs
-successfully rebuilt earlier in the run remain updated.
+The script stops on a build error and prints compiler diagnostics. Temporary build files are cleaned up automatically.
 
-Requirements: `typst`, `latexmk`, and `pdflatex` on your PATH, with the TeX Live
-packages used by the LaTeX sources: `geometry`, `fontenc`, `tgtermes`, `tgheros`,
-`xcolor`, `enumitem`, `tabularx`, `array`, `hyperref`, `tcolorbox`, `microtype`,
-and `ragged2e`.
+Requirements for a full local build are `typst`, `latexmk`, and `pdflatex`, plus the TeX Live packages used by the LaTeX sources: `geometry`, `fontenc`, `tgtermes`, `tgheros`, `xcolor`, `enumitem`, `tabularx`, `array`, `hyperref`, `tcolorbox`, `microtype`, and `ragged2e`.
 
-The delivered original PDFs were built from LaTeX. The Typst sources use no
-external Typst packages.
-
-If `Liberation Sans` or `Liberation Mono` are not installed, replace those font names near the top of each Typst file with fonts available on your system.
+The automated publisher uses Typst 0.15.1 and installs Liberation Sans/Mono on the runner so the generated output is reproducible.
 
 ## Account information
 

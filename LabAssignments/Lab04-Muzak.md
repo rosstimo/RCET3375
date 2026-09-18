@@ -434,6 +434,8 @@ Part 3 is complete when all 16 physical keys produce the assigned notes, adjacen
 
 **Optional. Complete Parts 1-3 first.**
 
+**Bonus:** Completing this Mastery challenge earns **+5 percentage points on this lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty.
+
 ### Goal
 
 Recreate the matrix-keypad application from the earlier I/O lab so the DLG7137 displays the key that was pressed, then add a short audible tone when a new key press is detected.
