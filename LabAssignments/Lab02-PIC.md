@@ -284,6 +284,8 @@ Part 4 is complete when all keys scan correctly, the measured scan matches the i
 
 **Optional. Complete Parts 1-4 first.**
 
+**Bonus:** Completing this Mastery challenge earns **+5 percentage points on this lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty.
+
 ## Goal
 
 Determine whether the keypad needs software debounce or other key-event handling, explain why, and design a solution based on measured behavior.
