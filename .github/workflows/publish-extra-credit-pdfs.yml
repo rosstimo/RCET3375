@@ -96,11 +96,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "RCET3375 Extra Credit Handouts" \
               --notes "Current generated PDF handouts. Assets are rebuilt from the canonical Typst sources on main."
           fi
 
-          gh release upload "$RELEASE_TAG" dist/*.pdf --clobber
+          gh release upload "$RELEASE_TAG" dist/*.pdf \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
