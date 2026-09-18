@@ -1,0 +1,106 @@
+name: Build and publish extra-credit PDFs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "ExtraCredit/RCET_Social_Media_Handouts_Source/Typst/**"
+      - ".github/workflows/publish-extra-credit-pdfs.yml"
+  pull_request:
+    paths:
+      - "ExtraCredit/RCET_Social_Media_Handouts_Source/Typst/**"
+      - ".github/workflows/publish-extra-credit-pdfs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: extra-credit-pdfs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_DIR: ExtraCredit/RCET_Social_Media_Handouts_Source
+  RELEASE_TAG: extra-credit-handouts
+
+jobs:
+  build:
+    name: Build PDFs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install document fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes fonts-liberation
+
+      - name: Install Typst
+        uses: typst-community/setup-typst@v5
+        with:
+          typst-version: 0.15.1
+
+      - name: Compile canonical Typst sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          shopt -s nullglob
+          sources=("$SOURCE_DIR"/Typst/*.typ)
+          if (( ${#sources[@]} == 0 )); then
+            echo "No Typst sources found." >&2
+            exit 1
+          fi
+
+          for source in "${sources[@]}"; do
+            name=$(basename "$source" .typ)
+            echo "Building $name.pdf"
+            typst compile "$source" "dist/$name.pdf"
+          done
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: extra-credit-pdfs
+          path: dist/*.pdf
+          retention-days: 14
+          if-no-files-found: error
+
+  publish:
+    name: Publish stable release assets
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download built PDFs
+        uses: actions/download-artifact@v6
+        with:
+          name: extra-credit-pdfs
+          path: dist
+
+      - name: Create release if needed and replace assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "RCET3375 Extra Credit Handouts" \
+              --notes "Current generated PDF handouts. Assets are rebuilt from the canonical Typst sources on main."
+          fi
+
+          gh release upload "$RELEASE_TAG" dist/*.pdf --clobber
