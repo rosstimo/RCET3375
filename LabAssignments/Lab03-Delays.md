@@ -909,6 +909,10 @@ Part 4 is complete when:
 
 # Part 5 - Mastery: Compare Assembly and C Timing
 
+**Optional. Complete the required parts first.**
+
+**Bonus:** Completing this Mastery challenge earns **+5 percentage points on this lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty.
+
 ### Goal
 
 Recreate the Lab 02 PORTB counter in C, verify that it performs the same hardware function as the assembly version, and compare the measured RB0 timing of the two implementations.
