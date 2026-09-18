@@ -45,7 +45,7 @@ Each current lab should use this progression unless the topic gives a clear reas
 4. **Part 4 - Independent modification / integration**: require a bounded change, extension, or integration using concepts already exercised. Part 4 introduces independence, not necessarily large complexity. Early labs should use tightly bounded changes; later labs may require broader design decisions.
 5. **Part 5 - Mastery**: optional enrichment after Parts 1-4 are complete. It must be a specific technical challenge or investigation with clear success criteria, not a vague list of possible extensions.
 
-Part 5 is not required for ordinary full credit. Completing the Mastery section earns **+5 percentage points on that lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty. Parts 1-4 remain the required lab work.
+Part 5 is not required for ordinary full credit. Completing the Mastery section earns **+5 percentage points on that lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty. Completing Mastery does not replace any required lab work.
 
 Difficulty should progress both **within each lab** and **across the semester**. Early PIC labs may still provide considerable guidance in Parts 3 and 4. Later labs should expect increasingly independent design and troubleshooting.
 
