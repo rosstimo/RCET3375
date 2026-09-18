@@ -14,6 +14,6 @@ This repository is the published student authority for current lab instructions.
 
 ## Mastery
 
-Lab assignments may include an optional **Part 5 - Mastery** challenge. Completing the Mastery section earns **+5 percentage points on that lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty. Mastery is not required for ordinary full credit and does not replace any required lab work.
+Lab assignments may include an optional **Mastery** challenge after the required work. Completing the Mastery section earns **+5 percentage points on that lab assignment**, equivalent to offsetting one day of the course's 5%-per-day late penalty. Mastery is not required for ordinary full credit and does not replace any required lab work.
 
 Use the current file on `main` rather than an old PDF, copied instruction, or planning draft when completing a released lab.
