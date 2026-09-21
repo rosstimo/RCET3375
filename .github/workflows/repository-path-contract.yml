@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: repository-path-contract-${{ github.repository }}
@@ -18,10 +17,16 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      incomplete: ${{ steps.audit.outputs.incomplete }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Audit path contract
         id: audit
@@ -48,21 +53,30 @@ jobs:
                   return None
               return value
 
+          contract = None
           if not manifest_path.is_file():
-              contract = {}
               problems.append("Contract manifest " + manifest_path.as_posix() + " does not exist.")
           else:
               try:
                   contract = json.loads(manifest_path.read_text(encoding="utf-8"))
               except Exception as exc:
-                  contract = {}
                   problems.append("Could not parse " + manifest_path.as_posix() + " as JSON: " + str(exc))
 
-          if contract and contract.get("version") != 1:
+          if not isinstance(contract, dict):
+              if contract is not None:
+                  problems.append("Path contract top level must be a JSON object.")
+              contract = {}
+
+          if contract.get("version") != 1:
               problems.append("Path contract must declare version 1.")
 
-          required_dirs = contract.get("required_directories", []) if isinstance(contract, dict) else []
-          required_files = contract.get("required_files", []) if isinstance(contract, dict) else []
+          if "required_directories" not in contract:
+              problems.append("Path contract must define required_directories.")
+          if "required_files" not in contract:
+              problems.append("Path contract must define required_files.")
+
+          required_dirs = contract.get("required_directories", [])
+          required_files = contract.get("required_files", [])
 
           if not isinstance(required_dirs, list):
               problems.append("required_directories must be a JSON array.")
@@ -71,21 +85,34 @@ jobs:
               problems.append("required_files must be a JSON array.")
               required_files = []
 
+          checked_dirs = []
           for raw in required_dirs:
               value = valid_path(raw, "required_directories")
-              if value is not None and not Path(value).is_dir():
+              if value is None:
+                  continue
+              checked_dirs.append(value)
+              if not Path(value).is_dir():
                   missing_dirs.append(value)
 
+          checked_files = []
           for raw in required_files:
               value = valid_path(raw, "required_files")
-              if value is not None and not Path(value).is_file():
+              if value is None:
+                  continue
+              checked_files.append(value)
+              if not Path(value).is_file():
                   missing_files.append(value)
+
+          if not checked_dirs and not checked_files:
+              problems.append("Path contract must require at least one directory or file.")
 
           incomplete = bool(problems or missing_dirs or missing_files)
 
           lines = [
               "# Repository path contract",
               "",
+              "- Required directories checked: " + str(len(checked_dirs)),
+              "- Required files checked: " + str(len(checked_files)),
               "- Missing directories: " + str(len(missing_dirs)),
               "- Missing files: " + str(len(missing_files)),
               "- Contract/schema problems: " + str(len(problems)),
@@ -115,9 +142,18 @@ jobs:
               handle.write("incomplete=" + ("true" if incomplete else "false") + "\n")
           PY
 
+  reconcile:
+    needs: audit
+    if: ${{ always() && needs.audit.result == 'success' && github.event_name != 'pull_request' && github.event_name != 'pull_request_target' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
       - name: Reconcile durable path-contract issue
         env:
-          INCOMPLETE: ${{ steps.audit.outputs.incomplete }}
+          INCOMPLETE: ${{ needs.audit.outputs.incomplete }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
@@ -127,11 +163,6 @@ jobs:
             const marker = "<!-- rcet-check:repository-path-contract -->";
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-
-            if (["pull_request", "pull_request_target"].includes(context.eventName)) {
-              core.info("PR validation run: skipping issue mutation.");
-              return;
-            }
 
             const repository = await github.rest.repos.get({ owner, repo });
             const defaultBranch = repository.data.default_branch;
@@ -154,13 +185,21 @@ jobs:
               { owner, repo, state: "all", per_page: 100 }
             );
 
-            const matching = allIssues
-              .filter(item => !item.pull_request && ((item.body || "").includes(marker) || item.title === title))
+            const marked = allIssues
+              .filter(item => !item.pull_request && (item.body || "").includes(marker))
               .sort((a, b) => a.number - b.number);
 
-            const canonical = matching[0];
+            const legacy = allIssues
+              .filter(item => !item.pull_request && item.title === title && !(item.body || "").includes(marker))
+              .sort((a, b) => a.number - b.number);
 
-            for (const duplicate of matching.slice(1)) {
+            let canonical = marked[0] || legacy[0];
+            const duplicates = [
+              ...marked.slice(marked.length ? 1 : 0),
+              ...legacy.filter(item => !canonical || item.number !== canonical.number)
+            ];
+
+            for (const duplicate of duplicates) {
               if (duplicate.state === "open") {
                 await github.rest.issues.update({
                   owner,
@@ -182,6 +221,17 @@ jobs:
               "The automation does not append per-run comments or rewrite this body on every run."
             ].join("\n");
 
+            if (canonical && !(canonical.body || "").includes(marker)) {
+              const migrated = await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: canonical.number,
+                title,
+                body: staticBody
+              });
+              canonical = migrated.data;
+            }
+
             if (incomplete) {
               if (!canonical) {
                 await github.rest.issues.create({ owner, repo, title, body: staticBody });
@@ -202,9 +252,16 @@ jobs:
               });
             }
 
+  enforce:
+    needs: audit
+    if: ${{ always() && needs.audit.result == 'success' && needs.audit.outputs.incomplete == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
       - name: Fail incomplete path contract
-        if: steps.audit.outputs.incomplete == 'true'
         shell: bash
         run: |
-          echo "::error::Repository path contract is incomplete. See the job summary."
+          echo "::error::Repository path contract is incomplete. See the audit job summary."
           exit 1
