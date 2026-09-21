@@ -1,0 +1,210 @@
+name: Repository path contract
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: repository-path-contract-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Audit path contract
+        id: audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path, PurePosixPath
+
+          manifest_path = Path(".github/rcet-path-contract.json")
+          problems = []
+          missing_dirs = []
+          missing_files = []
+
+          def valid_path(value, label):
+              if not isinstance(value, str) or not value.strip():
+                  problems.append(label + " entries must be non-empty strings.")
+                  return None
+              value = value.strip()
+              pure = PurePosixPath(value)
+              if pure.is_absolute() or ".." in pure.parts:
+                  problems.append("Unsafe path in " + label + ": " + value)
+                  return None
+              return value
+
+          if not manifest_path.is_file():
+              contract = {}
+              problems.append("Contract manifest " + manifest_path.as_posix() + " does not exist.")
+          else:
+              try:
+                  contract = json.loads(manifest_path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  contract = {}
+                  problems.append("Could not parse " + manifest_path.as_posix() + " as JSON: " + str(exc))
+
+          if contract and contract.get("version") != 1:
+              problems.append("Path contract must declare version 1.")
+
+          required_dirs = contract.get("required_directories", []) if isinstance(contract, dict) else []
+          required_files = contract.get("required_files", []) if isinstance(contract, dict) else []
+
+          if not isinstance(required_dirs, list):
+              problems.append("required_directories must be a JSON array.")
+              required_dirs = []
+          if not isinstance(required_files, list):
+              problems.append("required_files must be a JSON array.")
+              required_files = []
+
+          for raw in required_dirs:
+              value = valid_path(raw, "required_directories")
+              if value is not None and not Path(value).is_dir():
+                  missing_dirs.append(value)
+
+          for raw in required_files:
+              value = valid_path(raw, "required_files")
+              if value is not None and not Path(value).is_file():
+                  missing_files.append(value)
+
+          incomplete = bool(problems or missing_dirs or missing_files)
+
+          lines = [
+              "# Repository path contract",
+              "",
+              "- Missing directories: " + str(len(missing_dirs)),
+              "- Missing files: " + str(len(missing_files)),
+              "- Contract/schema problems: " + str(len(problems)),
+          ]
+
+          if missing_dirs:
+              lines.extend(["", "## Missing directories", ""])
+              lines.extend("- " + path + "/" for path in missing_dirs)
+
+          if missing_files:
+              lines.extend(["", "## Missing files", ""])
+              lines.extend("- " + path for path in missing_files)
+
+          if problems:
+              lines.extend(["", "## Contract problems", ""])
+              lines.extend("- " + problem for problem in problems)
+
+          if incomplete:
+              lines.extend(["", "## Action required", "", "Restore the required path or deliberately update the contract."])
+          else:
+              lines.extend(["", "All required repository paths exist."])
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write("incomplete=" + ("true" if incomplete else "false") + "\n")
+          PY
+
+      - name: Reconcile durable path-contract issue
+        env:
+          INCOMPLETE: ${{ steps.audit.outputs.incomplete }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const title = "[automation] Repository path contract";
+            const incomplete = process.env.INCOMPLETE === "true";
+            const marker = "<!-- rcet-check:repository-path-contract -->";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            if (["pull_request", "pull_request_target"].includes(context.eventName)) {
+              core.info("PR validation run: skipping issue mutation.");
+              return;
+            }
+
+            const repository = await github.rest.repos.get({ owner, repo });
+            const defaultBranch = repository.data.default_branch;
+            const defaultRef = "refs/heads/" + defaultBranch;
+
+            if (context.ref !== defaultRef) {
+              core.info("Non-default branch run: skipping issue mutation.");
+              return;
+            }
+
+            const branch = await github.rest.repos.getBranch({ owner, repo, branch: defaultBranch });
+            const currentHead = branch.data.commit.sha;
+            if (context.sha !== currentHead) {
+              core.info("Stale run: skipping issue mutation.");
+              return;
+            }
+
+            const allIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: "all", per_page: 100 }
+            );
+
+            const matching = allIssues
+              .filter(item => !item.pull_request && ((item.body || "").includes(marker) || item.title === title))
+              .sort((a, b) => a.number - b.number);
+
+            const canonical = matching[0];
+
+            for (const duplicate of matching.slice(1)) {
+              if (duplicate.state === "open") {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: duplicate.number,
+                  state: "closed"
+                });
+              }
+            }
+
+            const staticBody = [
+              marker,
+              "This issue is the durable red/green signal for the automated repository path contract.",
+              "",
+              "Detailed missing-path diagnostics live in the GitHub Actions run summary.",
+              "",
+              "The workflow reopens this same issue on a default-branch regression and closes it automatically when all required paths exist.",
+              "",
+              "The automation does not append per-run comments or rewrite this body on every run."
+            ].join("\n");
+
+            if (incomplete) {
+              if (!canonical) {
+                await github.rest.issues.create({ owner, repo, title, body: staticBody });
+              } else if (canonical.state !== "open") {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: canonical.number,
+                  state: "open"
+                });
+              }
+            } else if (canonical && canonical.state === "open") {
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: canonical.number,
+                state: "closed"
+              });
+            }
+
+      - name: Fail incomplete path contract
+        if: steps.audit.outputs.incomplete == 'true'
+        shell: bash
+        run: |
+          echo "::error::Repository path contract is incomplete. See the job summary."
+          exit 1
