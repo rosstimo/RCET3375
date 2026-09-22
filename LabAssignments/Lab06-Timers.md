@@ -84,7 +84,7 @@ Use the same timer through the required parts unless the instructor approves a c
 - 4 MHz crystal oscillator circuit
 - six LEDs for the two traffic signals
 - current-limiting resistors
-- two digital car-detection inputs for Parts 4
+- two digital car-detection inputs for Part 4
 - one additional train-detection input for optional Mastery
 - oscilloscope
 - frequency counter or logic analyzer, optional
