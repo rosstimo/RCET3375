@@ -690,7 +690,7 @@ MAIN LOOP:
     extract COUNT with a mask
 
     if TRANSITION == 1:
-        if COUNT is not 2:
+        if COUNT is not ONE_SECOND_COUNT:
             repeat MAIN LOOP
 
         toggle DIRECTION
@@ -702,7 +702,7 @@ MAIN LOOP:
 
     ; TRANSITION == 0, so selected direction is green
 
-    if COUNT is not 10:
+    if COUNT is not FIVE_SECOND_COUNT:
         repeat MAIN LOOP
 
     ; 5-second green interval has ended
