@@ -317,10 +317,10 @@ Your lab book must include a PORTC register map and the exact binary/hex value f
 
 | `DIRECTION` | `TRANSITION` | N/S lights | E/W lights | PORTC value |
 | ---: | ---: | --- | --- | --- |
-| 0 | 0 | Green | Red | student documents |
-| 0 | 1 | Yellow | Red | student documents |
-| 1 | 0 | Red | Green | student documents |
-| 1 | 1 | Red | Yellow | student documents |
+| 0 | 0 | Green | Red | bit pattern TBD |
+| 0 | 1 | Yellow | Red | bit pattern TBD |
+| 1 | 0 | Red | Green | bit pattern TBD |
+| 1 | 1 | Red | Yellow | bit pattern TBD |
 
 No other normal traffic-light combination is allowed.
 
@@ -486,10 +486,10 @@ Your lab book must include a PORTB register map and all four instantaneous senso
 
 | N/S sensor | E/W sensor | Meaning | PORTB value |
 | ---: | ---: | --- | --- |
-| 0 | 0 | neither sensor active | student documents |
-| 0 | 1 | E/W sensor active | student documents |
-| 1 | 0 | N/S sensor active | student documents |
-| 1 | 1 | both sensors active | student documents |
+| 0 | 0 | neither sensor active | bit pattern TBD |
+| 0 | 1 | E/W sensor active | bit pattern TBD |
+| 1 | 0 | N/S sensor active | bit pattern TBD |
+| 1 | 1 | both sensors active | bit pattern TBD |
 
 The table above shows logical sensor state. Your actual PORTB bit pattern depends on the pins and active level you select.
 
