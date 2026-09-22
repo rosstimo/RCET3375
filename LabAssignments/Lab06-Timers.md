@@ -74,7 +74,7 @@ Part 1 allows Timer0, Timer1, or Timer2 for the 20 ms measurement exercise.
 
 For Parts 2-4, choose one hardware timer and one periodic interrupt interval for the intersection timing.
 
-Your chosen timer interval must allow both required durations to be represented as whole numbers of timer interrupts while fitting in the four-bit `COUNT` field:
+The `COUNT` field is provided so one periodic timer can generate all required normal intersection durations. Your chosen timer interval must allow both required durations to be represented as whole numbers of timer interrupts while fitting in the four-bit `COUNT` field:
 
 - 1 second for the yellow transition;
 - 5 seconds for the green interval.
@@ -274,7 +274,7 @@ Part 2 has three concrete objectives:
 3. increment a packed `COUNT` field inside `intersection_state` without changing any flags;
 4. decode the flag fields into the four legal traffic-light output patterns.
 
-Part 2 does **not** run the complete automatic intersection sequence yet.
+Use the same selected timer and interrupt interval through Parts 2-4. Part 2 does **not** run the complete automatic intersection sequence yet.
 
 ### Required state register
 
@@ -511,9 +511,9 @@ Prepare:
 ### In the Lab
 
 1. Start with N/S green and COUNT = 0.
-2. Verify N/S remains green until COUNT reaches 10.
+2. Verify N/S remains green until COUNT reaches your calculated `FIVE_SECOND_COUNT`.
 3. Verify the state changes to N/S yellow and COUNT resets.
-4. Verify the yellow transition ends when COUNT reaches 2.
+4. Verify the yellow transition ends when COUNT reaches your calculated `ONE_SECOND_COUNT`.
 5. Verify DIRECTION changes only after the transition finishes.
 6. Repeat the sequence for E/W.
 7. Observe several complete cycles.
@@ -636,7 +636,7 @@ When `COUNT = ONE_SECOND_COUNT`:
 - clear `COUNT`;
 - begin a fresh 5-second green interval.
 
-A car-detection edge may occur while the lights are in transition, but those flags are cleared when the transition finishes. Each green interval therefore starts with a fresh car-detection state.
+A car may be detected while the lights are in transition, but those flags are cleared when the transition finishes. Each green interval therefore starts with a fresh car-detection state.
 
 ### Part 4 pseudocode
 
