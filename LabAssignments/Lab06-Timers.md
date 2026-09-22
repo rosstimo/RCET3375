@@ -4,7 +4,7 @@
 
 [RCET3375 course home](../README.md)
 
-PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | State | PORTB IOC | Traffic Control
+PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB IOC | Traffic Control
 
 ## Contents
 
@@ -13,7 +13,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | State | PORTB IOC | Tr
 - [Equipment and materials](#equipment-materials)
 - [Lab-book documentation](#lab-book-documentation)
 - [Part 1 - 20 ms timer proof of life](#part-1)
-- [Part 2 - One-second timing and intersection state](#part-2)
+- [Part 2 - Packed intersection state](#part-2)
 - [Part 3 - Timed intersection state machine](#part-3)
 - [Part 4 - Car-detection state machine](#part-4)
 - [Part 5 - Mastery: train-crossing override](#part-5)
@@ -22,29 +22,30 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | State | PORTB IOC | Tr
 <a id="purpose"></a>
 ## Purpose
 
-Use a PIC16F883 hardware timer to create a measured 20 ms periodic interrupt, observe exactly how interrupt service affects normal main-loop execution, and then use short interrupt service routines to update state while the main loop decides what the system should do.
+Use PIC16F883 hardware timers and interrupts to build timing that the main program can use without blocking normal execution.
 
-This lab continues the interrupt work from Lab 05. The important change is that interrupts are no longer only external events. A hardware timer becomes a regular source of state updates.
+Part 1 is a focused timer-measurement exercise. You will create and measure a 20 ms periodic interrupt and observe exactly how interrupt service affects main-loop execution.
 
-The final required application is a two-direction traffic intersection. Timing, traffic direction, transition status, and car detections are represented explicitly in software state.
+Parts 2-4 use a different timing problem. A hardware timer interrupt updates a packed count field inside one GPR state register and returns. Main evaluates the count and state flags, then decides what the traffic-light outputs should do.
 
-The architecture for the completed required lab is:
+The required architecture is:
 
 ```text
-hardware timer / PORTB IOC
+timer interrupt / PORTB IOC
         |
         v
 short interrupt service
-updates state and returns
+updates count or event flags
         |
         v
-main loop evaluates state
+main loop evaluates
+packed state register
         |
         v
 PORTC traffic-light outputs
 ```
 
-Parts 1-4 use **pic-as assembly**. Long software delays are not used to create the intersection timing.
+Parts 1-4 use **pic-as assembly**.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -57,9 +58,9 @@ Parts 1-4 use **pic-as assembly**. Long software delays are not used to create t
 - [RCET Flowchart Guide](https://github.com/rosstimo/RCET3371/blob/main/Guides/Flowcharts/RCET-Flowchart-Guide.md)
 - [PIC16F882/883/884/886/887 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
 - [PICmicro Mid-Range MCU Family Reference Manual](https://ww1.microchip.com/downloads/en/DeviceDoc/33023A.pdf)
-- previous RCET3375 lab-book documentation and source for interrupts, context saving, digital I/O, and measurement
+- previous RCET3375 lab-book documentation and source for interrupts, context saving, digital I/O, masking, and measurement
 
-The PIC16F883 data sheet is the authority for the timer you choose, its flag/enable path, PORTB interrupt-on-change behavior, register settings, reset states, and electrical limits.
+The PIC16F883 data sheet is the authority for timer operation, interrupt flags/enables, PORTB interrupt-on-change behavior, register settings, reset states, and electrical limits.
 
 For the course 4 MHz oscillator:
 
@@ -69,9 +70,16 @@ FCY  = FOSC / 4 = 1 MHz
 TCY  = 1 us
 ```
 
-You may use **Timer0, Timer1, or Timer2** for the periodic 20 ms interrupt. Your timer choice, configuration, period boundary, and timing calculations must be fully documented.
+Part 1 allows Timer0, Timer1, or Timer2 for the 20 ms measurement exercise.
 
-Use the same timer through the required parts unless the instructor approves a change.
+Parts 2-4 use **Timer1 with a nominal 500 ms interrupt period**. Derive the required Timer1 configuration and preload. The 500 ms interval gives:
+
+```text
+2 interrupts  = 1 second
+10 interrupts = 5 seconds
+```
+
+This allows the intersection elapsed-time count to fit in four bits.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -85,10 +93,8 @@ Use the same timer through the required parts unless the instructor approves a c
 - six LEDs for the two traffic signals
 - current-limiting resistors
 - two digital car-detection inputs for Part 4
-- one additional train-detection input for optional Mastery
 - oscilloscope
 - frequency counter or logic analyzer, optional
-- a method for producing and verifying a 20 ms digital car-detection pulse
 - breadboard, jumpers, and interface components as required
 - lab book
 
@@ -103,18 +109,18 @@ Follow the [RCET3375 Lab Standard](../LAB_STANDARD.md). Reference earlier comple
 
 For this assignment also include:
 
-- timer selection and justification;
-- the complete timing chain from the 4 MHz oscillator to the 20 ms interrupt;
+- Part 1 timer selection and complete 20 ms timing calculation;
+- Part 2 Timer1 500 ms calculation and preload;
 - complete documentation for each newly used timer/interrupt SFR and relevant bit;
-- the exact definition of the beginning of a timer period for your chosen timer;
+- the exact definition of the beginning of a timer period in Part 1;
 - instruction-cycle analysis between that timer-period boundary and the Part 1 diagnostic rising edge;
-- the required `intersection_state` GPR register map;
+- the required packed `intersection_state` GPR register map;
+- masks and packed-field operations used to read, increment, test, clear, and write back `COUNT` without changing the flags;
 - a complete PORTC traffic-light bit map and all four legal normal traffic-light output patterns;
-- a complete PORTB car-detection input map and all four car-detection input combinations;
+- a complete PORTB car-detection input map and edge definitions;
 - state-machine flowcharts;
 - predicted and measured timing;
-- evidence that a car can be detected anywhere in the normal timing cycle even if its active pulse lasts only 20 ms;
-- documentation of measurement difficulties and justified changes made to obtain a valid measurement;
+- documentation of measurement difficulties and justified changes made to obtain valid measurements;
 - the GitHub URL for the assignment repository.
 
 A car-detection flag means **a car was detected during the current decision window**. It is not a car counter. Detecting another car in the same direction before the flag is cleared does not increment anything; the flag simply remains set.
@@ -130,6 +136,8 @@ Configure one PIC16F883 hardware timer to generate a periodic interrupt every **
 
 Use two diagnostic PORTA outputs to measure both the timer interrupt and the effect of the interrupt on main-loop execution.
 
+**The 20 ms interval is used only in Part 1.** Parts 2-4 use a different timer configuration.
+
 ### Required diagnostic signals
 
 Choose two available digital PORTA outputs and document them.
@@ -142,11 +150,11 @@ For every timer interrupt:
 2. drive the timer diagnostic output HIGH;
 3. drive it LOW on the immediately following instruction.
 
-The pulse should therefore be as short as practical. The two output instructions should be adjacent, equivalent to:
+The pulse should be as short as practical. The two output instructions should be adjacent, equivalent to:
 
 ```text
-set timer diagnostic bit
-clear timer diagnostic bit
+BSF PORTA,x
+BCF PORTA,x
 ```
 
 This produces one short diagnostic pulse every 20 ms.
@@ -187,7 +195,7 @@ Do not assume the GPIO edge and the hardware timer event occur at the same insta
 - A second PORTA diagnostic bit toggling continuously in main.
 - Correct interrupt context save/restore.
 - Correct timer flag service and reload/configuration behavior.
-- No software-delay loop used to generate the 20 ms period.
+- No software-delay loop used to generate the timer period.
 - Main resumes normally after every timer interrupt.
 
 ### Before Lab
@@ -209,7 +217,7 @@ Prepare:
 1. Verify the main-loop diagnostic signal before enabling the timer interrupt.
 2. Enable the timer and verify one timer diagnostic pulse every 20 ms.
 3. Display both PORTA diagnostic signals on the oscilloscope.
-4. Observe where the timer interrupt disturbs the otherwise continuous main-loop diagnostic activity.
+4. Observe where timer interrupt service disturbs the otherwise continuous main-loop diagnostic activity.
 5. Measure the timer diagnostic pulse spacing.
 6. Compare measured timing with the predicted 20 ms period.
 7. Compare the observed diagnostic rising edge with your calculated timer-period boundary.
@@ -233,10 +241,10 @@ Include or reference:
 - main/ISR flowchart;
 - final source;
 - scope capture showing the short timer diagnostic pulse;
-- scope capture showing the main-loop diagnostic interrupted by timer service;
+- scope capture showing main execution interrupted by timer service;
 - measured 20 ms period;
 - predicted versus measured timing;
-- instruction-cycle calculation for the diagnostic rising-edge lead/lag;
+- instruction-cycle calculation for diagnostic rising-edge lead/lag;
 - measurement difficulties and any justified test modifications;
 - troubleshooting record.
 
@@ -253,29 +261,23 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-2"></a>
-## Part 2 - One-Second Timing and Intersection State
+## Part 2 - Packed Intersection State
 
 ### Goal
 
-Convert the 20 ms periodic timer event into a 1-second timing basis, create the traffic-light hardware on PORTC, and represent the intersection's operating state in one GPR.
+Build the state byte and timer-count mechanism that the complete intersection will use.
 
-### One-second timing basis
+Part 2 has three concrete objectives:
 
-Use the 20 ms timer interrupt to count elapsed time.
+1. reconfigure Timer1 for a nominal 500 ms interrupt;
+2. increment a packed `COUNT` field inside `intersection_state` without changing any flags;
+3. decode the flag fields into the four legal traffic-light output patterns.
 
-```text
-50 timer events x 20 ms = 1 second
-```
-
-The timer ISR should remain short. When 50 timer events have occurred, the ISR sets the `SECOND_EVENT` bit in `intersection_state` and returns.
-
-Main detects `SECOND_EVENT`, performs the required one-second work, then clears the flag.
-
-Use a separate GPR such as `tick_count` for the 0-49 timer-event count.
+Part 2 does **not** run the complete automatic intersection sequence yet.
 
 ### Required state register
 
-Use one GPR named `intersection_state` for the intersection flags.
+Use one GPR named `intersection_state`.
 
 Choose and document its GPR address.
 
@@ -283,22 +285,71 @@ Use this register map:
 
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Name | Reserved | Reserved | `TRAIN_ACTIVE` | `SECOND_EVENT` | `TRANSITION` | `EW_DETECTED` | `NS_DETECTED` | `DIRECTION` |
+| Name | COUNT3 | COUNT2 | COUNT1 | COUNT0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
 
-### Bit definitions
+The upper nibble is a 4-bit unsigned count from 0 through 15.
 
-| Bit | Meaning |
+The lower nibble contains the intersection flags.
+
+### Flag definitions
+
+| Field | Meaning |
 | --- | --- |
-| `DIRECTION` | 0 = N/S is the active direction; 1 = E/W is the active direction |
-| `NS_DETECTED` | a car has been detected in the N/S direction during the current decision window |
-| `EW_DETECTED` | a car has been detected in the E/W direction during the current decision window |
-| `TRANSITION` | 0 = active direction is green; 1 = active direction is in its 1-second yellow transition |
-| `SECOND_EVENT` | set by timer service every 1 second; main clears it after processing |
-| `TRAIN_ACTIVE` | reserved for optional Part 5 Mastery |
+| `COUNT[3:0]` | number of 500 ms Timer1 interrupts since the current timed state began |
+| `DIRECTION` | 0 = N/S direction; 1 = E/W direction |
+| `NS_DETECTED` | a car-detection event has been latched for N/S |
+| `EW_DETECTED` | a car-detection event has been latched for E/W |
+| `TRANSITION` | 0 = selected direction is green; 1 = selected direction is yellow |
 
-During normal Parts 2-4, keep `TRAIN_ACTIVE` clear.
+Keep `NS_DETECTED` and `EW_DETECTED` clear in Parts 2 and 3.
 
-When `TRANSITION = 1`, `DIRECTION` identifies the direction currently displaying yellow. At the end of the transition, main toggles `DIRECTION` and clears `TRANSITION`.
+When `TRANSITION = 1`, `DIRECTION` identifies the direction currently displaying yellow. The opposite direction remains red.
+
+### Packed count operation
+
+Every Timer1 interrupt increments only the upper-nibble `COUNT` field.
+
+The ISR must preserve all four lower-nibble flags.
+
+Use the packed-field process practiced in class:
+
+```text
+grab state byte
+-> mask/extract COUNT
+-> increment COUNT
+-> test COUNT as needed
+-> mask COUNT to four bits
+-> pack COUNT back into its bit positions
+-> preserve the flag bits
+-> write the combined byte back
+```
+
+Document the masks used for:
+
+- extracting `COUNT`;
+- preserving the flags;
+- packing the updated count back into `intersection_state`.
+
+The count values used later are:
+
+| Elapsed time | COUNT |
+| --- | ---: |
+| 1 second | 2 |
+| 5 seconds | 10 |
+
+The ISR does not decide what the traffic light should do. It only services Timer1 and increments `COUNT`.
+
+### Shared-byte safety
+
+The ISR and main both use `intersection_state`.
+
+The ISR may use a multi-instruction read/mask/modify/write sequence to update `COUNT`. Main may also need to clear `COUNT` while preserving the flags.
+
+Do not allow an interrupt to occur in the middle of a main-loop multi-instruction operation that rewrites the packed byte. Protect those short critical sections so a timer increment or flag change is not accidentally lost.
+
+Single-instruction bit set/clear operations on flag bits do not require the same multi-instruction packed-field sequence.
+
+Document how your design protects the packed state byte.
 
 ### PORTC traffic-light outputs
 
@@ -315,7 +366,7 @@ You choose and document the six PORTC bit assignments unless the instructor assi
 
 Your lab book must include a PORTC register map and the exact binary/hex value for each legal normal traffic-light state:
 
-| `DIRECTION` | `TRANSITION` | N/S lights | E/W lights | PORTC value |
+| DIRECTION | TRANSITION | N/S lights | E/W lights | PORTC value |
 | ---: | ---: | --- | --- | --- |
 | 0 | 0 | Green | Red | bit pattern TBD |
 | 0 | 1 | Yellow | Red | bit pattern TBD |
@@ -324,48 +375,73 @@ Your lab book must include a PORTC register map and the exact binary/hex value f
 
 No other normal traffic-light combination is allowed.
 
+### Required behavior
+
+- Timer1 requests an interrupt every 500 ms nominal.
+- Timer1 service increments only `COUNT`.
+- The four flag bits are unchanged by the count update.
+- Main can extract and test `COUNT`.
+- Main can clear `COUNT` without disturbing the flags.
+- Main can decode `DIRECTION` and `TRANSITION` into all four legal PORTC patterns.
+- No car-detection logic is used yet.
+
 ### Before Lab
 
 Prepare:
 
-- 1-second timing calculation;
-- `tick_count` documentation;
-- the complete `intersection_state` register map;
+- Timer1 500 ms calculation and preload;
+- `intersection_state` GPR documentation;
+- masks for COUNT and flags;
+- pseudocode or flowchart for packed count increment;
+- method for safely clearing COUNT from main;
 - six-LED PORTC schematic and loading analysis;
 - PORTC bit assignments;
 - completed four-state PORTC value table;
-- source code for timer event accumulation and state-to-output decoding.
+- source code.
 
 ### In the Lab
 
-1. Verify the 20 ms timer interrupt remains accurate.
-2. Verify `SECOND_EVENT` occurs once per second.
-3. Verify main observes and clears `SECOND_EVENT`.
-4. Verify all four legal PORTC traffic-light states individually.
-5. Confirm that changing `DIRECTION` and `TRANSITION` produces the expected light pattern.
-6. Confirm no output decoding produces conflicting green indications.
+1. Verify Timer1 interrupts at the expected 500 ms interval.
+2. Observe `COUNT` increment through several values.
+3. Set different lower-nibble flag patterns and prove the timer ISR leaves them unchanged while incrementing `COUNT`.
+4. Clear `COUNT` from main and prove the flags remain unchanged.
+5. Verify COUNT = 2 corresponds to 1 second.
+6. Verify COUNT = 10 corresponds to 5 seconds.
+7. Demonstrate all four legal traffic-light output states.
+8. Confirm no legal state creates conflicting green outputs.
 
 ### Evidence
 
 Include or reference:
 
-- timing calculation;
-- `intersection_state` register map;
+- Timer1 calculation;
+- packed state-register map;
+- masks and packed-field algorithm;
+- evidence that COUNT changes without changing flags;
+- evidence that COUNT can be cleared without changing flags;
 - PORTC map and four legal output values;
+- measured 500 ms timer interval;
+- measured COUNT = 2 and COUNT = 10 timing;
 - final source;
-- measured 1-second timing;
-- evidence for all four legal traffic-light states;
 - troubleshooting record.
 
 ### Demonstrate
 
-Show the one-second event and all four legal traffic-light states.
+Show the packed state byte changing over time while the lower-nibble flags remain intact.
 
-Be prepared to explain why the state is stored separately from the physical output value on PORTC.
+Then demonstrate all four legal traffic-light states by changing only the state flags.
+
+Be prepared to explain:
+
+- how COUNT is extracted;
+- how it is incremented;
+- how it is tested;
+- how it is packed back into the state byte;
+- how the flags are preserved.
 
 ### Complete When
 
-Part 2 is complete when the timer creates a reliable 1-second event, the state register follows the required map, and main can decode `DIRECTION` and `TRANSITION` into all four correct PORTC traffic-light states.
+Part 2 is complete when the packed count works reliably, COUNT = 2 represents one second, COUNT = 10 represents five seconds, and main can decode the flag fields into all four legal traffic-light states.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -374,9 +450,9 @@ Part 2 is complete when the timer creates a reliable 1-second event, the state r
 
 ### Goal
 
-Use the state representation from Part 2 to operate the intersection continuously without car detection.
+Use the packed `COUNT`, `DIRECTION`, and `TRANSITION` fields from Part 2 to operate the intersection continuously without car-detection logic.
 
-The active direction remains green for 5 seconds. The yellow transition lasts 1 second.
+The selected direction remains green for 5 seconds. The transition lasts 1 second.
 
 ### Required timing
 
@@ -390,75 +466,83 @@ N/S red, E/W yellow      1 second
 repeat
 ```
 
-Use the 1-second event from Part 2 as the basis for all intersection timing.
+Main evaluates `COUNT` and the state flags.
 
-Use a GPR such as `state_seconds` to track the number of one-second events elapsed in the current green or transition state.
+Timer1 continues to increment COUNT every 500 ms.
 
 ### State-machine rules
 
 When `TRANSITION = 0`:
 
-- the direction selected by `DIRECTION` is green;
-- count 5 one-second events;
-- after the fifth second, set `TRANSITION`;
-- reset `state_seconds`.
+1. the direction selected by `DIRECTION` is green;
+2. main keeps evaluating `COUNT`;
+3. when `COUNT = 10`:
+   - set `TRANSITION`;
+   - clear `COUNT`;
+   - leave `DIRECTION` unchanged.
 
 When `TRANSITION = 1`:
 
-- the direction selected by `DIRECTION` is yellow;
-- the opposite direction remains red;
-- count 1 one-second event;
-- after that second:
-  - toggle `DIRECTION`;
-  - clear `TRANSITION`;
-  - reset `state_seconds`.
+1. the direction selected by `DIRECTION` is yellow;
+2. main keeps evaluating `COUNT`;
+3. when `COUNT = 2`:
+   - toggle `DIRECTION`;
+   - clear `TRANSITION`;
+   - clear `NS_DETECTED` and `EW_DETECTED`;
+   - clear `COUNT`;
+   - begin a fresh 5-second green interval.
 
-The timer ISR updates timing state and returns. Main evaluates the state and applies the appropriate traffic-light output.
+There is no state evaluation at the end of the 1-second transition. The transition simply finishes.
 
-Do not wait inside the ISR for 1 or 5 seconds.
+The timer ISR never decides whether the light should be green or yellow. It only updates COUNT.
 
 ### Before Lab
 
 Prepare:
 
-- complete state-machine flowchart;
-- `state_seconds` documentation;
+- complete main state-machine flowchart;
 - source code;
-- predicted sequence and timing;
-- any updates to the PORTC state table.
+- packed-field operations used to test and clear COUNT;
+- expected traffic sequence;
+- expected measured state durations.
 
 ### In the Lab
 
-1. Start with N/S green.
-2. Verify a 5-second N/S green interval.
-3. Verify the 1-second N/S yellow transition.
-4. Verify a 5-second E/W green interval.
-5. Verify the 1-second E/W yellow transition.
-6. Observe several complete cycles.
-7. Measure at least one 5-second interval and one 1-second interval.
-8. Verify that no state change creates conflicting green outputs.
+1. Start with N/S green and COUNT = 0.
+2. Verify N/S remains green until COUNT reaches 10.
+3. Verify the state changes to N/S yellow and COUNT resets.
+4. Verify the yellow transition ends when COUNT reaches 2.
+5. Verify DIRECTION changes only after the transition finishes.
+6. Repeat the sequence for E/W.
+7. Observe several complete cycles.
+8. Measure at least one 5-second interval and one 1-second interval.
+9. Verify that no state change creates conflicting green outputs.
 
 ### Evidence
 
 Include or reference:
 
-- state-machine flowchart;
-- state/state-timing GPR documentation;
+- main state-machine flowchart;
 - final source;
+- COUNT/state traces or observations through at least one complete cycle;
 - measured 5-second green interval;
 - measured 1-second yellow interval;
-- observed complete sequence;
 - troubleshooting record.
 
 ### Demonstrate
 
 Show continuous normal intersection timing with no car-detection inputs.
 
-Be prepared to explain what every used bit in `intersection_state` means and how main decides what PORTC should display.
+Be prepared to explain:
+
+- why COUNT is part of the state byte;
+- why the ISR increments COUNT but main evaluates it;
+- why COUNT is reset at each state boundary;
+- why DIRECTION does not change until the 1-second transition finishes.
 
 ### Complete When
 
-Part 3 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing and no invalid traffic-light state.
+Part 3 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the packed COUNT field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -469,86 +553,104 @@ Part 3 is complete when the intersection alternates indefinitely with accurate 5
 
 Add two PORTB interrupt-on-change car-detection sensors to the Part 3 intersection.
 
-A car can be detected at any time. It may be passing through the sensor rather than waiting at the intersection.
+A car-detection event can occur at any point during a normal 5-second green interval. A car may be passing through the detection point rather than waiting at the intersection.
 
-The system records whether at least one car was detected in each direction during the current decision window. It does **not** count cars.
+The system records whether at least one detection event occurred in each direction during the current 5-second decision window. It does **not** count cars.
 
 ### PORTB car-detection inputs
 
 Use PORTB interrupt-on-change for both required car-detection sensors.
 
-Document the exact PORTB bits and active logic level used for:
+Document:
 
-- N/S car detection;
-- E/W car detection.
+- the PORTB bit used for N/S detection;
+- the PORTB bit used for E/W detection;
+- which edge represents a car-detection event for each sensor;
+- the previous/current input transition that identifies that triggered edge.
 
-Your lab book must include a PORTB register map and all four instantaneous sensor combinations:
+PORTB IOC responds to input changes. Treat car detection as an **edge event**, not as an input level.
 
-| N/S sensor | E/W sensor | Meaning | PORTB value |
-| ---: | ---: | --- | --- |
-| 0 | 0 | neither sensor active | bit pattern TBD |
-| 0 | 1 | E/W sensor active | bit pattern TBD |
-| 1 | 0 | N/S sensor active | bit pattern TBD |
-| 1 | 1 | both sensors active | bit pattern TBD |
-
-The table above shows logical sensor state. Your actual PORTB bit pattern depends on the pins and active level you select.
+Your software must retain enough previous input information, or use an equivalent method, to determine whether the selected N/S or E/W detection edge was triggered.
 
 ### Detection-latch behavior
 
-The IOC service must read PORTB as required to resolve the mismatch/change condition.
+When the selected N/S detection edge is triggered:
 
-When an active car-detection level is observed:
+- set `NS_DETECTED`.
 
-- N/S detection sets `NS_DETECTED`;
-- E/W detection sets `EW_DETECTED`.
+When the selected E/W detection edge is triggered:
 
-An inactive edge must **not** clear a latched car-detection flag.
+- set `EW_DETECTED`.
 
-The flag remains set until the end-of-green evaluation in main.
+The opposite edge does not clear the latched flag.
+
+Once set, a detection flag remains set until main reaches the appropriate state boundary and clears it.
 
 Therefore:
 
-- a short pulse can end long before the 5-second interval ends and still be remembered;
+- the physical sensor event may end before the 5-second interval ends and still be remembered;
 - repeated detections in the same direction do not count additional cars;
 - the flag simply remains set.
 
-### Required 20 ms detection capability
-
-A car-detection pulse may occur anywhere during normal operation and may be active for only **20 ms**.
-
-You must provide sufficient measurement evidence that there is no point in the normal timing cycle where such a pulse can occur without being detected.
-
-The 20 ms requirement is a detection requirement, not a polling interval.
-
 ### End-of-green decision logic
 
-At the end of each 5-second green interval, main evaluates the two latched car-detection flags.
+At the end of each 5-second green interval, when `COUNT = 10`, main evaluates `DIRECTION`, `NS_DETECTED`, and `EW_DETECTED`.
 
 The rule is:
 
-> Stay in the current direction only when the current direction is the **only** direction in which a car was detected. Otherwise, transition to the opposite direction.
+> Stay in the current direction only when the current direction is the only direction in which a car was detected. Otherwise, begin the transition to the opposite direction.
 
 For N/S green:
 
 | N/S detected | E/W detected | Action |
 | ---: | ---: | --- |
 | 1 | 0 | remain N/S for a fresh 5 seconds |
-| 0 | 1 | transition to E/W |
-| 1 | 1 | transition to E/W |
-| 0 | 0 | transition to E/W |
+| 0 | 1 | begin N/S yellow transition |
+| 1 | 1 | begin N/S yellow transition |
+| 0 | 0 | begin N/S yellow transition |
 
 For E/W green:
 
 | N/S detected | E/W detected | Action |
 | ---: | ---: | --- |
 | 0 | 1 | remain E/W for a fresh 5 seconds |
-| 1 | 0 | transition to N/S |
-| 1 | 1 | transition to N/S |
-| 0 | 0 | transition to N/S |
+| 1 | 0 | begin E/W yellow transition |
+| 1 | 1 | begin E/W yellow transition |
+| 0 | 0 | begin E/W yellow transition |
 
-After the end-of-green evaluation, clear both `NS_DETECTED` and `EW_DETECTED`.
+After the end-of-green evaluation:
 
-Any new detection after that clear, including a detection during the 1-second yellow transition, belongs to the next decision window and must remain latched until the next end-of-green evaluation.
+- clear `NS_DETECTED`;
+- clear `EW_DETECTED`;
+- clear `COUNT`.
+
+If the result is a transition:
+
+- set `TRANSITION`;
+- leave `DIRECTION` unchanged until the transition finishes.
+
+If the current direction remains green:
+
+- leave `TRANSITION` clear;
+- begin a fresh 5-second interval with COUNT = 0 and fresh car-detection flags.
+
+### Transition behavior
+
+While `TRANSITION = 1`:
+
+- the selected direction remains yellow;
+- no car-state decision is made;
+- Timer1 continues to increment COUNT.
+
+When `COUNT = 2`:
+
+- toggle `DIRECTION`;
+- clear `TRANSITION`;
+- clear `NS_DETECTED` and `EW_DETECTED`;
+- clear `COUNT`;
+- begin a fresh 5-second green interval.
+
+A car-detection edge may occur while the lights are in transition, but those flags are cleared when the transition finishes. Each green interval therefore starts with a fresh car-detection state.
 
 ### Part 4 pseudocode
 
@@ -556,69 +658,72 @@ The following pseudocode defines the required control behavior. Translate the be
 
 ```text
 SETUP:
-    configure timer for 20 ms interrupt
+    configure Timer1 for 500 ms interrupts
     configure PORTB IOC car sensors
     configure PORTC traffic outputs
-    configure PORTA diagnostic outputs
-    clear tick_count
-    clear state_seconds
+
     clear intersection_state
+    previous_portb = read PORTB
+
     DIRECTION = N/S
     TRANSITION = 0
+    COUNT = 0
+
     apply traffic outputs from intersection_state
     enable interrupts
 
 COMMON ISR:
     save context
 
-    if timer interrupt flag is set:
-        service/clear timer flag as required
-        create short timer diagnostic pulse
-        tick_count = tick_count + 1
+    if Timer1 interrupt flag is set:
+        service/reload/clear Timer1 as required
 
-        if tick_count == 50:
-            tick_count = 0
-            set SECOND_EVENT
+        grab intersection_state
+        extract COUNT with a mask
+        increment COUNT
+        mask COUNT to four bits
+        pack COUNT back into bits 7:4
+        preserve bits 3:0
+        write intersection_state
 
     if PORTB IOC flag is set:
-        sensor_sample = read PORTB
+        current_portb = read PORTB
+        changed_bits = current_portb XOR previous_portb
 
-        if N/S car sensor is active:
-            set NS_DETECTED
+        if N/S sensor bit changed:
+            if selected N/S detection edge was triggered:
+                set NS_DETECTED
 
-        if E/W car sensor is active:
-            set EW_DETECTED
+        if E/W sensor bit changed:
+            if selected E/W detection edge was triggered:
+                set EW_DETECTED
 
+        previous_portb = current_portb
         resolve/clear IOC condition correctly
 
     restore context
     return from interrupt
 
 MAIN LOOP:
-    toggle main diagnostic output
+    apply traffic outputs from intersection_state
 
-    if SECOND_EVENT is clear:
-        apply traffic outputs from intersection_state
-        repeat MAIN LOOP
-
-    clear SECOND_EVENT
-    state_seconds = state_seconds + 1
+    grab intersection_state
+    extract COUNT with a mask
 
     if TRANSITION == 1:
-        if state_seconds < 1:
-            apply traffic outputs
+        if COUNT is not 2:
             repeat MAIN LOOP
 
         toggle DIRECTION
         clear TRANSITION
-        state_seconds = 0
-        apply traffic outputs
+        clear NS_DETECTED
+        clear EW_DETECTED
+        clear COUNT while preserving flags
         repeat MAIN LOOP
 
-    ; TRANSITION == 0, so current direction is green
+    ; TRANSITION == 0, so selected direction is green
 
-    if state_seconds < 5:
-        apply traffic outputs
+    if COUNT is not 10:
         repeat MAIN LOOP
 
     ; 5-second green interval has ended
@@ -637,14 +742,13 @@ MAIN LOOP:
 
     clear NS_DETECTED
     clear EW_DETECTED
-    state_seconds = 0
+    clear COUNT while preserving flags
 
     if stay_current_direction == true:
         clear TRANSITION
     else:
         set TRANSITION
 
-    apply traffic outputs
     repeat MAIN LOOP
 ```
 
@@ -653,57 +757,59 @@ MAIN LOOP:
 ```mermaid
 flowchart TD
     A[Interrupt vector] --> B[Save context]
-    B --> C{Timer flag set?}
-    C -- Yes --> D[Service timer flag and create short timer diagnostic pulse]
-    D --> E[Increment tick_count]
-    E --> F{tick_count = 50?}
-    F -- Yes --> G[Reset tick_count and set SECOND_EVENT]
-    F -- No --> H{PORTB IOC flag set?}
-    G --> H
+    B --> C{Timer1 interrupt?}
+    C -- Yes --> D[Service Timer1]
+    D --> E[Grab and mask COUNT]
+    E --> F[Increment COUNT]
+    F --> G[Pack COUNT back while preserving flags]
+    G --> H{PORTB IOC?}
     C -- No --> H
-    H -- Yes --> I[Read PORTB to resolve current sensor levels]
-    I --> J{N/S sensor active?}
-    J -- Yes --> K[Set NS_DETECTED]
-    J -- No --> L{E/W sensor active?}
-    K --> L
-    L -- Yes --> M[Set EW_DETECTED]
-    L -- No --> N[Resolve mismatch and clear IOC condition]
-    M --> N
-    H -- No --> O[Restore context]
+
+    H -- Yes --> I[Read current PORTB]
+    I --> J[Compare current sample with previous sample]
+    J --> K{N/S detection edge triggered?}
+    K -- Yes --> L[Set NS_DETECTED]
+    K -- No --> M{E/W detection edge triggered?}
+    L --> M
+    M -- Yes --> N[Set EW_DETECTED]
+    M -- No --> O[Store current PORTB as previous sample]
     N --> O
-    O --> P[RETFIE]
+    O --> P[Resolve and clear IOC condition]
+    P --> Q[Restore context]
+    H -- No --> Q
+    Q --> R[RETFIE]
 ```
 
 ### Part 4 flowchart - main state machine
 
 ```mermaid
 flowchart TD
-    A[Main loop] --> B[Toggle main diagnostic output]
-    B --> C{SECOND_EVENT set?}
-    C -- No --> Z[Apply outputs from state] --> A
-    C -- Yes --> D[Clear SECOND_EVENT and increment state_seconds]
-    D --> E{TRANSITION set?}
+    A[Main loop] --> B[Apply outputs from state]
+    B --> C[Extract COUNT from packed state]
+    C --> D{TRANSITION set?}
 
-    E -- Yes --> F{1 second complete?}
-    F -- No --> Z
-    F -- Yes --> G[Toggle DIRECTION, clear TRANSITION, reset state_seconds]
-    G --> Z
+    D -- Yes --> E{COUNT = 2?}
+    E -- No --> A
+    E -- Yes --> F[Toggle DIRECTION]
+    F --> G[Clear TRANSITION and both detection flags]
+    G --> H[Clear COUNT while preserving flags]
+    H --> A
 
-    E -- No --> H{5 seconds complete?}
-    H -- No --> Z
-    H -- Yes --> I{Current direction is N/S?}
+    D -- No --> I{COUNT = 10?}
+    I -- No --> A
+    I -- Yes --> J{Current direction?}
 
-    I -- Yes --> J{NS_DETECTED = 1 and EW_DETECTED = 0?}
-    I -- No --> K{EW_DETECTED = 1 and NS_DETECTED = 0?}
+    J -- N/S --> K{NS only detected?}
+    J -- E/W --> L{EW only detected?}
 
-    J -- Yes --> L[Stay current direction]
-    J -- No --> M[Set TRANSITION]
-    K -- Yes --> L
-    K -- No --> M
+    K -- Yes --> M[Stay current direction]
+    K -- No --> N[Set TRANSITION]
+    L -- Yes --> M
+    L -- No --> N
 
-    L --> N[Clear both car flags and reset state_seconds]
-    M --> N
-    N --> Z
+    M --> O[Clear detection flags and COUNT]
+    N --> O
+    O --> A
 ```
 
 ### Before Lab
@@ -713,63 +819,64 @@ Prepare:
 - PORTB IOC schematic;
 - loading/electrical analysis;
 - PORTB sensor register map;
-- all four sensor combinations;
+- selected detection edge for each sensor;
+- previous/current transition table used to identify the triggered edge;
 - IOC SFR documentation;
-- completed Part 4 pseudocode review in your lab book;
+- Part 4 pseudocode review in your lab book;
 - Part 4 flowcharts;
 - source code;
-- a test method for a measured 20 ms sensor pulse;
-- expected results for every end-of-green decision case.
+- expected result for every end-of-green decision case.
 
 ### In the Lab
 
-1. Verify N/S sensor IOC independently.
-2. Verify E/W sensor IOC independently.
-3. Confirm a detection flag remains set after the physical sensor pulse ends.
-4. Confirm repeated detections in the same direction do not count additional cars.
-5. Demonstrate N/S-only detection while N/S is green and verify the intersection remains N/S for a fresh 5 seconds.
-6. Demonstrate E/W-only detection while N/S is green and verify a transition occurs.
-7. Demonstrate both detections while N/S is green and verify a transition occurs.
-8. Demonstrate no detections while N/S is green and verify a transition occurs.
-9. Repeat the equivalent cases with E/W green.
-10. Apply a measured 20 ms car-detection pulse at several points within a 5-second interval.
-11. Apply a 20 ms pulse during the yellow transition and verify it is retained for the next decision window.
-12. Stress the system with timer and IOC events occurring close together.
-13. Verify no test creates conflicting green indications.
+1. Verify the N/S detection edge independently.
+2. Verify the E/W detection edge independently.
+3. Verify the opposite edge does not clear a latched detection flag.
+4. Confirm a detection flag remains set after the physical detection event ends.
+5. Confirm repeated detections in the same direction do not count additional cars.
+6. Demonstrate N/S-only detection while N/S is green and verify the intersection remains N/S for a fresh 5 seconds.
+7. Demonstrate E/W-only detection while N/S is green and verify a transition occurs.
+8. Demonstrate both detections while N/S is green and verify a transition occurs.
+9. Demonstrate no detections while N/S is green and verify a transition occurs.
+10. Repeat the equivalent cases with E/W green.
+11. Trigger detections at several different points within the 5-second green interval and verify they are retained until evaluation.
+12. Trigger detections during the yellow transition and verify the next green interval still begins with cleared detection flags.
+13. Stress the design with Timer1 and IOC interrupts occurring close together.
+14. Verify no test creates conflicting green indications.
 
 ### Evidence
 
 Include or reference:
 
 - PORTB sensor schematic and register map;
-- all four PORTB sensor states;
-- IOC and timer SFR documentation;
+- sensor edge/transition table;
+- IOC and Timer1 SFR documentation;
 - final source;
 - final state-machine flowcharts;
 - evidence for all end-of-green decision cases;
-- oscilloscope evidence of the 20 ms detection pulse;
-- evidence that 20 ms detections are retained even when the physical input is no longer active;
-- evidence for detection during the yellow transition;
+- evidence that detection events remain latched after the physical edge event;
+- evidence that a new green interval begins with fresh detection state;
 - measured 5-second and 1-second intersection timing;
 - troubleshooting record.
 
 ### Demonstrate
 
-The instructor may create car detections in either direction at arbitrary times.
+The instructor may trigger car-detection events in either direction at arbitrary times.
 
 Be prepared to explain:
 
-- why IOC is used instead of relying on polling;
-- why an inactive sensor edge does not clear a latched detection;
-- when both detection flags are cleared;
+- why IOC detection is edge based;
+- how your software determines which edge was triggered;
+- why the opposite edge does not clear a latched detection;
+- when both car-detection flags are cleared;
 - why repeated detections are not car counts;
-- why the system remains in the current direction only when that direction is the only one detected;
-- how detections during the transition become part of the next decision window;
-- why the ISR updates state quickly and leaves decisions to main.
+- why the system remains in the current direction only when that direction is the only direction detected;
+- why transition completion does not perform another car-state decision;
+- why the timer ISR increments COUNT but leaves the traffic decision to main.
 
 ### Complete When
 
-Part 4 is complete when the intersection responds correctly to every required detection combination, captures a 20 ms detection anywhere in normal operation, preserves safe traffic-light states, and the demonstrated behavior matches the provided pseudocode and flowcharts.
+Part 4 is complete when the intersection responds correctly to every required detection combination, preserves the packed state fields correctly, follows the required 5-second/1-second timing, and never produces a conflicting traffic-light state.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -782,105 +889,104 @@ Part 4 is complete when the intersection responds correctly to every required de
 
 ### Goal
 
-Add a train-detection input that temporarily overrides normal intersection operation.
+Add a train-crossing override to the completed Part 4 intersection.
 
-While a train is detected, both traffic directions continuously flash between yellow and red every 0.5 seconds.
+When a train is detected:
 
-When the train is no longer detected, normal intersection operation resumes with the direction that was active before the train event.
-
-### Required behavior
-
-Use another PORTB interrupt-on-change sensor for train detection.
-
-`TRAIN_ACTIVE` in `intersection_state` represents the current train-sensor condition.
-
-Unlike the car-detection bits, `TRAIN_ACTIVE` is not a latched "was detected" event. It represents whether the train input is currently active.
-
-When a train becomes active:
-
-- set `TRAIN_ACTIVE` quickly in interrupt service;
-- preserve `DIRECTION`;
-- normal car-based intersection decisions are suspended;
-- both directions immediately leave normal green/yellow operation;
-- both directions display yellow for 0.5 seconds;
-- both directions display red for 0.5 seconds;
-- continue alternating yellow/red every 0.5 seconds for as long as the train remains detected.
-
-Use the existing 20 ms timer:
-
-```text
-25 timer events x 20 ms = 0.5 second
-```
-
-The train flashing must not use a blocking delay.
+- both traffic directions immediately leave normal operation;
+- both directions continuously alternate between yellow and red every 0.5 seconds;
+- flashing continues for as long as the train is present.
 
 When the train is no longer detected:
 
-- clear `TRAIN_ACTIVE`;
-- stop the train flashing sequence;
-- keep the same `DIRECTION` value that was active before the train override;
-- clear `TRANSITION`;
-- clear `NS_DETECTED` and `EW_DETECTED`;
-- reset intersection timing;
-- resume the preserved direction as green for a **fresh 5-second interval**;
-- begin with a **fresh car-detection state**.
+- normal intersection operation resumes;
+- the direction that was active before the train event resumes green;
+- that direction receives a fresh 5-second interval;
+- car-detection state starts fresh.
 
-If the train is detected while a yellow transition is in progress, the stored `DIRECTION` value still identifies the direction that was active before the transition completed. That direction is the one resumed after the train clears.
+### Design freedom
 
-Car detections that occur during the train override do not need to be retained because normal operation explicitly resumes with fresh car-detection state.
+The required **behavior** is fixed, but the implementation is yours.
+
+You may choose:
+
+- interrupt-driven or polled train detection;
+- timer-based or inline-delay flashing;
+- additional GPR state or a different state representation for the train override;
+- how you preserve the pre-train direction;
+- how you determine that the train is no longer present.
+
+The Part 4 implementation must continue to work correctly before and after the override.
+
+Document and justify the design choices you make. Your justification should address:
+
+- responsiveness to train detection;
+- effect on normal Part 4 timing and interrupts;
+- simplicity and readability;
+- timing accuracy of the 0.5-second flashing;
+- how normal state is safely restored.
+
+### Required behavior
+
+- Train detection causes an immediate override of normal traffic operation.
+- Both directions display yellow together for 0.5 seconds.
+- Both directions display red together for 0.5 seconds.
+- Yellow/red flashing repeats continuously while the train remains present.
+- No normal green indication is allowed while the train override is active.
+- The previously active traffic direction is preserved.
+- When the train clears, that direction resumes green for a fresh 5 seconds.
+- Both car-detection flags begin fresh after normal operation resumes.
+- The original Part 4 car-detection behavior still works after recovery.
 
 ### Before Lab
 
 Prepare:
 
-- train sensor schematic and PORTB assignment;
-- updated `intersection_state` register documentation;
-- train-override state flowchart;
-- 0.5-second timing calculation;
-- source code;
-- expected behavior for train detection during:
-  - N/S green;
-  - E/W green;
-  - N/S yellow;
-  - E/W yellow.
+- train-detection hardware and input assignment;
+- train-override flowchart;
+- selected train-detection method;
+- selected 0.5-second timing method;
+- explanation of how the previous direction is preserved;
+- explanation of how Part 4 state is restored;
+- source code.
 
 ### In the Lab
 
-1. Verify the train sensor IOC.
+1. Verify train detection.
 2. Trigger the train during N/S green.
 3. Verify immediate entry into the yellow/red flashing override.
-4. Measure the 0.5-second flash timing.
-5. Keep the train input active through several yellow/red cycles.
-6. Clear the train input.
-7. Verify N/S resumes green for a fresh 5 seconds with both car-detection flags cleared.
+4. Measure the 0.5-second flashing intervals.
+5. Keep the train present through several yellow/red cycles.
+6. Clear the train condition.
+7. Verify N/S resumes green for a fresh 5 seconds with fresh car-detection state.
 8. Repeat from E/W green.
-9. Trigger the train during a yellow transition and verify the previously active direction is restored for a fresh 5 seconds.
-10. Verify normal car-detection logic operates correctly after the train override ends.
+9. Trigger the train during a normal yellow transition and verify your documented recovery behavior preserves the direction that was active before the transition completed.
+10. Verify normal Part 4 car-detection logic operates correctly after the override ends.
 
 ### Evidence
 
 Include or reference:
 
-- train sensor schematic and PORTB map;
-- updated state register map;
+- train-detection schematic and input documentation;
 - train-override flowchart;
 - final source;
-- measured 0.5-second flashing interval;
-- train-active yellow/red sequence;
-- evidence that flashing continues as long as the train input remains active;
-- evidence that the preserved direction resumes for a fresh 5 seconds;
+- design-choice justification;
+- measured 0.5-second flashing intervals;
+- evidence that flashing continues while the train remains present;
+- evidence that the previous direction resumes for a fresh 5 seconds;
 - evidence that car-detection state is fresh after recovery;
+- evidence that Part 4 behavior still works;
 - troubleshooting record.
 
 ### Demonstrate
 
-The instructor may activate and clear the train input at arbitrary points in normal operation.
+The instructor may introduce and remove the train condition at arbitrary points in normal operation.
 
-Be prepared to explain why `DIRECTION` is preserved, why car-detection state is discarded, and how the same 20 ms timer supports 0.5-second train flashing, 1-second transitions, and 5-second green timing without blocking delays.
+Be prepared to explain why you selected your train-detection and timing methods and how your design prevents the Mastery feature from breaking the Part 4 intersection.
 
 ### Complete When
 
-Mastery is complete when train detection overrides normal operation immediately, both directions alternate between yellow and red every 0.5 seconds while the train remains detected, and clearing the train returns the preserved direction to a fresh 5-second green interval with fresh car-detection state.
+Mastery is complete when the train override meets the required visible behavior, your implementation choices are documented and justified, normal operation resumes correctly, and the original Part 4 behavior remains intact.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -901,6 +1007,6 @@ Your final repository must contain enough information to reopen, rebuild, inspec
 
 Push the repository to GitHub before final checkoff.
 
-A part is not complete until the required behavior works, the evidence is present, and you can explain the state, timing, interrupt, and measurement behavior.
+A part is not complete until the required behavior works, the evidence is present, and you can explain the state, timing, interrupt, packed-field, and measurement behavior.
 
 [Back to top](#top) · [Course home](../README.md)
