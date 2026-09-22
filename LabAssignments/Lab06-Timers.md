@@ -16,7 +16,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Part 2 - Packed intersection state](#part-2)
 - [Part 3 - Timed intersection state machine](#part-3)
 - [Part 4 - Car-detection state machine](#part-4)
-- [Part 5 - Mastery: train-crossing override](#part-5)
+- [Part 5 - Mastery](#part-5)
 - [Submission and checkoff](#submission)
 
 <a id="purpose"></a>
