@@ -72,8 +72,6 @@ Configure one PIC16F883 hardware timer to generate a periodic interrupt every **
 
 Use two diagnostic PORTA outputs to measure both the timer interrupt and the effect of the interrupt on main-loop execution.
 
-**The 20 ms interval is used only in Part 1.** Parts 2-4 use a different timer configuration.
-
 For the course 4 MHz oscillator:
 
 ```text
