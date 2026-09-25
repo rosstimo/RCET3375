@@ -11,7 +11,6 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Purpose](#purpose)
 - [Standards and references](#standards-references)
 - [Equipment and materials](#equipment-materials)
-- [Lab-book documentation](#lab-book-documentation)
 - [Part 1 - 20 ms timer proof of life](#part-1)
 - [Part 2 - Timed intersection state machine](#part-2)
 - [Part 3 - Packed intersection state](#part-3)
@@ -61,15 +60,6 @@ The PIC16F883 data sheet and the Family Reference Manual are the authority for t
 - frequency counter or logic analyzer, optional
 - breadboard, jumpers, and interface components as required
 - lab book
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="lab-book-documentation"></a>
-## Lab-book documentation
-
-Follow the [RCET3375 Lab Standard](../LAB_STANDARD.md). Reference earlier complete documentation instead of copying unchanged work.
-
-Each part identifies the specific calculations, register maps, flowcharts, source, measurements, and troubleshooting evidence required for that stage of the lab.
 
 [Back to top](#top) · [Course home](../README.md)
 
