@@ -314,10 +314,9 @@ Use this register map:
 
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Name | STATE_COUNT3 | STATE_COUNT2 | STATE_COUNT1 | STATE_COUNT0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
+| Name | SC3 | SC2 | SC1 | SC0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
 
-The upper nibble is a 4-bit `STATE_COUNT` field. You do **not** need to use the entire 0-15 range in this part.
-
+The upper nibble is a 4-bit `STATE_COUNT` field. 
 The lower nibble contains the intersection flags.
 
 | Field | Meaning |
@@ -364,8 +363,6 @@ Use PORTB interrupt-on-change for two car-detection inputs:
 A **low-to-high** change on the N/S sensor sets `NS_DETECTED`.
 
 A **low-to-high** change on the E/W sensor sets `EW_DETECTED`.
-
-A high-to-low change must not set the car-detection flag.
 
 Once set, a car-detection flag remains set until the state machine clears it. Repeated detections in the same direction do not count additional cars; the corresponding flag simply remains set.
 
@@ -414,9 +411,7 @@ The field is four bits wide, but this part does not require using all possible v
 
 At `STATE_COUNT = 3`, use the current direction and both car-detection flags to decide whether the light changes.
 
-The rule is:
-
-> Stay in the current direction only when the current direction is the only direction in which a car was detected. Otherwise, begin the transition to the opposite direction.
+Develop the decision logic based on the following rules:
 
 For N/S green:
 
@@ -441,16 +436,12 @@ If the decision is **do not change direction**:
 - clear `STATE_COUNT`;
 - clear `NS_DETECTED`;
 - clear `EW_DETECTED`;
-- leave `DIRECTION` unchanged;
-- leave `TRANSITION` clear;
 - continue displaying the current green state.
 
 If the decision is **change direction**:
 
 - set `TRANSITION`;
-- leave `DIRECTION` unchanged;
-- leave `STATE_COUNT = 3`;
-- update PORTC so the current direction changes from green to yellow.
+- the current direction changes from green to yellow.
 
 The next valid external state-advance interrupt increments `STATE_COUNT` from 3 to 4.
 
@@ -463,7 +454,7 @@ When `STATE_COUNT = 4`:
 - clear `NS_DETECTED`;
 - clear `EW_DETECTED`;
 - clear `STATE_COUNT`;
-- update PORTC so the newly selected direction is green and the opposite direction is red.
+- the newly selected direction is green and the opposite direction is red.
 
 Do not perform another car-state decision at transition completion.
 
