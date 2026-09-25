@@ -21,32 +21,14 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 
 <a id="purpose"></a>
 ## Purpose
-<!-- Let's describe how a trafic signal needs to work with one secon, 5 second timing sensing if cars are present. Le'ts not be too technical here other than we'll use timers and explore the idea of a state machine to keep track of things. - TJR
 
-Use PIC16F883 hardware timers and interrupts to build timing that the main program can use without blocking normal execution.
+Build a traffic-signal controller that uses timed phases and car-detection inputs to decide when traffic should continue in the current direction and when the intersection should change directions.
 
-Part 1 is a focused timer-measurement exercise. You will create and measure a 20 ms periodic interrupt and observe exactly how interrupt service affects main-loop execution.
+Normal operation uses a **5-second green interval** and a **1-second yellow transition**. Later in the lab, car-detection sensors allow the controller to respond to traffic activity instead of changing directions blindly at the end of every green interval.
 
-Parts 2-4 use a different timing problem. A hardware timer interrupt updates a 4-bit `COUNT` field inside one packed GPR state register and returns. Main evaluates the count and state flags, then decides what the traffic-light outputs should do.
+You will use hardware timers to create the required timing and explore the idea of a **state machine** to keep track of what the intersection is doing and what has happened during the current timing interval.
 
-The required architecture is:
-
-```text
-timer interrupt / PORTB IOC
-        |
-        v
-short interrupt service
-updates count or event flags
-        |
-        v
-main loop evaluates
-packed state register
-        |
-        v
-PORTC traffic-light outputs
-```
-
-Parts 1-4 use **pic-as assembly**. -->
+Part 1 begins with a smaller timer exercise so you can measure timer-interrupt behavior directly before applying timers to the intersection.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -62,24 +44,7 @@ Parts 1-4 use **pic-as assembly**. -->
 - previous RCET3375 lab-book documentation and source for interrupts, context saving, digital I/O, masking, and measurement
 
 The PIC16F883 data sheet and the Family Reference Manual are the authority for timer operation, interrupt flags/enables, PORTB interrupt-on-change behavior, register settings, reset states, and electrical limits.
-<!-- Does this belong here? - TJR
-For the course 4 MHz oscillator:
 
-```text
-FOSC = 4 MHz
-FCY  = FOSC / 4 = 1 MHz
-TCY  = 1 us
-```
-
-For Parts 2-4, choose only one hardware timer and only one periodic interrupt interval for the intersection timing.
-
-The `COUNT` field is provided so one periodic timer can generate all required normal intersection durations. Your chosen timer interval must allow both required durations to be represented as whole numbers of timer interrupts while fitting in the four-bit `COUNT` field:
-
-- 1 second for the yellow transition;
-- 5 seconds for the green interval.
-
-Document and justify the timer, timer configuration, interrupt interval, and count values you choose.
--->
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="equipment-materials"></a>
@@ -99,34 +64,16 @@ Document and justify the timer, timer configuration, interrupt interval, and cou
 
 [Back to top](#top) · [Course home](../README.md)
 
-<!-- in prior lab migrations have we been doing all this up front? or cantained within each part? - TJR
-
 <a id="lab-book-documentation"></a>
 ## Lab-book documentation
 
-Follow the [RCET3375 Lab Standard](../LAB_STANDARD.md). Reference earlier complete documentation instead of copying unchanged material.
+Follow the [RCET3375 Lab Standard](../LAB_STANDARD.md). Reference earlier complete documentation instead of copying unchanged work.
 
-For this assignment also include:
-
-- Part 1 timer selection and complete 20 ms timing calculation;
-- Parts 2-4 selected timer, interrupt-period calculation, and required count values;
-- complete documentation for each newly used timer/interrupt SFR and relevant bit;
-- the exact definition of the beginning of a timer period in Part 1;
-- instruction-cycle analysis between that timer-period boundary and the Part 1 diagnostic rising edge;
-- the required packed `intersection_state` GPR register map;
-- masks and packed-field operations used to read, increment, test, clear, and write back `COUNT` without changing the flags;
-- a complete PORTC traffic-light bit map and all four legal normal traffic-light output patterns;
-- a complete PORTB car-detection input map;
-- state-machine flowcharts;
-- predicted and measured timing;
-- documentation of measurement difficulties and justified changes made to obtain valid measurements;
-- the GitHub URL for the assignment repository.
-
-A car-detection flag means **a car was detected during the current decision window**. It is not a car counter. Detecting another car in the same direction before the flag is cleared does not increment anything; the flag simply remains set.
+Each part identifies the specific calculations, register maps, flowcharts, source, measurements, and troubleshooting evidence required for that stage of the lab.
 
 [Back to top](#top) · [Course home](../README.md)
 
-<a id="part-1"></a> -->
+<a id="part-1"></a>
 ## Part 1 - 20 ms Timer Proof of Life
 
 ### Goal
@@ -136,6 +83,15 @@ Configure one PIC16F883 hardware timer to generate a periodic interrupt every **
 Use two diagnostic PORTA outputs to measure both the timer interrupt and the effect of the interrupt on main-loop execution.
 
 **The 20 ms interval is used only in Part 1.** Parts 2-4 use a different timer configuration.
+
+For the course 4 MHz oscillator:
+
+```text
+FOSC = 4 MHz
+FCY  = FOSC / 4 = 1 MHz
+TCY  = 1 us
+```
+
 
 ### Required diagnostic signals
 
