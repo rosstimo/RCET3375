@@ -292,17 +292,17 @@ Part 2 is complete when the intersection alternates indefinitely with accurate 5
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-3"></a>
-## Part 3 - Interrupt-Driven Intersection State Machine
+## Part 3 - Intersection State Machine
 
 ### Goal
 
 Build and demonstrate the traffic-light state machine **without using a hardware timer**.
 
-Use the dedicated external interrupt as a manual state-advance event. Each valid external interrupt increments a 4-bit `STATE_COUNT` field in `intersection_state`.
+Use the dedicated external interrupt `INT` as a manual state-advance event. Each valid external interrupt increments a 4-bit `STATE_COUNT` field in `intersection_state`.
 
 Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains selected or begins a transition.
 
-On every iteration of main, copy `intersection_state` directly to PORTC so the complete state byte can be observed.
+On every iteration of main, copy `intersection_state` directly to PORTC so the complete state byte can be observed on LEDs.
 
 The purpose of this part is to make the state-machine logic observable one event at a time before timing and actual traffic-light outputs are added later.
 
@@ -370,8 +370,6 @@ Once set, a car-detection flag remains set until the state machine clears it. Re
 
 ### PORTC state display
 
-Part 3 does **not** drive actual traffic-light outputs.
-
 On every iteration of main:
 
 1. copy the complete `intersection_state` byte to PORTC;
@@ -394,7 +392,7 @@ The required decision points are:
 | 3 | evaluate `DIRECTION`, `NS_DETECTED`, and `EW_DETECTED` to decide whether to remain in the current direction or begin a transition |
 | 4 | finish an active transition |
 
-The field is four bits wide, but this part does not require using all possible values. Students must check the state count and decide what action or test, if any, is required for each value their program can encounter.
+ Students must check the state count and decide what action or test, if any, is required for each value their program can encounter.
 
 ### Direction decision at STATE_COUNT = 3
 
@@ -433,8 +431,6 @@ If the decision is **change direction**:
 - leave `DIRECTION` unchanged;
 - leave `STATE_COUNT = 3`.
 
-The next valid external state-advance interrupt increments `STATE_COUNT` from 3 to 4.
-
 ### Transition completion at STATE_COUNT = 4
 
 When `STATE_COUNT = 4`:
@@ -444,8 +440,6 @@ When `STATE_COUNT = 4`:
 - clear `NS_DETECTED`;
 - clear `EW_DETECTED`;
 - clear `STATE_COUNT`.
-
-On the next iteration of main, the updated packed state is copied to PORTC.
 
 ### Shared-state warning
 
