@@ -13,7 +13,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Equipment and materials](#equipment-materials)
 - [Part 1 - 20 ms timer proof of life](#part-1)
 - [Part 2 - Timed intersection state machine](#part-2)
-- [Part 3 - Packed intersection state](#part-3)
+- [Part 3 - Interrupt-driven intersection state machine](#part-3)
 - [Part 4 - Car-detection state machine](#part-4)
 - [Part 5 - Mastery](#part-5)
 - [Submission and checkoff](#submission)
@@ -55,7 +55,7 @@ The PIC16F883 data sheet and the Family Reference Manual are the authority for t
 - 4 MHz crystal oscillator circuit
 - six LEDs for the two traffic signals
 - current-limiting resistors
-- two digital car-detection inputs for Part 4
+- two digital car-detection inputs for Parts 3-4
 - oscilloscope
 - frequency counter or logic analyzer, optional
 - breadboard, jumpers, and interface components as required
@@ -292,20 +292,17 @@ Part 2 is complete when the intersection alternates indefinitely with accurate 5
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-3"></a>
-## Part 3 - Packed Intersection State
+## Part 3 - Interrupt-Driven Intersection State Machine
 
 ### Goal
 
-Build the state byte and timer-count mechanism that the complete intersection will use.
+Build and demonstrate the traffic-light state machine **without using a hardware timer**.
 
-Part 3 has four concrete objectives:
+Use the dedicated external interrupt as a manual state-advance event. Each valid external interrupt increments a 4-bit `STATE_COUNT` field in `intersection_state`.
 
-1. choose and configure one hardware timer for the intersection timing;
-2. choose an interrupt interval that lets `COUNT` represent the required 1-second and 5-second durations;
-3. increment a packed `COUNT` field inside `intersection_state` without changing any flags;
-4. decode the flag fields into the four legal traffic-light output patterns.
+Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains green or begins a yellow transition.
 
-Use the same selected timer and interrupt interval through Parts 2-4. Part 3 does **not** run the complete automatic intersection sequence yet.
+The purpose of this part is to make the state-machine logic observable one event at a time before timing is added later.
 
 ### Required state register
 
@@ -317,69 +314,62 @@ Use this register map:
 
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Name | COUNT3 | COUNT2 | COUNT1 | COUNT0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
+| Name | STATE_COUNT3 | STATE_COUNT2 | STATE_COUNT1 | STATE_COUNT0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
 
-The upper nibble is a 4-bit unsigned count from 0 through 15.
+The upper nibble is a 4-bit `STATE_COUNT` field. You do **not** need to use the entire 0-15 range in this part.
 
 The lower nibble contains the intersection flags.
 
-### Flag definitions
-
 | Field | Meaning |
 | --- | --- |
-| `COUNT[3:0]` | number of selected timer interrupts since the current timed state began |
+| `STATE_COUNT[3:0]` | current manual state-machine count |
 | `DIRECTION` | 0 = N/S direction; 1 = E/W direction |
-| `NS_DETECTED` | a car-detection event has been latched for N/S |
-| `EW_DETECTED` | a car-detection event has been latched for E/W |
+| `NS_DETECTED` | a low-to-high N/S car-detection event has been latched |
+| `EW_DETECTED` | a low-to-high E/W car-detection event has been latched |
 | `TRANSITION` | 0 = selected direction is green; 1 = selected direction is yellow |
 
-Keep `NS_DETECTED` and `EW_DETECTED` clear in Parts 2 and 3.
+### Initial state
 
-When `TRANSITION = 1`, `DIRECTION` identifies the direction currently displaying yellow. The opposite direction remains red.
+Begin with:
 
-### COUNT field operation
+- `STATE_COUNT = 0`;
+- `DIRECTION = 0` for N/S;
+- `TRANSITION = 0`;
+- both car-detection flags clear;
+- N/S green;
+- E/W red.
 
-Every interrupt from the selected timer increments only the upper-nibble `COUNT` field.
+### External state-advance interrupt
 
-The ISR must preserve all four lower-nibble flags.
+Use the dedicated external interrupt as the state-advance input.
 
-Use the packed-field process practiced in class:
+Each valid external interrupt must increment only `STATE_COUNT` in bits 7:4 of `intersection_state`.
 
-```text
-grab state byte
--> mask/extract COUNT
--> increment COUNT
--> test COUNT as needed
--> mask COUNT to four bits
--> pack COUNT back into its bit positions
--> preserve the flag bits
--> write the combined byte back
-```
+The lower four state flags must remain unchanged by the increment.
 
-Document the masks used for:
+Document the external-interrupt configuration and the masks/operations used to:
 
-- extracting `COUNT`;
-- preserving the flags;
-- packing the updated count back into `intersection_state`.
+- extract `STATE_COUNT`;
+- increment it;
+- place the updated value back into bits 7:4;
+- preserve bits 3:0.
 
-Calculate and document the `COUNT` value that represents each required duration using your chosen timer interval:
+### PORTB car detection
 
-- `ONE_SECOND_COUNT` for the 1-second transition;
-- `FIVE_SECOND_COUNT` for the 5-second green interval.
+Use PORTB interrupt-on-change for two car-detection inputs:
 
-Both values must fit in the four-bit `COUNT` field.
+- N/S car detection;
+- E/W car detection.
 
-The ISR does not decide what the traffic light should do. It only services the selected timer and increments `COUNT`.
+A **low-to-high** change on the N/S sensor sets `NS_DETECTED`.
 
-### Shared-state warning
+A **low-to-high** change on the E/W sensor sets `EW_DETECTED`.
 
-The ISR and main both use `intersection_state`.
+A high-to-low change must not set the car-detection flag.
 
-Because `COUNT` and the state flags share one byte, separate read/modify/write operations can interfere with each other. The packed state byte **can be corrupted** if one part of the program changes it while another update is in progress.
+Once set, a car-detection flag remains set until the state machine clears it. Repeated detections in the same direction do not count additional cars; the corresponding flag simply remains set.
 
-Your implementation must prevent state corruption. Determine and document your own solution.
-
-### PORTC traffic-light outputs
+### Traffic-light outputs
 
 Use PORTC to drive all six traffic-light LEDs:
 
@@ -392,7 +382,7 @@ Use PORTC to drive all six traffic-light LEDs:
 
 You choose and document the six PORTC bit assignments unless the instructor assigns them.
 
-Your lab book must include a PORTC register map and the exact binary/hex value for each legal normal traffic-light state:
+Document the exact PORTC value for each legal normal traffic-light state:
 
 | DIRECTION | TRANSITION | N/S lights | E/W lights | PORTC value |
 | ---: | ---: | --- | --- | --- |
@@ -403,78 +393,155 @@ Your lab book must include a PORTC register map and the exact binary/hex value f
 
 No other normal traffic-light combination is allowed.
 
-### Required behavior
+### State-count decisions
 
-- One selected hardware timer requests periodic interrupts at the interval you calculated.
-- Timer service increments only `COUNT`.
-- The four flag bits are unchanged by the count update.
-- Main can extract and test `COUNT`.
-- Main can clear `COUNT` without disturbing the flags.
-- Main can decode `DIRECTION` and `TRANSITION` into all four legal PORTC patterns.
-- No car-detection logic is used yet.
+Main must examine `STATE_COUNT` and decide what action or test is required.
+
+The required decision points are:
+
+| STATE_COUNT | Required behavior |
+| ---: | --- |
+| 0 | no state change |
+| 1 | no state change |
+| 3 | evaluate `DIRECTION`, `NS_DETECTED`, and `EW_DETECTED` to decide whether to stay green or begin a transition |
+| 4 | finish an active transition |
+
+`STATE_COUNT = 2` is deliberately not assigned a special transition action here. Your flowchart and code must still account for it and keep the current state and outputs valid.
+
+The field is four bits wide, but this part does not require using all possible values. Your design must prevent unused count values from creating an invalid traffic-light state.
+
+### End-of-green decision at STATE_COUNT = 3
+
+At `STATE_COUNT = 3`, use the current direction and both car-detection flags to decide whether the light changes.
+
+The rule is:
+
+> Stay in the current direction only when the current direction is the only direction in which a car was detected. Otherwise, begin the transition to the opposite direction.
+
+For N/S green:
+
+| N/S detected | E/W detected | Action |
+| ---: | ---: | --- |
+| 1 | 0 | remain N/S green |
+| 0 | 1 | begin N/S yellow transition |
+| 1 | 1 | begin N/S yellow transition |
+| 0 | 0 | begin N/S yellow transition |
+
+For E/W green:
+
+| N/S detected | E/W detected | Action |
+| ---: | ---: | --- |
+| 0 | 1 | remain E/W green |
+| 1 | 0 | begin E/W yellow transition |
+| 1 | 1 | begin E/W yellow transition |
+| 0 | 0 | begin E/W yellow transition |
+
+If the decision is **do not change direction**:
+
+- clear `STATE_COUNT`;
+- clear `NS_DETECTED`;
+- clear `EW_DETECTED`;
+- leave `DIRECTION` unchanged;
+- leave `TRANSITION` clear;
+- continue displaying the current green state.
+
+If the decision is **change direction**:
+
+- set `TRANSITION`;
+- leave `DIRECTION` unchanged;
+- leave `STATE_COUNT = 3`;
+- update PORTC so the current direction changes from green to yellow.
+
+The next valid external state-advance interrupt increments `STATE_COUNT` from 3 to 4.
+
+### Transition completion at STATE_COUNT = 4
+
+When `STATE_COUNT = 4`:
+
+- clear `TRANSITION`;
+- toggle `DIRECTION`;
+- clear `NS_DETECTED`;
+- clear `EW_DETECTED`;
+- clear `STATE_COUNT`;
+- update PORTC so the newly selected direction is green and the opposite direction is red.
+
+Do not perform another car-state decision at transition completion.
+
+### Shared-state warning
+
+The external-interrupt service, PORTB IOC service, and main loop all use `intersection_state`.
+
+Because several parts of the program can modify different fields within the same byte, the packed state byte **can be corrupted** if updates interfere with one another.
+
+Your implementation must prevent state corruption. Determine and document your own solution.
 
 ### Before Lab
 
-Prepare:
+Prepare or reference:
 
-- selected timer and reason;
-- timer interrupt-period calculation and configuration;
-- calculated `ONE_SECOND_COUNT` and `FIVE_SECOND_COUNT`;
-- `intersection_state` GPR documentation;
-- masks for COUNT and flags;
-- pseudocode or flowchart for `COUNT`-field increment;
-- your solution for avoiding packed-state corruption;
-- six-LED PORTC schematic and loading analysis;
-- PORTC bit assignments;
-- completed four-state PORTC value table;
+- external-interrupt input circuit and configuration;
+- two PORTB car-detection inputs and loading/electrical analysis;
+- external-interrupt and PORTB IOC SFR documentation;
+- `intersection_state` register map;
+- masks and packed-field operations for `STATE_COUNT` and the flags;
+- PORTC traffic-light register map and all four legal output values;
+- complete state-machine flowchart that accounts for every `STATE_COUNT` value your program can encounter;
 - source code.
 
 ### In the Lab
 
-1. Verify the selected timer interrupts at the interval you calculated.
-2. Observe `COUNT` increment through several values.
-3. Set different lower-nibble flag patterns and prove the timer ISR leaves them unchanged while incrementing `COUNT`.
-4. Clear `COUNT` from main and prove the flags remain unchanged.
-5. Verify your calculated `ONE_SECOND_COUNT` produces 1 second.
-6. Verify your calculated `FIVE_SECOND_COUNT` produces 5 seconds.
-7. Demonstrate all four legal traffic-light output states.
-8. Confirm no legal state creates conflicting green outputs.
-9. Demonstrate that the packed state remains valid while timer interrupts and main-loop state changes occur.
+1. Verify the initial N/S-green state with `STATE_COUNT = 0`.
+2. Trigger the external interrupt and verify that only `STATE_COUNT` changes.
+3. Advance through the count values and confirm that counts with no required state change leave the traffic outputs unchanged.
+4. Verify a low-to-high N/S car-detection event sets `NS_DETECTED`.
+5. Verify a low-to-high E/W car-detection event sets `EW_DETECTED`.
+6. Verify high-to-low sensor changes do not set the detection flags.
+7. Reach `STATE_COUNT = 3` with N/S green and test all four car-detection combinations.
+8. Repeat the count-3 decision tests with E/W green.
+9. For a stay-green decision, verify that the count and both car flags clear while the direction remains unchanged.
+10. For a transition decision, verify that the current direction changes from green to yellow while `STATE_COUNT` remains 3.
+11. Trigger one more external interrupt and verify `STATE_COUNT = 4` completes the transition, toggles direction, clears the car flags/count, and updates the lights.
+12. Repeat several complete manual state-machine cycles.
+13. Stress the design with external-interrupt and IOC events occurring close together and verify the packed state remains valid.
 
 ### Evidence
 
 Include or reference:
 
-- selected timer and interrupt-period calculation;
-- calculated one-second and five-second count values;
-- packed state-register map;
-- masks and packed-field algorithm;
-- evidence that COUNT changes without changing flags;
-- evidence that COUNT can be cleared without changing flags;
-- evidence that the packed state is not corrupted during normal operation;
-- PORTC map and four legal output values;
-- measured timer interrupt interval;
-- measured 1-second and 5-second timing;
+- external-interrupt and car-detection schematics;
+- loading/electrical analysis;
+- interrupt and IOC SFR documentation;
+- `intersection_state` register map;
+- masks and packed-field operations;
+- PORTC map and four legal traffic-light values;
+- complete state-machine flowchart;
 - final source;
+- evidence that the external interrupt increments only `STATE_COUNT`;
+- evidence that only low-to-high car-detection events latch the corresponding flags;
+- results for all count-3 car/direction decision cases;
+- evidence of both stay-green and transition paths;
+- evidence that count 4 completes the transition correctly;
+- evidence that packed state remains valid when interrupt events occur close together;
 - troubleshooting record.
 
 ### Demonstrate
 
-Show the packed state byte changing over time while the lower-nibble flags remain intact.
-
-Then demonstrate all four legal traffic-light states by changing only the state flags.
+The instructor may generate external state-advance events and car-detection events in arbitrary sequences.
 
 Be prepared to explain:
 
-- how COUNT is extracted;
-- how it is incremented;
-- how it is tested;
-- how it is packed back into the state byte;
-- how the flags are preserved.
+- what each field in `intersection_state` represents;
+- why the external interrupt changes only `STATE_COUNT`;
+- how a low-to-high car-detection event is latched;
+- what main checks at `STATE_COUNT = 3`;
+- how `DIRECTION` and the car flags determine whether the intersection stays green or begins a transition;
+- why `DIRECTION` does not toggle until `STATE_COUNT = 4`;
+- how your design handles count values that do not require a state change;
+- how you prevent packed-state corruption.
 
 ### Complete When
 
-Part 3 is complete when the 4-bit `COUNT` field works reliably, your chosen timer and count values produce the required 1-second and 5-second durations, the packed state remains valid, and main can decode the flag fields into all four legal traffic-light states.
+Part 3 is complete when external interrupts advance the state count, PORTB IOC correctly latches low-to-high car detections, main makes the required direction/car decision at count 3, count 4 completes a transition correctly, and the intersection never produces an invalid traffic-light state.
 
 [Back to top](#top) · [Course home](../README.md)
 
