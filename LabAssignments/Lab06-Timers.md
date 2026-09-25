@@ -13,8 +13,8 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Equipment and materials](#equipment-materials)
 - [Lab-book documentation](#lab-book-documentation)
 - [Part 1 - 20 ms timer proof of life](#part-1)
-- [Part 3 - Timed intersection state machine](#part-3)
-- [Part 2 - Packed intersection state](#part-2)
+- [Part 2 - Timed intersection state machine](#part-2)
+- [Part 3 - Packed intersection state](#part-3)
 - [Part 4 - Car-detection state machine](#part-4)
 - [Part 5 - Mastery](#part-5)
 - [Submission and checkoff](#submission)
@@ -260,12 +260,12 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 
 [Back to top](#top) · [Course home](../README.md)
 
-<a id="part-3"></a>
-## Part 3 - Timed Intersection State Machine
+<a id="part-2"></a>
+## Part 2 - Timed Intersection State Machine
 
 ### Goal
 
-Use the packed `COUNT`, `DIRECTION`, and `TRANSITION` fields from Part 2 to operate the intersection continuously without car-detection logic.
+Use the packed `COUNT`, `DIRECTION`, and `TRANSITION` fields from Part 3 to operate the intersection continuously without car-detection logic.
 
 The selected direction remains green for 5 seconds. The transition lasts 1 second.
 
@@ -357,25 +357,25 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 3 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the `COUNT` field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
+Part 2 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the `COUNT` field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
 
 [Back to top](#top) · [Course home](../README.md)
 
-<a id="part-2"></a>
-## Part 2 - Packed Intersection State
+<a id="part-3"></a>
+## Part 3 - Packed Intersection State
 
 ### Goal
 
 Build the state byte and timer-count mechanism that the complete intersection will use.
 
-Part 2 has four concrete objectives:
+Part 3 has four concrete objectives:
 
 1. choose and configure one hardware timer for the intersection timing;
 2. choose an interrupt interval that lets `COUNT` represent the required 1-second and 5-second durations;
 3. increment a packed `COUNT` field inside `intersection_state` without changing any flags;
 4. decode the flag fields into the four legal traffic-light output patterns.
 
-Use the same selected timer and interrupt interval through Parts 2-4. Part 2 does **not** run the complete automatic intersection sequence yet.
+Use the same selected timer and interrupt interval through Parts 2-4. Part 3 does **not** run the complete automatic intersection sequence yet.
 
 ### Required state register
 
@@ -544,7 +544,7 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 2 is complete when the 4-bit `COUNT` field works reliably, your chosen timer and count values produce the required 1-second and 5-second durations, the packed state remains valid, and main can decode the flag fields into all four legal traffic-light states.
+Part 3 is complete when the 4-bit `COUNT` field works reliably, your chosen timer and count values produce the required 1-second and 5-second durations, the packed state remains valid, and main can decode the flag fields into all four legal traffic-light states.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -553,7 +553,7 @@ Part 2 is complete when the 4-bit `COUNT` field works reliably, your chosen time
 
 ### Goal
 
-Add two PORTB interrupt-on-change car-detection sensors to the Part 3 intersection.
+Add two PORTB interrupt-on-change car-detection sensors to the Part 2 intersection.
 
 A car-detection event can occur at any point during a normal 5-second green interval. A car may be passing through the detection point rather than waiting at the intersection.
 
