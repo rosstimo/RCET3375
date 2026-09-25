@@ -26,7 +26,7 @@ Use PIC16F883 hardware timers and interrupts to build timing that the main progr
 
 Part 1 is a focused timer-measurement exercise. You will create and measure a 20 ms periodic interrupt and observe exactly how interrupt service affects main-loop execution.
 
-Parts 2-4 use a different timing problem. A hardware timer interrupt updates a packed count field inside one GPR state register and returns. Main evaluates the count and state flags, then decides what the traffic-light outputs should do.
+Parts 2-4 use a different timing problem. A hardware timer interrupt updates a 4-bit `COUNT` field inside one packed GPR state register and returns. Main evaluates the count and state flags, then decides what the traffic-light outputs should do.
 
 The required architecture is:
 
@@ -267,7 +267,7 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 
 Build the state byte and timer-count mechanism that the complete intersection will use.
 
-Part 2 has three concrete objectives:
+Part 2 has four concrete objectives:
 
 1. choose and configure one hardware timer for the intersection timing;
 2. choose an interrupt interval that lets `COUNT` represent the required 1-second and 5-second durations;
@@ -306,7 +306,7 @@ Keep `NS_DETECTED` and `EW_DETECTED` clear in Parts 2 and 3.
 
 When `TRANSITION = 1`, `DIRECTION` identifies the direction currently displaying yellow. The opposite direction remains red.
 
-### Packed count operation
+### COUNT field operation
 
 Every interrupt from the selected timer increments only the upper-nibble `COUNT` field.
 
@@ -391,7 +391,7 @@ Prepare:
 - calculated `ONE_SECOND_COUNT` and `FIVE_SECOND_COUNT`;
 - `intersection_state` GPR documentation;
 - masks for COUNT and flags;
-- pseudocode or flowchart for packed count increment;
+- pseudocode or flowchart for `COUNT`-field increment;
 - your solution for avoiding packed-state corruption;
 - six-LED PORTC schematic and loading analysis;
 - PORTC bit assignments;
@@ -443,7 +443,7 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 2 is complete when the packed count works reliably, your chosen timer and count values produce the required 1-second and 5-second durations, the packed state remains valid, and main can decode the flag fields into all four legal traffic-light states.
+Part 2 is complete when the 4-bit `COUNT` field works reliably, your chosen timer and count values produce the required 1-second and 5-second durations, the packed state remains valid, and main can decode the flag fields into all four legal traffic-light states.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -544,7 +544,7 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 3 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the packed COUNT field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
+Part 3 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the `COUNT` field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -567,6 +567,8 @@ Document the PORTB bits used for:
 
 - N/S car detection;
 - E/W car detection.
+
+You do not need to save or compare a previous PORTB value for this lab.
 
 ### Detection-latch behavior
 
