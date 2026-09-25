@@ -456,8 +456,6 @@ When `STATE_COUNT = 4`:
 - clear `STATE_COUNT`;
 - the newly selected direction is green and the opposite direction is red.
 
-Do not perform another car-state decision at transition completion.
-
 ### Shared-state warning
 
 The external-interrupt service, PORTB IOC service, and main loop all use `intersection_state`.
