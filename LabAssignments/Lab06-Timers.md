@@ -21,6 +21,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 
 <a id="purpose"></a>
 ## Purpose
+<!-- Let's describe how a trafic signal needs to work with one secon, 5 second timing sensing if cars are present. Le'ts not be too technical here other than we'll use timers and explore the idea of a state machine to keep track of things. - TJR
 
 Use PIC16F883 hardware timers and interrupts to build timing that the main program can use without blocking normal execution.
 
@@ -45,7 +46,7 @@ packed state register
 PORTC traffic-light outputs
 ```
 
-Parts 1-4 use **pic-as assembly**.
+Parts 1-4 use **pic-as assembly**. -->
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -60,8 +61,8 @@ Parts 1-4 use **pic-as assembly**.
 - [PICmicro Mid-Range MCU Family Reference Manual](https://ww1.microchip.com/downloads/en/DeviceDoc/33023A.pdf)
 - previous RCET3375 lab-book documentation and source for interrupts, context saving, digital I/O, masking, and measurement
 
-The PIC16F883 data sheet is the authority for timer operation, interrupt flags/enables, PORTB interrupt-on-change behavior, register settings, reset states, and electrical limits.
-
+The PIC16F883 data sheet and the Family Reference Manual are the authority for timer operation, interrupt flags/enables, PORTB interrupt-on-change behavior, register settings, reset states, and electrical limits.
+<!-- Does this belong here? - TJR
 For the course 4 MHz oscillator:
 
 ```text
@@ -70,9 +71,7 @@ FCY  = FOSC / 4 = 1 MHz
 TCY  = 1 us
 ```
 
-Part 1 allows Timer0, Timer1, or Timer2 for the 20 ms measurement exercise.
-
-For Parts 2-4, choose one hardware timer and one periodic interrupt interval for the intersection timing.
+For Parts 2-4, choose only one hardware timer and only one periodic interrupt interval for the intersection timing.
 
 The `COUNT` field is provided so one periodic timer can generate all required normal intersection durations. Your chosen timer interval must allow both required durations to be represented as whole numbers of timer interrupts while fitting in the four-bit `COUNT` field:
 
@@ -80,7 +79,7 @@ The `COUNT` field is provided so one periodic timer can generate all required no
 - 5 seconds for the green interval.
 
 Document and justify the timer, timer configuration, interrupt interval, and count values you choose.
-
+-->
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="equipment-materials"></a>
@@ -98,9 +97,9 @@ Document and justify the timer, timer configuration, interrupt interval, and cou
 - breadboard, jumpers, and interface components as required
 - lab book
 
-Any external signal source connected to the PIC must use compatible logic levels and a common reference.
-
 [Back to top](#top) · [Course home](../README.md)
+
+<!-- in prior lab migrations have we been doing all this up front? or cantained within each part? - TJR
 
 <a id="lab-book-documentation"></a>
 ## Lab-book documentation
@@ -127,7 +126,7 @@ A car-detection flag means **a car was detected during the current decision wind
 
 [Back to top](#top) · [Course home](../README.md)
 
-<a id="part-1"></a>
+<a id="part-1"></a> -->
 ## Part 1 - 20 ms Timer Proof of Life
 
 ### Goal
@@ -167,24 +166,11 @@ The main-loop signal should make it easy to see where normal execution is interr
 
 ### Timer-period boundary
 
-Define exactly what marks the beginning of a new timer period for your chosen timer.
-
-Examples include:
-
-- hardware overflow;
-- hardware compare/reset;
-- a software reload that begins the next measured interval.
-
-Your implementation determines which definition applies.
+Define **exactly** what marks the beginning of a new timer period for your chosen timer.
 
 Place the rising edge of the timer diagnostic pulse as close as practical to that period boundary.
 
 Then determine exactly how far the diagnostic rising edge leads or lags the timer-period boundary.
-
-Express the offset in:
-
-- instruction cycles;
-- microseconds.
 
 Do not assume the GPIO edge and the hardware timer event occur at the same instant.
 
@@ -206,7 +192,7 @@ Prepare:
 - complete timer calculation;
 - timer and interrupt SFR documentation;
 - timer-period boundary definition;
-- predicted timer diagnostic pulse spacing;
+- predicted timer diagnostic period;
 - predicted instruction-cycle offset from the timer-period boundary to the diagnostic rising edge;
 - selected PORTA diagnostic pins;
 - main/ISR flowchart;
