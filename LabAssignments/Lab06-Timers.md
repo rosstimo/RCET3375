@@ -448,15 +448,197 @@ N/S red, E/W yellow      1 second
 repeat
 ```
 
+### Timer-driven STATE_COUNT
+
+Reuse the packed `intersection_state` register and state-field definitions from Part 2.
+
+In Part 3:
+
+- the dedicated external interrupt is no longer used to advance `STATE_COUNT`;
+- PORTB car-detection logic is not used;
+- `NS_DETECTED` and `EW_DETECTED` remain clear;
+- one selected hardware timer generates the periodic interrupt that advances `STATE_COUNT`.
+
+Each timer interrupt increments only `STATE_COUNT` in bits 7:4 of `intersection_state`.
+
+The lower four state flags must be preserved during the packed read-modify-write operation.
+
+The timer ISR should service the timer, increment `STATE_COUNT`, and return. It does not decide which traffic lights should be on.
+
+### Select one timing interval
+
+Choose **one hardware timer** and **one periodic interrupt interval** for all normal intersection timing in this part.
+
+Using that one timer interval, determine the `STATE_COUNT` value that represents:
+
+- 5 seconds of green;
+- 1 second of yellow.
+
+Both durations must be represented by whole numbers of timer interrupts and both required count values must fit within the 4-bit `STATE_COUNT` range of 0 through F.
+
+You do not need to use the entire 0-F range.
+
+Document:
+
+- the timer selected;
+- the timer configuration;
+- the timer interrupt-period calculation;
+- the selected periodic interval;
+- the number of timer interrupts required for 5 seconds;
+- the number of timer interrupts required for 1 second.
+
+### Timed state-machine rules
+
+Main uses `DIRECTION`, `TRANSITION`, and `STATE_COUNT` to determine the current traffic-light state.
+
+When `TRANSITION = 0`:
+
+- `DIRECTION` identifies the direction that is green;
+- the opposite direction is red;
+- main waits until `STATE_COUNT` reaches the value representing 5 seconds.
+
+At the end of the 5-second green interval:
+
+- set `TRANSITION`;
+- clear `STATE_COUNT`;
+- leave `DIRECTION` unchanged.
+
+When `TRANSITION = 1`:
+
+- `DIRECTION` identifies the direction that is yellow;
+- the opposite direction remains red;
+- main waits until `STATE_COUNT` reaches the value representing 1 second.
+
+At the end of the 1-second yellow interval:
+
+- toggle `DIRECTION`;
+- clear `TRANSITION`;
+- clear `STATE_COUNT`;
+- begin a fresh 5-second green interval in the newly selected direction.
+
+Car-detection flags do not participate in any Part 3 decision.
+
+### PORTA traffic-light outputs
+
+Use PORTA to drive six LEDs representing:
+
+- N/S red;
+- N/S yellow;
+- N/S green;
+- E/W red;
+- E/W yellow;
+- E/W green.
+
+Choose and document the PORTA bit assignment for each LED.
+
+Main must decode `DIRECTION` and `TRANSITION` into the correct traffic-light outputs.
+
+The four legal normal output states are:
+
+| DIRECTION | TRANSITION | N/S lights | E/W lights |
+| ---: | ---: | --- | --- |
+| 0 | 0 | Green | Red |
+| 0 | 1 | Yellow | Red |
+| 1 | 0 | Red | Green |
+| 1 | 1 | Red | Yellow |
+
+Document the exact PORTA binary/hex value for each state.
+
+No other normal traffic-light combination is allowed.
+
+### PORTC state display
+
+Continue the Part 2 state display.
+
+On every iteration of main, copy the complete `intersection_state` byte to PORTC so the packed state can be observed in real time while the traffic lights operate on PORTA.
+
+The PORTC display should make it possible to observe:
+
+- `STATE_COUNT` increasing;
+- `TRANSITION` changing at the green/yellow boundary;
+- `DIRECTION` changing when the yellow transition completes;
+- both car-detection flags remaining clear in Part 3.
+
+### Shared-state behavior
+
+The timer ISR and main both access `intersection_state`.
+
+Reuse or adapt the state-protection method developed in Part 2 so timer-driven `STATE_COUNT` updates and main-loop flag changes do not corrupt the packed state byte.
+
+Document any changes required when the manual external-interrupt state advance from Part 2 is replaced by periodic timer interrupts.
+
 ### Before Lab
+
+Prepare or reference:
+
+- selected hardware timer and reason for the choice;
+- complete timer interrupt-period calculation and configuration;
+- calculated `STATE_COUNT` values for the 5-second and 1-second intervals;
+- timer and interrupt SFR documentation;
+- `intersection_state` register map from Part 2;
+- packed-field masks and read-modify-write operations used to increment and clear `STATE_COUNT`;
+- PORTA traffic-light schematic and loading/electrical analysis;
+- PORTA bit assignments and the binary/hex value for all four legal traffic-light states;
+- updated ISR flowchart;
+- complete timed state-machine flowchart;
+- source code.
 
 ### In the Lab
 
+1. Disable the Part 2 external-interrupt state advance and car-detection behavior.
+2. Verify both car-detection flags remain clear.
+3. Verify the selected timer generates the periodic interrupt interval you calculated.
+4. Observe `STATE_COUNT` increment on PORTC and verify the lower four state bits remain unchanged by the timer ISR.
+5. Verify N/S begins green with E/W red.
+6. Measure the N/S green interval and verify it lasts 5 seconds.
+7. Verify the state changes to N/S yellow, `TRANSITION` sets, and `STATE_COUNT` restarts for the yellow interval.
+8. Measure the N/S yellow interval and verify it lasts 1 second.
+9. Verify the yellow interval completes by toggling `DIRECTION`, clearing `TRANSITION`, clearing `STATE_COUNT`, and beginning E/W green.
+10. Repeat the same checks for the E/W green and yellow states.
+11. Observe several complete cycles while comparing the PORTA traffic-light outputs with the packed state shown on PORTC.
+12. Verify no state produces conflicting green outputs.
+13. Compare the measured 5-second and 1-second intervals with your calculated values and document any timing error.
+14. Verify the packed state remains valid when a timer interrupt occurs near a main-loop state update.
+
 ### Evidence
+
+Include or reference:
+
+- timer selection, configuration, and interrupt-period calculation;
+- calculated timer counts for 5 seconds and 1 second;
+- timer/interrupt SFR documentation;
+- packed `intersection_state` register map and masks;
+- updated timer ISR and timed state-machine flowcharts;
+- PORTA traffic-light schematic, loading analysis, bit map, and four legal output values;
+- final source;
+- evidence that timer interrupts increment only `STATE_COUNT`;
+- evidence that both car-detection flags remain clear;
+- evidence that PORTC displays the complete packed state during operation;
+- measured 5-second green interval;
+- measured 1-second yellow interval;
+- comparison of predicted and measured timing;
+- evidence of correct N/S and E/W green/yellow sequencing;
+- evidence that no invalid traffic-light state occurs;
+- troubleshooting record.
 
 ### Demonstrate
 
+Show the intersection operating continuously while PORTC displays the packed state in real time.
+
+Be prepared to explain:
+
+- why one timer interval can represent both required durations;
+- how you selected the timer interval and the two required `STATE_COUNT` values;
+- why the timer ISR increments `STATE_COUNT` but does not make the traffic-light decision;
+- how `DIRECTION` and `TRANSITION` determine the PORTA output pattern;
+- why `STATE_COUNT` is cleared at each timing boundary;
+- why `DIRECTION` changes only after the 1-second yellow transition completes;
+- why the car-detection flags remain unused in Part 3;
+- how shared access to `intersection_state` is kept valid.
+
 ### Complete When
+
+Part 3 is complete when one hardware timer and one periodic interrupt interval drive the packed `STATE_COUNT`, the intersection repeatedly produces accurate 5-second green and 1-second yellow intervals in both directions, PORTA displays only the four legal traffic-light states, PORTC displays the real-time packed state, and the state byte remains valid during timer and main-loop updates.
 
 [Back to top](#top) · [Course home](../README.md)
 
