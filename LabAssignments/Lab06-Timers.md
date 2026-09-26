@@ -15,7 +15,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Part 2 - Intersection state machine logic](#part-2)
 - [Part 3 - State machine intersection timing](#part-3)
 - [Part 4 - Complete intersection](#part-4)
-- [Part 5 - Mastery](#part-5)
+- [Part 5 - Mastery: train-crossing override](#part-5)
 - [Submission and checkoff](#submission)
 
 <a id="purpose"></a>
@@ -55,7 +55,10 @@ The PIC16F883 data sheet and the Family Reference Manual are the authority for t
 - 4 MHz crystal oscillator circuit
 - six LEDs for the two traffic signals
 - current-limiting resistors
+- one manual `INT` state-advance input for Parts 2 and 4
 - two digital car-detection inputs for Parts 2 and 4
+- one RUN/DEBUG mode-select input for Part 4
+- one additional train-detection input for Part 5 Mastery, if attempted
 - oscilloscope
 - frequency counter or logic analyzer, optional
 - breadboard, jumpers, and interface components as required
@@ -489,13 +492,13 @@ Document:
 
 Map out **every `STATE_COUNT` value from 0 through the highest count used by your design** before implementing the timed state machine.
 
-For each count value, document the elapsed time and what main should do for both values of `TRANSITION`:
+For each count value, document the elapsed time and the required behavior. Where the action depends on `TRANSITION`, show both cases in the behavior entry.
 
-| STATE_COUNT | Elapsed time | TRANSITION = 0 action | TRANSITION = 1 action |
-| ---: | ---: | --- | --- |
-| 0 | ... | ... | ... |
-| 1 | ... | ... | ... |
-| ... | ... | ... | ... |
+| STATE_COUNT | Elapsed time | Required behavior |
+| ---: | ---: | --- |
+| 0 | ... | ... |
+| 1 | ... | ... |
+| ... | ... | ... |
 
 Include every count value in the range you selected, even when the required behavior is **do nothing**. Refer to section [State-count decisions](#state-count-decisions) in Part 2 for guidance.
 
@@ -556,6 +559,7 @@ Prepare or reference:
 - timer and interrupt SFR documentation;
 - `intersection_state` register map from Part 2;
 - packed-field masks and read-modify-write operations used to increment and clear `STATE_COUNT`;
+- shared-state protection method reused or adapted from Part 2;
 - PORTA traffic-light schematic and loading/electrical analysis;
 - PORTA bit assignments and the binary/hex value for all four legal traffic-light states;
 - updated ISR flowchart;
@@ -589,6 +593,7 @@ Include or reference:
 - complete `STATE_COUNT` map covering every count value used by the design;
 - timer/interrupt SFR documentation;
 - packed `intersection_state` register map and masks;
+- documented shared-state protection method and evidence that the packed byte remains valid during timer/main updates;
 - updated timer ISR and timed state-machine flowcharts;
 - PORTA traffic-light schematic, loading analysis, bit map, and four legal output values;
 - final source;
@@ -690,7 +695,7 @@ Prepare or reference:
 
 - the completed Part 2 state-machine logic, truth table, car-detection inputs, and packed-state operations;
 - the completed Part 3 timer configuration, timing calculations, `STATE_COUNT` map, PORTA traffic-light map, and timed state-machine flow;
-- selected PORTB RUN/DEBUG input and its logic definition;
+- RUN/DEBUG selector circuit, PORTB pin assignment, logic definition, and loading/electrical analysis;
 - any new SFR/pin documentation required for the mode selector;
 - an updated ISR/main flowchart showing how the selected mode determines whether the timer or `INT` may advance `STATE_COUNT`;
 - the method used to prevent the unselected interrupt source or a mode change from creating an unintended state increment;
@@ -719,7 +724,7 @@ Include or reference:
 
 - Part 2 state-machine/car-detection documentation;
 - Part 3 timer, timing, `STATE_COUNT` map, and traffic-light documentation;
-- RUN/DEBUG selector pin assignment and logic definition;
+- RUN/DEBUG selector circuit, pin assignment, logic definition, and loading/electrical analysis;
 - updated integrated flowchart;
 - final source;
 - evidence that only `INT` advances `STATE_COUNT` in DEBUG mode;
@@ -820,7 +825,7 @@ Document and justify the design choices you make. Your justification should addr
 
 Prepare:
 
-- train-detection hardware and input assignment;
+- train-detection circuit, input assignment, and loading/electrical analysis;
 - train-override flowchart;
 - selected train-detection method;
 - selected 0.5-second timing method;
@@ -845,7 +850,7 @@ Prepare:
 
 Include or reference:
 
-- train-detection schematic and input documentation;
+- train-detection schematic, input documentation, and loading/electrical analysis;
 - train-override flowchart;
 - final source;
 - design-choice justification;
