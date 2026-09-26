@@ -487,6 +487,27 @@ Document:
 - the number of timer interrupts required for 5 seconds;
 - the number of timer interrupts required for 1 second.
 
+### STATE_COUNT map
+
+Map out **every `STATE_COUNT` value from 0 through the highest count used by your design** before implementing the timed state machine.
+
+For each count value, document what it represents and what main should do when:
+
+- `TRANSITION = 0`;
+- `TRANSITION = 1`.
+
+At minimum, your map should show:
+
+| STATE_COUNT | Elapsed time | TRANSITION = 0 action | TRANSITION = 1 action |
+| ---: | ---: | --- | --- |
+| 0 | ... | ... | ... |
+| 1 | ... | ... | ... |
+| ... | ... | ... | ... |
+
+Include every count value in the range you selected, even when the required action is **do nothing / continue current state**.
+
+The map should make the 5-second green boundary and 1-second yellow boundary unambiguous and should match the state-machine logic implemented in main.
+
 ### Timed state-machine rules
 
 Use the same state flag logic developed in Part 2 to determine whether the intersection remains in the current direction or begins a transition. For this section the car-detection flags should remain clear and/or be ignored.
@@ -538,6 +559,7 @@ Prepare or reference:
 - selected hardware timer and reason for the choice;
 - complete timer interrupt-period calculation and configuration;
 - calculated `STATE_COUNT` values for the 5-second and 1-second intervals;
+- complete `STATE_COUNT` map for every value from 0 through the highest count used;
 - timer and interrupt SFR documentation;
 - `intersection_state` register map from Part 2;
 - packed-field masks and read-modify-write operations used to increment and clear `STATE_COUNT`;
@@ -553,16 +575,17 @@ Prepare or reference:
 2. Verify both car-detection flags remain clear.
 3. Verify the selected timer generates the periodic interrupt interval you calculated.
 4. Observe `STATE_COUNT` increment on PORTC and verify the lower four state bits remain unchanged by the timer ISR.
-5. Verify N/S begins green with E/W red.
-6. Measure the N/S green interval and verify it lasts 5 seconds.
-7. Verify the state changes to N/S yellow, `TRANSITION` sets, and `STATE_COUNT` restarts for the yellow interval.
-8. Measure the N/S yellow interval and verify it lasts 1 second.
-9. Verify the yellow interval completes by toggling `DIRECTION`, clearing `TRANSITION`, clearing `STATE_COUNT`, and beginning E/W green.
-10. Repeat the same checks for the E/W green and yellow states.
-11. Observe several complete cycles while comparing the PORTA traffic-light outputs with the packed state shown on PORTC.
-12. Verify no state produces conflicting green outputs.
-13. Compare the measured 5-second and 1-second intervals with your calculated values and document any timing error.
-14. Verify the packed state remains valid when a timer interrupt occurs near a main-loop state update.
+5. Step through the complete `STATE_COUNT` range used by your design and verify each value behaves as documented in your state-count map.
+6. Verify N/S begins green with E/W red.
+7. Measure the N/S green interval and verify it lasts 5 seconds.
+8. Verify the state changes to N/S yellow, `TRANSITION` sets, and `STATE_COUNT` restarts for the yellow interval.
+9. Measure the N/S yellow interval and verify it lasts 1 second.
+10. Verify the yellow interval completes by toggling `DIRECTION`, clearing `TRANSITION`, clearing `STATE_COUNT`, and beginning E/W green.
+11. Repeat the same checks for the E/W green and yellow states.
+12. Observe several complete cycles while comparing the PORTA traffic-light outputs with the packed state shown on PORTC.
+13. Verify no state produces conflicting green outputs.
+14. Compare the measured 5-second and 1-second intervals with your calculated values and document any timing error.
+15. Verify the packed state remains valid when a timer interrupt occurs near a main-loop state update.
 
 ### Evidence
 
@@ -570,6 +593,7 @@ Include or reference:
 
 - timer selection, configuration, and interrupt-period calculation;
 - calculated timer counts for 5 seconds and 1 second;
+- complete `STATE_COUNT` map covering every count value used by the design;
 - timer/interrupt SFR documentation;
 - packed `intersection_state` register map and masks;
 - updated timer ISR and timed state-machine flowcharts;
@@ -593,6 +617,7 @@ Be prepared to explain:
 
 - why one timer interval can represent both required durations;
 - how you selected the timer interval and the two required `STATE_COUNT` values;
+- what every value in your selected `STATE_COUNT` range means and why some values require action while others do not;
 - why the timer ISR increments `STATE_COUNT` but does not make the traffic-light decision;
 - how `DIRECTION` and `TRANSITION` determine the PORTA output pattern;
 - why `STATE_COUNT` is cleared at each timing boundary;
@@ -602,7 +627,7 @@ Be prepared to explain:
 
 ### Complete When
 
-Part 3 is complete when one hardware timer and one periodic interrupt interval drive the packed `STATE_COUNT`, the intersection repeatedly produces accurate 5-second green and 1-second yellow intervals in both directions, PORTA displays only the four legal traffic-light states, PORTC displays the real-time packed state, and the state byte remains valid during timer and main-loop updates.
+Part 3 is complete when one hardware timer and one periodic interrupt interval drive the packed `STATE_COUNT`, every count value in the selected range is mapped and behaves as documented, the intersection repeatedly produces accurate 5-second green and 1-second yellow intervals in both directions, PORTA displays only the four legal traffic-light states, PORTC displays the real-time packed state, and the state byte remains valid during timer and main-loop updates.
 
 [Back to top](#top) · [Course home](../README.md)
 
