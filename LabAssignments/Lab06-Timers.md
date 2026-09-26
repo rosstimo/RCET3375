@@ -493,24 +493,21 @@ Map out **every `STATE_COUNT` value from 0 through the highest count used by you
 
 For each count value, document what it represents and what main should do when:
 
-- `TRANSITION = 0`;
-- `TRANSITION = 1`.
 
-At minimum, your map should show:
 
-| STATE_COUNT | Elapsed time | TRANSITION = 0 action | TRANSITION = 1 action |
-| ---: | ---: | --- | --- |
+| STATE_COUNT | Elapsed time | Required behavior |
+| ---: | ---: | --- |
 | 0 | ... | ... | ... |
 | 1 | ... | ... | ... |
 | ... | ... | ... | ... |
 
-Include every count value in the range you selected, even when the required action is **do nothing / continue current state**.
+Include every count value in the range you selected, even when the required behavior is **do nothing**. Refer to section [State-count decisions](#state-count-decisions) in Part 2 for guidance.
 
 The map should make the 5-second green boundary and 1-second yellow boundary unambiguous and should match the state-machine logic implemented in main.
 
 ### Timed state-machine rules
 
-Use the same state flag logic developed in Part 2 to determine whether the intersection remains in the current direction or begins a transition. For this section the car-detection flags should remain clear and/or be ignored.
+Use the same state flag logic developed in Part 2 to determine whether the intersection remains in the current direction or begins a transition. For this section the car-detection flags should remain clear and/or ignored.
 
 ### PORTA traffic-light outputs
 
@@ -632,7 +629,7 @@ Part 3 is complete when one hardware timer and one periodic interrupt interval d
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-4"></a>
-## Part 4 - Complete Intersection: RUN / DEBUG
+## Part 4 - Complete Intersection
 
 ### Goal
 
