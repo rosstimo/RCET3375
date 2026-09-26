@@ -53,12 +53,10 @@ The PIC16F883 data sheet and the Family Reference Manual are the authority for t
 - PICkit programmer/debugger
 - PIC16F883 circuit
 - 4 MHz crystal oscillator circuit
-- six LEDs for the two traffic signals
+- 14 LEDs various colors.
 - current-limiting resistors
-- one manual `INT` state-advance input for Parts 2 and 4
-- two digital car-detection inputs for Parts 2 and 4
-- one RUN/DEBUG mode-select input for Part 4
-- one additional train-detection input for Part 5 Mastery, if attempted
+- 3 momentary pushbutton switches as needed
+- one SPST switch.
 - oscilloscope
 - frequency counter or logic analyzer, optional
 - breadboard, jumpers, and interface components as required
@@ -492,7 +490,7 @@ Document:
 
 Map out **every `STATE_COUNT` value from 0 through the highest count used by your design** before implementing the timed state machine.
 
-For each count value, document the elapsed time and the required behavior. Where the action depends on `TRANSITION`, show both cases in the behavior entry.
+For each count value, document the elapsed time and the required behavior.
 
 | STATE_COUNT | Elapsed time | Required behavior |
 | ---: | ---: | --- |
