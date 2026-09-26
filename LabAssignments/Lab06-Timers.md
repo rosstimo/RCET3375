@@ -413,13 +413,13 @@ Be prepared to explain:
 - what main checks at `STATE_COUNT = 3`;
 - how `DIRECTION` and the car flags determine whether the intersection stays green or begins a transition;
 - why `DIRECTION` does not toggle until `STATE_COUNT = 4`;
-- why counts 0, 1, and 2 require no state action;
+- why counts 0, 1, and 2 have no state action;
 - why main copies the complete state byte to PORTC each iteration;
 - how you prevent packed-state corruption.
 
 ### Complete When
 
-Part 3 is complete when external interrupts advance the state count, PORTB IOC correctly latches low-to-high car detections, main displays the complete packed state on PORTC each iteration, the required direction/car decision occurs at count 3, and count 4 completes the transition correctly.
+Part 2 is complete when external interrupts advance the state count, PORTB IOC correctly latches low-to-high car detections, main displays the complete packed state on PORTC each iteration, the required direction/car decision occurs at count 3, and count 4 completes the transition correctly.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -525,7 +525,7 @@ Part 2 is complete when the intersection alternates indefinitely with accurate 5
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-4"></a>
-## Part 4 - Car-Detection State Machine
+## Part 4 - State Driven Intersection with Timed Sequence and Car Detection 
 
 ### Goal
 
