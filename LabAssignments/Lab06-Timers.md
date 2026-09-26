@@ -14,7 +14,7 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Part 1 - 20 ms timer proof of life](#part-1)
 - [Part 2 - Timed intersection state machine](#part-2)
 - [Part 3 - Interrupt-driven intersection state machine](#part-3)
-- [Part 4 - Car-detection state machine](#part-4)
+- [Part 4 - Complete intersection RUN/DEBUG](#part-4)
 - [Part 5 - Mastery](#part-5)
 - [Submission and checkoff](#submission)
 
@@ -607,20 +607,134 @@ Part 3 is complete when one hardware timer and one periodic interrupt interval d
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-4"></a>
-## Part 4 - State Driven Intersection with Timed Sequence and Car Detection 
+## Part 4 - Complete Intersection: RUN / DEBUG
 
 ### Goal
-<!-- combine the state logic from Part 2 and the timing logic from part 3. -->
+
+Combine the **state-machine and car-detection logic from Part 2** with the **timer-driven sequencing and traffic-light outputs from Part 3** to create the complete working intersection.
+
+Do not redesign those sections from scratch. Reuse the working logic, packed `intersection_state`, timer configuration, car-detection behavior, PORTA traffic-light outputs, PORTC state display, and shared-state protection already developed and documented.
+
+Add one new feature: use an otherwise unused PORTB input as a **RUN/DEBUG mode selector**.
+
+- **RUN mode:** the selected hardware timer advances `STATE_COUNT`.
+- **DEBUG mode:** the dedicated external interrupt `INT` advances `STATE_COUNT` manually.
+
+The state machine itself must behave the same in either mode. Only the source of the state-count increment changes.
+
+### RUN / DEBUG mode selection
+
+Choose and document one unused PORTB pin for the mode selector.
+
+The mode-selector input is not a car sensor and must not alter either car-detection flag.
+
+You may choose and document which logic level represents RUN and which represents DEBUG.
+
+The required behavior is:
+
+| Mode | Timer may advance STATE_COUNT | INT may advance STATE_COUNT |
+| --- | --- | --- |
+| RUN | Yes | No |
+| DEBUG | No | Yes |
+
+Changing the mode-selector input must **not** increment `STATE_COUNT` by itself.
+
+When changing between modes:
+
+- retain the current `intersection_state`;
+- retain the current traffic-light state;
+- retain any latched car-detection flags;
+- ensure only the selected state-advance source can change `STATE_COUNT`;
+- prevent stale or pending interrupt conditions from causing an unintended increment.
+
+How you enable, disable, ignore, or service the unselected interrupt source is part of your design. Document the method you use.
+
+### Complete intersection behavior
+
+The completed Part 4 program must combine the behavior already established in the previous parts:
+
+- use the Part 2 packed state byte and car-detection decision logic;
+- use PORTB IOC to latch the N/S and E/W car-detection events as developed in Part 2;
+- use the Part 3 timer configuration and count values for the 5-second green and 1-second yellow intervals;
+- use the Part 3 PORTA traffic-light output decoding;
+- continue displaying the complete `intersection_state` byte on PORTC on every main-loop iteration;
+- preserve the shared packed state correctly when interrupts and main modify different fields.
+
+In **RUN mode**, the intersection operates continuously using the timer.
+
+In **DEBUG mode**, the same state machine is stepped manually with `INT`, allowing individual state-count changes, car detections, and state decisions to be observed and tested.
+
+The Part 2 car-detection decision rules apply at the end of the green interval. The Part 3 timing and traffic-light behavior apply to the complete intersection. Refer to those parts rather than creating a second implementation of the same logic.
+
 ### Before Lab
+
+Prepare or reference:
+
+- the completed Part 2 state-machine logic, truth table, car-detection inputs, and packed-state operations;
+- the completed Part 3 timer configuration, timing calculations, PORTA traffic-light map, and timed state-machine flow;
+- selected PORTB RUN/DEBUG input and its logic definition;
+- any new SFR/pin documentation required for the mode selector;
+- an updated ISR/main flowchart showing how the selected mode determines whether the timer or `INT` may advance `STATE_COUNT`;
+- the method used to prevent the unselected interrupt source or a mode change from creating an unintended state increment;
+- final integrated source code.
+
+Do not recreate documentation from Parts 2 or 3 when it has not changed. Reference it.
 
 ### In the Lab
 
+1. Verify the RUN/DEBUG selector and confirm changing modes does not itself change `STATE_COUNT`.
+2. In DEBUG mode, verify timer interrupts do not advance `STATE_COUNT`.
+3. In DEBUG mode, use `INT` to step through the state machine while observing `intersection_state` on PORTC.
+4. Use DEBUG mode to verify car detections and the Part 2 end-of-green decision cases with the actual PORTA traffic-light outputs.
+5. Verify a manual transition completes correctly and the next direction begins in the correct green state.
+6. Switch to RUN mode without resetting the program and verify `INT` no longer advances `STATE_COUNT`.
+7. In RUN mode, verify the timer advances the same state machine automatically.
+8. Verify the 5-second green and 1-second yellow timing from Part 3 with car detection active.
+9. Exercise N/S-only, E/W-only, both, and no-car detection cases during normal timed operation and verify the Part 2 decision logic is preserved.
+10. Change between RUN and DEBUG at several points in the state sequence and verify no mode change creates a false count, loses a latched car detection, corrupts the packed state, or creates an invalid traffic-light output.
+11. Stress the complete design with timer, `INT`, and car-detection events occurring near one another.
+12. Verify PORTC continues to show the packed state and PORTA continues to show the corresponding traffic-light state.
+
 ### Evidence
+
+Include or reference:
+
+- Part 2 state-machine/car-detection documentation;
+- Part 3 timer, timing, and traffic-light documentation;
+- RUN/DEBUG selector pin assignment and logic definition;
+- updated integrated flowchart;
+- final source;
+- evidence that only `INT` advances `STATE_COUNT` in DEBUG mode;
+- evidence that only the timer advances `STATE_COUNT` in RUN mode;
+- evidence that changing modes does not itself increment the state count;
+- evidence that car-detection state is retained correctly through normal operation and mode changes;
+- results showing the Part 2 car-decision behavior works with the Part 3 traffic-light outputs;
+- measured RUN-mode 5-second green and 1-second yellow intervals;
+- evidence that PORTC state and PORTA traffic outputs remain consistent;
+- mode-change and close-event stress-test results;
+- troubleshooting record.
 
 ### Demonstrate
 
+Demonstrate the complete intersection in both modes.
+
+In **DEBUG mode**, step the intersection manually with `INT` and use car-detection events to show how the packed state drives the decision logic.
+
+Without resetting the processor, switch to **RUN mode** and show the same state machine operating automatically from the timer.
+
+Be prepared to explain:
+
+- how Parts 2 and 3 were integrated without duplicating their logic;
+- how the RUN/DEBUG input selects the state-advance source;
+- why the unselected source cannot advance `STATE_COUNT`;
+- how mode changes avoid false state increments;
+- how car detections affect the end-of-green decision;
+- how PORTA traffic-light outputs relate to the packed state displayed on PORTC;
+- how shared-state corruption is prevented.
+
 ### Complete When
 
+Part 4 is complete when the full car-responsive traffic intersection operates correctly in RUN mode, the same state machine can be stepped manually in DEBUG mode, only the selected source advances `STATE_COUNT`, mode changes do not disturb the current state, and the Part 2 decision behavior and Part 3 timing/output behavior remain correct when combined.
 
 [Back to top](#top) · [Course home](../README.md)
 
