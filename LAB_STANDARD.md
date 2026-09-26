@@ -66,6 +66,18 @@ When practical, each required part should use the following headings:
 
 The headings describe a student workflow rather than a traditional lab-report format.
 
+### Lab-book and documentation placement
+
+For new or materially revised labs, keep lab-book and documentation requirements with the part that creates or uses them.
+
+- Put required research, calculations, register maps, schematics, flowcharts, predicted values, and other preparation in that part's **Before Lab** section.
+- Put required measurements, captures, final source, comparisons, troubleshooting records, and other proof in that part's **Evidence** section.
+- Do not add a front-matter **Lab-book documentation** checklist merely to restate this standard or duplicate requirements already stated by part.
+- A front-matter documentation note is appropriate only when the assignment has a genuinely lab-wide requirement that is not already covered by this standard and does not belong naturally to one part.
+- A link to this lab standard in the assignment's standards/references is sufficient for the common lab-book, SFR, electrical-loading, repository, and evidence expectations defined here.
+
+This keeps documentation requirements close to the work students are performing and avoids forcing them to reconcile a second assignment-wide checklist with the individual part requirements.
+
 ### Goal
 
 State what the student will make, measure, or demonstrate. Keep it concrete.
