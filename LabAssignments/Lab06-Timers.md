@@ -191,7 +191,7 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-2"></a>
-## Part 2 - State Machine
+## Part 2 - State Machine Intersection Timing
 
 ### Goal
 
