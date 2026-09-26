@@ -192,7 +192,7 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 
 
 <a id="part-2"></a>
-## Part 3 - Intersection State Machine
+## Part 2 - Intersection State Machine Logic
 
 ### Goal
 
@@ -421,7 +421,7 @@ Part 3 is complete when external interrupts advance the state count, PORTB IOC c
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="part-3"></a>
-## Part 2 - State Machine Intersection Timing
+## Part 3 - State Machine Intersection Timing
 
 ### Goal
 
