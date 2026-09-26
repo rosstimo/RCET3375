@@ -190,108 +190,8 @@ Part 1 is complete when the timer produces an accurately measured 20 ms periodic
 
 [Back to top](#top) · [Course home](../README.md)
 
+
 <a id="part-2"></a>
-## Part 2 - State Machine Intersection Timing
-
-### Goal
-
-Use the packed `COUNT`, `DIRECTION`, and `TRANSITION` fields from Part 3 to operate the intersection continuously without car-detection logic.
-
-The selected direction remains green for 5 seconds. The transition lasts 1 second.
-
-### Required timing
-
-Normal operation alternates:
-
-```text
-N/S green, E/W red       5 seconds
-N/S yellow, E/W red      1 second
-N/S red, E/W green       5 seconds
-N/S red, E/W yellow      1 second
-repeat
-```
-
-Main evaluates `COUNT` and the state flags.
-
-The selected timer continues to increment COUNT once per interrupt.
-
-### State-machine rules
-
-When `TRANSITION = 0`:
-
-1. the direction selected by `DIRECTION` is green;
-2. main keeps evaluating `COUNT`;
-3. when `COUNT = FIVE_SECOND_COUNT`:
-   - set `TRANSITION`;
-   - clear `COUNT`;
-   - leave `DIRECTION` unchanged.
-
-When `TRANSITION = 1`:
-
-1. the direction selected by `DIRECTION` is yellow;
-2. main keeps evaluating `COUNT`;
-3. when `COUNT = ONE_SECOND_COUNT`:
-   - toggle `DIRECTION`;
-   - clear `TRANSITION`;
-   - clear `NS_DETECTED` and `EW_DETECTED`;
-   - clear `COUNT`;
-   - begin a fresh 5-second green interval.
-
-There is no state evaluation at the end of the 1-second transition. The transition simply finishes.
-
-The timer ISR never decides whether the light should be green or yellow. It only updates COUNT.
-
-### Before Lab
-
-Prepare:
-
-- complete main state-machine flowchart;
-- source code;
-- packed-field operations used to test and clear COUNT;
-- expected traffic sequence;
-- expected measured state durations.
-
-### In the Lab
-
-1. Start with N/S green and COUNT = 0.
-2. Verify N/S remains green until COUNT reaches your calculated `FIVE_SECOND_COUNT`.
-3. Verify the state changes to N/S yellow and COUNT resets.
-4. Verify the yellow transition ends when COUNT reaches your calculated `ONE_SECOND_COUNT`.
-5. Verify DIRECTION changes only after the transition finishes.
-6. Repeat the sequence for E/W.
-7. Observe several complete cycles.
-8. Measure at least one 5-second interval and one 1-second interval.
-9. Verify that no state change creates conflicting green outputs.
-
-### Evidence
-
-Include or reference:
-
-- main state-machine flowchart;
-- final source;
-- COUNT/state traces or observations through at least one complete cycle;
-- measured 5-second green interval;
-- measured 1-second yellow interval;
-- troubleshooting record.
-
-### Demonstrate
-
-Show continuous normal intersection timing with no car-detection inputs.
-
-Be prepared to explain:
-
-- why COUNT is part of the state byte;
-- why the ISR increments COUNT but main evaluates it;
-- why COUNT is reset at each state boundary;
-- why DIRECTION does not change until the 1-second transition finishes.
-
-### Complete When
-
-Part 2 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the `COUNT` field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="part-3"></a>
 ## Part 3 - Intersection State Machine
 
 ### Goal
@@ -517,6 +417,107 @@ Be prepared to explain:
 ### Complete When
 
 Part 3 is complete when external interrupts advance the state count, PORTB IOC correctly latches low-to-high car detections, main displays the complete packed state on PORTC each iteration, the required direction/car decision occurs at count 3, and count 4 completes the transition correctly.
+
+[Back to top](#top) · [Course home](../README.md)
+
+<a id="part-3"></a>
+## Part 2 - State Machine Intersection Timing
+
+### Goal
+
+Use the packed `COUNT`, `DIRECTION`, and `TRANSITION` fields from Part 3 to operate the intersection continuously without car-detection logic.
+
+The selected direction remains green for 5 seconds. The transition lasts 1 second.
+
+### Required timing
+
+Normal operation alternates:
+
+```text
+N/S green, E/W red       5 seconds
+N/S yellow, E/W red      1 second
+N/S red, E/W green       5 seconds
+N/S red, E/W yellow      1 second
+repeat
+```
+
+Main evaluates `COUNT` and the state flags.
+
+The selected timer continues to increment COUNT once per interrupt.
+
+### State-machine rules
+
+When `TRANSITION = 0`:
+
+1. the direction selected by `DIRECTION` is green;
+2. main keeps evaluating `COUNT`;
+3. when `COUNT = FIVE_SECOND_COUNT`:
+   - set `TRANSITION`;
+   - clear `COUNT`;
+   - leave `DIRECTION` unchanged.
+
+When `TRANSITION = 1`:
+
+1. the direction selected by `DIRECTION` is yellow;
+2. main keeps evaluating `COUNT`;
+3. when `COUNT = ONE_SECOND_COUNT`:
+   - toggle `DIRECTION`;
+   - clear `TRANSITION`;
+   - clear `NS_DETECTED` and `EW_DETECTED`;
+   - clear `COUNT`;
+   - begin a fresh 5-second green interval.
+
+There is no state evaluation at the end of the 1-second transition. The transition simply finishes.
+
+The timer ISR never decides whether the light should be green or yellow. It only updates COUNT.
+
+### Before Lab
+
+Prepare:
+
+- complete main state-machine flowchart;
+- source code;
+- packed-field operations used to test and clear COUNT;
+- expected traffic sequence;
+- expected measured state durations.
+
+### In the Lab
+
+1. Start with N/S green and COUNT = 0.
+2. Verify N/S remains green until COUNT reaches your calculated `FIVE_SECOND_COUNT`.
+3. Verify the state changes to N/S yellow and COUNT resets.
+4. Verify the yellow transition ends when COUNT reaches your calculated `ONE_SECOND_COUNT`.
+5. Verify DIRECTION changes only after the transition finishes.
+6. Repeat the sequence for E/W.
+7. Observe several complete cycles.
+8. Measure at least one 5-second interval and one 1-second interval.
+9. Verify that no state change creates conflicting green outputs.
+
+### Evidence
+
+Include or reference:
+
+- main state-machine flowchart;
+- final source;
+- COUNT/state traces or observations through at least one complete cycle;
+- measured 5-second green interval;
+- measured 1-second yellow interval;
+- troubleshooting record.
+
+### Demonstrate
+
+Show continuous normal intersection timing with no car-detection inputs.
+
+Be prepared to explain:
+
+- why COUNT is part of the state byte;
+- why the ISR increments COUNT but main evaluates it;
+- why COUNT is reset at each state boundary;
+- why DIRECTION does not change until the 1-second transition finishes.
+
+### Complete When
+
+Part 2 is complete when the intersection alternates indefinitely with accurate 5-second green and 1-second yellow timing, the `COUNT` field is reset at the correct state boundaries, and no invalid traffic-light state occurs.
 
 [Back to top](#top) · [Course home](../README.md)
 
