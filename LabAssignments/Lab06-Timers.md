@@ -200,11 +200,11 @@ Build and demonstrate the traffic-light state machine **without using a hardware
 
 Use the dedicated external interrupt `INT` as a manual state-advance event. Each valid external interrupt increments a 4-bit `STATE_COUNT` field in `intersection_state`.
 
-Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains selected or begins a transition.
+Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains selected or begins a transition register.
 
-On every iteration of main, copy `intersection_state` directly to PORTC so the complete state byte can be observed on LEDs.
+On every iteration of main, display the contents of `intersection_state` on PORTC so state byte can be observed on LEDs.
 
-The purpose of this part is to make the state-machine logic observable one event at a time before timing and actual traffic-light outputs are added later.
+The purpose of this part is to make the state-machine logic observable as events occur and the state changes. Timing and actual traffic-light outputs are added later.
 
 ### Required state register
 
@@ -246,27 +246,26 @@ Use the dedicated external interrupt as the state-advance input.
 
 Each valid external interrupt must increment only `STATE_COUNT` in bits 7:4 of `intersection_state`.
 
-The lower four state flags must remain unchanged by the increment.
+ `STATE_COUNT` must be incremented as part of a read-modify-write operation on the packed state byte. The lower four state flags must remain unchanged by the increment.
 
 Document the external-interrupt configuration and the masks/operations used to:
 
 - extract `STATE_COUNT`;
+- position it for incrementing;
 - increment it;
 - place the updated value back into bits 7:4;
-- preserve bits 3:0.
+- preserve bits 3:0 in `intersection_state`;
 
 ### PORTB car detection
 
 Use PORTB interrupt-on-change for two car-detection inputs:
 
 - N/S car detection;
-- E/W car detection.
-
 A **low-to-high** change on the N/S sensor sets `NS_DETECTED`.
-
+- E/W car detection;
 A **low-to-high** change on the E/W sensor sets `EW_DETECTED`.
 
-Once set, a car-detection flag remains set until the state machine clears it. Repeated detections in the same direction do not count additional cars; the corresponding flag simply remains set.
+Once set, a car-detection flag remains set until the state machine clears it. Repeated detections in the same direction do not count additional cars. The corresponding flag simply remains set.
 
 ### PORTC state display
 
@@ -276,7 +275,7 @@ On every iteration of main:
 2. then evaluate `STATE_COUNT` and the state flags;
 3. update `intersection_state` only when the current state requires an action.
 
-PORTC is therefore a direct live display of the packed state byte. Do not decode `DIRECTION` and `TRANSITION` into traffic-light patterns in this part.
+PORTC is therefore a direct live display of the packed state byte.
 
 ### State-count decisions
 
@@ -289,14 +288,14 @@ The required decision points are:
 | 0 | do nothing |
 | 1 | do nothing |
 | 2 | do nothing |
-| 3 | evaluate `DIRECTION`, `NS_DETECTED`, and `EW_DETECTED` to decide whether to remain in the current direction or begin a transition |
+| 3 | evaluate `DIRECTION`, `NS_DETECTED`, `EW_DETECTED`, and `TRANSITION` to decide whether to remain in the current direction or begin a transition |
 | 4 | finish an active transition |
 
  Students must check the state count and decide what action or test, if any, is required for each value their program can encounter.
 
 ### Direction decision at STATE_COUNT = 3
 
-At `STATE_COUNT = 3`, use the current direction and both car-detection flags to decide whether the selected traffic direction changes.
+At `STATE_COUNT = 3`, use the all four state flags to decide whether the selected traffic direction changes.
 
 Develop the decision logic based on the following rules:
 
@@ -318,25 +317,32 @@ For E/W green:
 | 1 | 1 | begin transition |
 | 0 | 0 | begin transition |
 
-If the decision is **do not change direction**:
+If the decision is **do not change direction** reset to a fresh state in the same direction.
 
 - clear `STATE_COUNT`;
 - clear `NS_DETECTED`;
 - clear `EW_DETECTED`;
-- leave `DIRECTION` unchanged.
 
 If the decision is **change direction**:
 
 - set `TRANSITION`;
-- leave `DIRECTION` unchanged;
-- leave `STATE_COUNT = 3`.
+
+If `TRANSITION` is set do nothing.
+
+Develop, simplify the logic, and document your complete truth table and simplification process.
+
+Use the following truth table headers and show if the action taken will be **same direction**, **change direction**, or **do nothing**:
+
+| T | D | NS | EW | Action |
+| --- | --- | --- | --- | --- |
+|   0 | 0 | 0 | 0 |  ... |
 
 ### Transition completion at STATE_COUNT = 4
 
-When `STATE_COUNT = 4`:
+When `STATE_COUNT = 4` complete the transistion to the new direction and reset to a freash state.
 
-- clear `TRANSITION`;
 - toggle `DIRECTION`;
+- clear `TRANSITION`;
 - clear `NS_DETECTED`;
 - clear `EW_DETECTED`;
 - clear `STATE_COUNT`.
@@ -359,24 +365,21 @@ Prepare or reference:
 - `intersection_state` register map;
 - masks and packed-field operations for `STATE_COUNT` and the flags;
 - complete state-machine flowchart that accounts for every `STATE_COUNT` value your program can encounter;
-- source structure showing the direct `intersection_state` to PORTC display in main;
-- source code.
+- source structure showing the read-modify-write operations on the packed state byte;
+- source code, flowcharts.
 
 ### In the Lab
 
 1. Verify the initial packed state with `STATE_COUNT = 0` and confirm that main copies `intersection_state` to PORTC.
 2. Trigger the external interrupt and verify that only `STATE_COUNT` changes.
-3. Advance through counts 0, 1, and 2 and confirm that main takes no state action other than displaying the current packed state on PORTC.
+3. Advance through counts 0-F and confirm that main takes no state action other than displaying the current packed state on PORTC.
 4. Verify a low-to-high N/S car-detection event sets `NS_DETECTED`.
 5. Verify a low-to-high E/W car-detection event sets `EW_DETECTED`.
 6. Verify high-to-low sensor changes do not set the detection flags.
-7. Reach `STATE_COUNT = 3` with N/S green and test all four car-detection combinations.
-8. Repeat the count-3 decision tests with E/W green.
-9. For a remain-in-direction decision, verify that the count and both car flags clear while the direction remains unchanged.
-10. For a transition decision, verify that `TRANSITION` sets while `DIRECTION` remains unchanged and `STATE_COUNT` remains 3.
-11. Trigger one more external interrupt and verify `STATE_COUNT = 4` completes the transition, toggles direction, and clears the car flags/count.
-12. Repeat several complete manual state-machine cycles while observing the packed state on PORTC.
-13. Stress the design with external-interrupt and IOC events occurring close together and verify the packed state remains valid.
+7. Implement and test the `STATE_COUNT = 3` logic. Test and document all 16 combinations of the four state flags.
+8. Implement and test the `STATE_COUNT = 4` transition completion logic.
+9.  Repeat several complete manual state-machine cycles while observing the packed state on PORTC.
+10.  Stress the design with external-interrupt and IOC events occurring close together and verify the packed state remains valid.
 
 ### Evidence
 
