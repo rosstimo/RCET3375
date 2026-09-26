@@ -12,9 +12,9 @@ PIC16F883 | pic-as | Hardware Timers | Interrupt Timing | Packed State | PORTB I
 - [Standards and references](#standards-references)
 - [Equipment and materials](#equipment-materials)
 - [Part 1 - 20 ms timer proof of life](#part-1)
-- [Part 2 - Timed intersection state machine](#part-2)
-- [Part 3 - Interrupt-driven intersection state machine](#part-3)
-- [Part 4 - Complete intersection RUN/DEBUG](#part-4)
+- [Part 2 - Intersection state machine logic](#part-2)
+- [Part 3 - State machine intersection timing](#part-3)
+- [Part 4 - Complete intersection](#part-4)
 - [Part 5 - Mastery](#part-5)
 - [Submission and checkoff](#submission)
 
@@ -55,7 +55,7 @@ The PIC16F883 data sheet and the Family Reference Manual are the authority for t
 - 4 MHz crystal oscillator circuit
 - six LEDs for the two traffic signals
 - current-limiting resistors
-- two digital car-detection inputs for Parts 3-4
+- two digital car-detection inputs for Parts 2 and 4
 - oscilloscope
 - frequency counter or logic analyzer, optional
 - breadboard, jumpers, and interface components as required
@@ -79,7 +79,6 @@ FOSC = 4 MHz
 FCY  = FOSC / 4 = 1 MHz
 TCY  = 1 us
 ```
-
 
 ### Required diagnostic signals
 
@@ -200,13 +199,13 @@ Build and demonstrate the traffic-light state machine **without using a hardware
 
 Use the dedicated external interrupt `INT` as a manual state-advance event. Each valid external interrupt increments a 4-bit `STATE_COUNT` field in `intersection_state`.
 
-Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains selected or begins a transition register.
+Use PORTB interrupt-on-change to latch car-detection events. Main evaluates the packed state and decides whether the current traffic direction remains selected or begins a transition.
 
-On every iteration of main, display the contents of `intersection_state` on PORTC so state byte can be observed on LEDs.
+On every iteration of main, display the contents of `intersection_state` on PORTC so the state byte can be observed on LEDs.
 
 The purpose of this part is to make the state-machine logic observable as events occur and the state changes. Timing and actual traffic-light outputs are added later.
 
-**Hint:** Much of this code will be reused in later parts. Consider how to structure your source so the state-machine logic is clear, encapsilated and reusable.
+**Hint:** Much of this code will be reused in later parts. Consider how to structure your source so the state-machine logic is clear, encapsulated and reusable.
 
 ### Required state register
 
@@ -220,7 +219,7 @@ Use this register map:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Name | SC3 | SC2 | SC1 | SC0 | TRANSITION | EW_DETECTED | NS_DETECTED | DIRECTION |
 
-The upper nibble is a 4-bit `STATE_COUNT` field. 
+The upper nibble is a 4-bit `STATE_COUNT` field.
 The lower nibble contains the intersection flags.
 
 | Field | Meaning |
@@ -248,7 +247,7 @@ Use the dedicated external interrupt as the state-advance input.
 
 Each valid external interrupt must increment only `STATE_COUNT` in bits 7:4 of `intersection_state`.
 
- `STATE_COUNT` must be incremented as part of a read-modify-write operation on the packed state byte. The lower four state flags must remain unchanged by the increment.
+`STATE_COUNT` must be incremented as part of a read-modify-write operation on the packed state byte. The lower four state flags must remain unchanged by the increment.
 
 Document the external-interrupt configuration and the masks/operations used to:
 
@@ -256,16 +255,14 @@ Document the external-interrupt configuration and the masks/operations used to:
 - position it for incrementing;
 - increment it;
 - place the updated value back into bits 7:4;
-- preserve bits 3:0 in `intersection_state`;
+- preserve bits 3:0 in `intersection_state`.
 
 ### PORTB car detection
 
 Use PORTB interrupt-on-change for two car-detection inputs:
 
-- N/S car detection;
-A **low-to-high** change on the N/S sensor sets `NS_DETECTED`.
-- E/W car detection;
-A **low-to-high** change on the E/W sensor sets `EW_DETECTED`.
+- N/S car detection: a **low-to-high** change sets `NS_DETECTED`;
+- E/W car detection: a **low-to-high** change sets `EW_DETECTED`.
 
 Once set, a car-detection flag remains set until the state machine clears it. Repeated detections in the same direction do not count additional cars. The corresponding flag simply remains set.
 
@@ -293,11 +290,11 @@ The required decision points are:
 | 3 | evaluate `DIRECTION`, `NS_DETECTED`, `EW_DETECTED`, and `TRANSITION` to decide whether to remain in the current direction or begin a transition |
 | 4 | finish an active transition |
 
- Students must check the state count and decide what action or test, if any, is required for each value their program can encounter.
+Students must check the state count and decide what action or test, if any, is required for each value their program can encounter.
 
 ### Direction decision at STATE_COUNT = 3
 
-At `STATE_COUNT = 3`, use the all four state flags to decide whether the selected traffic direction changes.
+At `STATE_COUNT = 3`, use all four state flags to decide whether the selected traffic direction changes.
 
 Develop the decision logic based on the following rules:
 
@@ -319,7 +316,7 @@ For E/W green:
 | 1 | 1 | begin transition |
 | 0 | 0 | begin transition |
 
-If the decision is **do not change direction** reset to a fresh state in the same direction.
+If the decision is **do not change direction**, reset to a fresh state in the same direction:
 
 - clear `STATE_COUNT`;
 - clear `NS_DETECTED`;
@@ -329,9 +326,9 @@ If the decision is **change direction**:
 
 - set `TRANSITION`;
 
-If `TRANSITION` is set do nothing.
+If `TRANSITION` is already set, do nothing.
 
-Develop, simplify the logic, and document your complete truth table and simplification process.
+Develop and simplify the logic, then document your complete truth table and simplification process.
 
 Use the following truth table headers and show if the action taken will be **same direction**, **change direction**, or **do nothing**:
 
@@ -341,7 +338,7 @@ Use the following truth table headers and show if the action taken will be **sam
 
 ### Transition completion at STATE_COUNT = 4
 
-When `STATE_COUNT = 4` complete the transistion to the new direction and reset to a freash state.
+When `STATE_COUNT = 4`, complete the transition to the new direction and reset to a fresh state:
 
 - toggle `DIRECTION`;
 - clear `TRANSITION`;
@@ -367,21 +364,22 @@ Prepare or reference:
 - `intersection_state` register map;
 - masks and packed-field operations for `STATE_COUNT` and the flags;
 - complete state-machine flowchart that accounts for every `STATE_COUNT` value your program can encounter;
+- complete four-flag truth table and documented logic simplification for the `STATE_COUNT = 3` decision;
 - source structure showing the read-modify-write operations on the packed state byte;
-- source code, flowcharts.
+- source code.
 
 ### In the Lab
 
 1. Verify the initial packed state with `STATE_COUNT = 0` and confirm that main copies `intersection_state` to PORTC.
 2. Trigger the external interrupt and verify that only `STATE_COUNT` changes.
-3. Advance through counts 0-F and confirm that main takes no state action other than displaying the current packed state on PORTC.
+3. Advance through `STATE_COUNT = 0`, `1`, and `2` and confirm that main takes no state action other than displaying the current packed state on PORTC.
 4. Verify a low-to-high N/S car-detection event sets `NS_DETECTED`.
 5. Verify a low-to-high E/W car-detection event sets `EW_DETECTED`.
 6. Verify high-to-low sensor changes do not set the detection flags.
 7. Implement and test the `STATE_COUNT = 3` logic. Test and document all 16 combinations of the four state flags.
 8. Implement and test the `STATE_COUNT = 4` transition completion logic.
-9.  Repeat several complete manual state-machine cycles while observing the packed state on PORTC.
-10.  Stress the design with external-interrupt and IOC events occurring close together and verify the packed state remains valid.
+9. Repeat several complete manual state-machine cycles while observing the packed state on PORTC.
+10. Stress the design with external-interrupt and IOC events occurring close together and verify the packed state remains valid.
 
 ### Evidence
 
@@ -397,7 +395,7 @@ Include or reference:
 - final source;
 - evidence that the external interrupt increments only `STATE_COUNT`;
 - evidence that only low-to-high car-detection events latch the corresponding flags;
-- results for all count-3 car/direction decision cases;
+- completed four-flag truth table, simplification work, and results for all `STATE_COUNT = 3` decision cases;
 - evidence of both remain-in-direction and transition paths;
 - evidence that count 4 completes the transition correctly;
 - evidence that packed state remains valid when interrupt events occur close together;
@@ -413,7 +411,7 @@ Be prepared to explain:
 - why the external interrupt changes only `STATE_COUNT`;
 - how a low-to-high car-detection event is latched;
 - what main checks at `STATE_COUNT = 3`;
-- how `DIRECTION` and the car flags determine whether the intersection stays green or begins a transition;
+- how `TRANSITION`, `DIRECTION`, and the car flags determine whether the intersection remains in the current direction, begins a transition, or takes no action;
 - why `DIRECTION` does not toggle until `STATE_COUNT = 4`;
 - why counts 0, 1, and 2 have no state action;
 - why main copies the complete state byte to PORTC each iteration;
@@ -430,9 +428,9 @@ Part 2 is complete when external interrupts advance the state count, PORTB IOC c
 
 ### Goal
 
-Use the packed state byte stored in the `intersection_state` register to track and control the intersection timing. The `STATE_COUNNT` will now be incremented by a timer ISR. Choose a **single** timer duration interval and 0-F `STATE_COUNT` sequence that allows for both 5 second and 1 second intervals to be represented. PORTA will display the actual traffic light signals with the correct color LEDs. PORTC will display the real time state byte. **Car detection will be ignored in this section.** This section focuses on state driven timing.
+Use the packed state byte stored in the `intersection_state` register to track and control the intersection timing. The `STATE_COUNT` will now be incremented by a timer ISR. Choose a **single** timer interval and `STATE_COUNT` range that allows both 5-second and 1-second intervals to be represented. PORTA will display the actual traffic-light signals with the correct color LEDs. PORTC will display the real-time state byte. **Car detection will be ignored in this section.** This section focuses on state-driven timing.
 
-**Hint:** Much of this code will be reused in later parts. Consider how to structure your source so the state-machine logic is clear, encapsilated and reusable.
+**Hint:** Much of this code will be reused in later parts. Consider how to structure your source so the state-machine logic is clear, encapsulated and reusable.
 
 The selected direction remains green for 5 seconds. The transition lasts 1 second.
 
@@ -474,7 +472,7 @@ Using that one timer interval, determine the `STATE_COUNT` value that represents
 - 5 seconds of green;
 - 1 second of yellow.
 
-Both durations must be represented by some multiple of timer interrupts and both required count values must fit within the 4-bit `STATE_COUNT` range of 0 through F.
+Both durations must be represented by whole-number multiples of timer interrupts and both required count values must fit within the 4-bit `STATE_COUNT` range of 0 through F.
 
 You do not need to use the entire 0-F range.
 
@@ -491,12 +489,10 @@ Document:
 
 Map out **every `STATE_COUNT` value from 0 through the highest count used by your design** before implementing the timed state machine.
 
-For each count value, document what it represents and what main should do when:
+For each count value, document the elapsed time and what main should do for both values of `TRANSITION`:
 
-
-
-| STATE_COUNT | Elapsed time | Required behavior |
-| ---: | ---: | --- |
+| STATE_COUNT | Elapsed time | TRANSITION = 0 action | TRANSITION = 1 action |
+| ---: | ---: | --- | --- |
 | 0 | ... | ... | ... |
 | 1 | ... | ... | ... |
 | ... | ... | ... | ... |
@@ -507,7 +503,7 @@ The map should make the 5-second green boundary and 1-second yellow boundary una
 
 ### Timed state-machine rules
 
-Use the same state flag logic developed in Part 2 to determine whether the intersection remains in the current direction or begins a transition. For this section the car-detection flags should remain clear and/or ignored.
+Reuse the state-transition actions developed in Part 2, but apply them at the timer-derived count boundaries from your Part 3 `STATE_COUNT` map rather than at the literal Part 2 counts. In this section, the car-detection flags remain clear and are ignored.
 
 ### PORTA traffic-light outputs
 
@@ -572,7 +568,7 @@ Prepare or reference:
 2. Verify both car-detection flags remain clear.
 3. Verify the selected timer generates the periodic interrupt interval you calculated.
 4. Observe `STATE_COUNT` increment on PORTC and verify the lower four state bits remain unchanged by the timer ISR.
-5. Step through the complete `STATE_COUNT` range used by your design and verify each value behaves as documented in your state-count map.
+5. Observe or otherwise verify the complete `STATE_COUNT` range used by your design and confirm that each value behaves as documented in your state-count map.
 6. Verify N/S begins green with E/W red.
 7. Measure the N/S green interval and verify it lasts 5 seconds.
 8. Verify the state changes to N/S yellow, `TRANSITION` sets, and `STATE_COUNT` restarts for the yellow interval.
@@ -589,7 +585,7 @@ Prepare or reference:
 Include or reference:
 
 - timer selection, configuration, and interrupt-period calculation;
-- calculated timer counts for 5 seconds and 1 second;
+- calculated `STATE_COUNT` values for 5 seconds and 1 second;
 - complete `STATE_COUNT` map covering every count value used by the design;
 - timer/interrupt SFR documentation;
 - packed `intersection_state` register map and masks;
@@ -686,14 +682,14 @@ In **RUN mode**, the intersection operates continuously using the timer.
 
 In **DEBUG mode**, the same state machine is stepped manually with `INT`, allowing individual state-count changes, car detections, and state decisions to be observed and tested.
 
-The Part 2 car-detection decision rules apply at the end of the green interval. The Part 3 timing and traffic-light behavior apply to the complete intersection. Refer to those parts rather than creating a second implementation of the same logic.
+The Part 2 car-detection decision rules apply at the end of the green interval, using the Part 3 `STATE_COUNT` value that represents 5 seconds rather than the literal Part 2 count of 3. If the decision is to transition, use the Part 3 1-second transition timing before changing direction. Refer to Parts 2 and 3 rather than creating a second implementation of the same logic.
 
 ### Before Lab
 
 Prepare or reference:
 
 - the completed Part 2 state-machine logic, truth table, car-detection inputs, and packed-state operations;
-- the completed Part 3 timer configuration, timing calculations, PORTA traffic-light map, and timed state-machine flow;
+- the completed Part 3 timer configuration, timing calculations, `STATE_COUNT` map, PORTA traffic-light map, and timed state-machine flow;
 - selected PORTB RUN/DEBUG input and its logic definition;
 - any new SFR/pin documentation required for the mode selector;
 - an updated ISR/main flowchart showing how the selected mode determines whether the timer or `INT` may advance `STATE_COUNT`;
@@ -722,7 +718,7 @@ Do not recreate documentation from Parts 2 or 3 when it has not changed. Referen
 Include or reference:
 
 - Part 2 state-machine/car-detection documentation;
-- Part 3 timer, timing, and traffic-light documentation;
+- Part 3 timer, timing, `STATE_COUNT` map, and traffic-light documentation;
 - RUN/DEBUG selector pin assignment and logic definition;
 - updated integrated flowchart;
 - final source;
@@ -792,7 +788,7 @@ You may choose:
 
 - interrupt-driven or polled train detection;
 - timer-based or inline-delay flashing;
-- additional GPR state or some other indicator for the train present override;
+- additional GPR state or another indicator for the train-present override;
 - how you preserve the pre-train direction;
 - how you handle the transition from normal operation to the train override;
 - how you handle the transition from the train override back to normal operation;
@@ -806,7 +802,7 @@ Document and justify the design choices you make. Your justification should addr
 - effect on normal Part 4 timing and interrupts;
 - simplicity and readability;
 - timing accuracy of the 0.5-second flashing;
-- how normal state is safely preserved/restored.
+- how normal state is safely preserved and restored.
 
 ### Required behavior
 
