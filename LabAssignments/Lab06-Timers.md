@@ -474,7 +474,7 @@ Using that one timer interval, determine the `STATE_COUNT` value that represents
 - 5 seconds of green;
 - 1 second of yellow.
 
-Both durations must be represented by whole numbers of timer interrupts and both required count values must fit within the 4-bit `STATE_COUNT` range of 0 through F.
+Both durations must be represented by some multiple of timer interrupts and both required count values must fit within the 4-bit `STATE_COUNT` range of 0 through F.
 
 You do not need to use the entire 0-F range.
 
@@ -489,34 +489,7 @@ Document:
 
 ### Timed state-machine rules
 
-Main uses `DIRECTION`, `TRANSITION`, and `STATE_COUNT` to determine the current traffic-light state.
-
-When `TRANSITION = 0`:
-
-- `DIRECTION` identifies the direction that is green;
-- the opposite direction is red;
-- main waits until `STATE_COUNT` reaches the value representing 5 seconds.
-
-At the end of the 5-second green interval:
-
-- set `TRANSITION`;
-- clear `STATE_COUNT`;
-- leave `DIRECTION` unchanged.
-
-When `TRANSITION = 1`:
-
-- `DIRECTION` identifies the direction that is yellow;
-- the opposite direction remains red;
-- main waits until `STATE_COUNT` reaches the value representing 1 second.
-
-At the end of the 1-second yellow interval:
-
-- toggle `DIRECTION`;
-- clear `TRANSITION`;
-- clear `STATE_COUNT`;
-- begin a fresh 5-second green interval in the newly selected direction.
-
-Car-detection flags do not participate in any Part 3 decision.
+Use the same state flag logic developed in Part 2 to determine whether the intersection remains in the current direction or begins a transition. For this section the car-detection flags should remain clear and/or be ignored.
 
 ### PORTA traffic-light outputs
 
@@ -542,22 +515,13 @@ The four legal normal output states are:
 | 1 | 0 | Red | Green |
 | 1 | 1 | Red | Yellow |
 
-Document the exact PORTA binary/hex value for each state.
+Document the exact PORTA binary/hex patterns for each state.
 
-No other normal traffic-light combination is allowed.
+The current traffic-light pattern must be updated on every iteration of main based on the current `DIRECTION` and `TRANSITION` values.
 
 ### PORTC state display
 
-Continue the Part 2 state display.
-
-On every iteration of main, copy the complete `intersection_state` byte to PORTC so the packed state can be observed in real time while the traffic lights operate on PORTA.
-
-The PORTC display should make it possible to observe:
-
-- `STATE_COUNT` increasing;
-- `TRANSITION` changing at the green/yellow boundary;
-- `DIRECTION` changing when the yellow transition completes;
-- both car-detection flags remaining clear in Part 3.
+PORTC must continue to display the complete packed `intersection_state` byte on every iteration of main.
 
 ### Shared-state behavior
 
