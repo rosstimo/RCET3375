@@ -12,6 +12,7 @@ PIC16F883 | pic-as | ADC | Acquisition Time | TAD | Result Justification | Measu
 - [Standards and references](#standards-references)
 - [Equipment and materials](#equipment-materials)
 - [Part 1 - ADC proof of life](#part-1)
+- [Part 2 - ADC-to-servo mapping](#part-2)
 
 <a id="purpose"></a>
 ## Purpose
@@ -249,5 +250,255 @@ Be prepared to explain:
 ### Complete When
 
 Part 1 is complete when the potentiometer can sweep the ADC through its usable range, the full 10-bit result is observable on PORTB and PORTC in both justification modes, acquisition and conversion timing are calculated and measured, and the ADC-derived voltage agrees reasonably with independent DMM measurements.
+
+[Back to top](#top) · [Course home](../README.md)
+
+
+<a id="part-2"></a>
+## Part 2 - ADC-to-Servo Mapping
+
+### Goal
+
+Use the ADC result from Part 1 to command a standard positional servo through **21 discrete positions**.
+
+Generate a servo-control waveform on an available PORTA output with:
+
+- a nominal **20 ms period**;
+- a minimum HIGH pulse width of **500 us**;
+- a maximum HIGH pulse width of **2.5 ms**;
+- **100 us** pulse-width increments.
+
+The inclusive range is:
+
+```text
+(2.5 ms - 0.5 ms) / 0.1 ms = 20 intervals
+20 intervals + the starting position = 21 positions
+```
+
+Use the potentiometer from Part 1 to select the commanded position across its 0 V to VDD input range.
+
+### Servo timing reference
+
+![Servo timing reference from the inherited ADC lab](images/servo-timing.jpg)
+
+The inherited figure illustrates the nominal relationship between a repeating servo pulse, pulse width, and mechanical position. Treat it as a timing illustration, not as an electrical specification for every servo.
+
+For this assignment, use the required 20 ms period and 500 us through 2.5 ms pulse-width range. Verify the actual servo's supply, control-input, current, and safe mechanical limits before connecting it.
+
+### 21-position command model
+
+Represent the commanded position with an integer index from 0 through 20.
+
+The required pulse width is:
+
+```text
+pulse width = 500 us + (position index x 100 us)
+```
+
+Therefore:
+
+| Position index | Expected pulse width | Nominal expected position |
+| ---: | ---: | ---: |
+| 0 | 500 us | 0 deg |
+| 1 | 600 us | 9 deg |
+| 2 | 700 us | 18 deg |
+| 3 | 800 us | 27 deg |
+| 4 | 900 us | 36 deg |
+| 5 | 1.0 ms | 45 deg |
+| 6 | 1.1 ms | 54 deg |
+| 7 | 1.2 ms | 63 deg |
+| 8 | 1.3 ms | 72 deg |
+| 9 | 1.4 ms | 81 deg |
+| 10 | 1.5 ms | 90 deg |
+| 11 | 1.6 ms | 99 deg |
+| 12 | 1.7 ms | 108 deg |
+| 13 | 1.8 ms | 117 deg |
+| 14 | 1.9 ms | 126 deg |
+| 15 | 2.0 ms | 135 deg |
+| 16 | 2.1 ms | 144 deg |
+| 17 | 2.2 ms | 153 deg |
+| 18 | 2.3 ms | 162 deg |
+| 19 | 2.4 ms | 171 deg |
+| 20 | 2.5 ms | 180 deg |
+
+The angle column is the nominal linear expectation for a 180-degree servo across the assignment pulse-width range. Actual servos vary. If the instructor specifies a different verified mechanical range for the servo used in lab, use that range for the expected-position comparison instead.
+
+### ADC-to-position mapping
+
+Develop a method that maps the full usable ADC input range into the 21 position indexes.
+
+At minimum:
+
+- approximately 0 V must select position 0;
+- approximately VDD must select position 20;
+- increasing ADC input must never command a lower position;
+- all 21 positions must be reachable;
+- the mapping must remain within indexes 0 through 20.
+
+Document how ADC codes are divided among the 21 positions.
+
+Create a mapping table before bench testing:
+
+| Position index | ADC code range | Expected pulse width |
+| ---: | --- | ---: |
+| 0 | ... | 500 us |
+| 1 | ... | 600 us |
+| ... | ... | ... |
+| 20 | ... | 2.5 ms |
+
+Show the calculations or integer method used to convert the 10-bit ADC result into the position index. Do not simply tune thresholds experimentally until the servo appears to move correctly.
+
+### 20 ms timer period
+
+Configure one PIC16F883 hardware timer to establish the nominal **20 ms servo period**.
+
+The 20 ms interval defines the start of each servo command frame.
+
+Document:
+
+- timer selected;
+- timer clock source;
+- prescaler/postscaler, when applicable;
+- starting/reload value, when applicable;
+- complete predicted period calculation;
+- exactly what event marks the beginning of a new 20 ms frame;
+- how the timer is serviced for the next frame.
+
+Measure the actual frame period and compare it with the predicted value.
+
+### Pulse-width generation
+
+Develop a method that produces the selected HIGH pulse width on one available PORTA output.
+
+Your method must generate all 21 required pulse widths from 500 us through 2.5 ms in 100 us steps while maintaining the nominal 20 ms frame period.
+
+Document:
+
+- how the output pulse begins;
+- how its duration is determined from the position index;
+- how the output pulse ends;
+- the timing calculation for one 100 us step;
+- the expected timing error or resolution imposed by your implementation.
+
+The timer establishes the 20 ms frame period. The method used to create the variable HIGH time is part of the design problem.
+
+### Waveform verification before connecting the servo
+
+Do **not** connect the servo until the complete command waveform has been measured and checked by the instructor.
+
+For each of the 21 commanded positions:
+
+1. select the position with the potentiometer;
+2. measure the waveform period;
+3. measure the HIGH pulse width;
+4. compare the measured pulse width with the expected value;
+5. record the result.
+
+Use a table such as:
+
+| Index | ADC code / VIN | Expected pulse width | Measured pulse width | Measured period | Pulse-width error |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 0 |  | 500 us |  |  |  |
+| 1 |  | 600 us |  |  |  |
+| ... |  | ... |  |  |  |
+| 20 |  | 2.5 ms |  |  |  |
+
+**Instructor checkoff is required before connecting the servo.**
+
+### Servo verification
+
+After the waveform has been approved, connect the servo using a suitable supply and a common reference with the PIC circuit.
+
+Do not power the servo from a PIC I/O pin. Verify the servo power requirements and account for its current demand before applying power.
+
+Sweep the potentiometer through all 21 positions.
+
+For every position:
+
+- record the commanded index;
+- record the measured pulse width;
+- record the expected mechanical position;
+- measure or otherwise document the actual servo position;
+- compare the measured position with the expected position.
+
+Use a table such as:
+
+| Index | Pulse width | Expected position | Measured position | Difference |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 500 us | 0 deg |  |  |
+| 1 | 600 us | 9 deg |  |  |
+| ... | ... | ... |  |  |
+| 20 | 2.5 ms | 180 deg |  |  |
+
+Do not force the servo against a mechanical stop. If the actual safe travel is smaller than the nominal 0-to-180-degree expectation, stop and document the usable range.
+
+### Before Lab
+
+Prepare or reference:
+
+- Part 1 ADC configuration, acquisition calculations, and conversion-result handling;
+- servo data sheet or other authoritative specifications for the actual servo used;
+- servo power and control-input electrical analysis;
+- selected PORTA servo-output pin and its configuration;
+- selected hardware timer and complete 20 ms period calculation;
+- pulse-width-generation method and 100 us timing calculation;
+- 21-position pulse-width table;
+- ADC-code-to-position mapping and calculations;
+- waveform-generation flowchart;
+- source code.
+
+### In the Lab
+
+1. Run the ADC portion and verify the potentiometer still covers the intended input range.
+2. Verify the ADC mapping can select every position index from 0 through 20.
+3. Run the servo output **without the servo connected**.
+4. Measure the 20 ms frame period.
+5. Measure and record the pulse width for all 21 positions.
+6. Compare each measured pulse width with its expected value.
+7. Correct timing or mapping errors before proceeding.
+8. Obtain instructor waveform checkoff.
+9. Verify the servo supply and common-ground arrangement.
+10. Connect the servo.
+11. Sweep through all 21 positions and record actual mechanical position.
+12. Compare each actual position with the nominal expected position.
+13. Document nonlinearity, endpoint limitations, deadband, jitter, or other observed servo behavior rather than hiding those differences by changing the recorded expected values.
+
+### Evidence
+
+Include or reference:
+
+- servo specification source and electrical/loading analysis;
+- timer SFR documentation and complete 20 ms calculation;
+- pulse-width timing calculation showing 100 us resolution;
+- ADC-to-position mapping method and complete 21-position mapping table;
+- waveform-generation flowchart;
+- source code;
+- oscilloscope evidence of the 20 ms period;
+- measured waveform table for all 21 pulse widths;
+- predicted-versus-measured pulse-width error;
+- instructor waveform checkoff;
+- servo wiring/power documentation;
+- measured servo-position table for all 21 commands;
+- expected-versus-measured position comparison;
+- troubleshooting record.
+
+### Demonstrate
+
+First demonstrate the electrical waveform without the servo connected.
+
+Be prepared to select arbitrary potentiometer positions and explain:
+
+- how the 10-bit ADC result becomes a position index from 0 through 20;
+- how the position index becomes a pulse width from 500 us through 2.5 ms;
+- how the timer establishes the 20 ms frame;
+- how your pulse-width method achieves 100 us resolution;
+- why there are 21 positions rather than 20;
+- the difference between pulse-width accuracy and servo-position accuracy.
+
+After instructor approval, demonstrate the connected servo moving through the commanded positions.
+
+### Complete When
+
+Part 2 is complete when all 21 ADC-selected command positions produce the correct measured pulse widths within the 20 ms frame, the waveform has passed instructor checkoff before servo connection, and the servo has been measured and compared with the expected position across the complete usable command range.
 
 [Back to top](#top) · [Course home](../README.md)
