@@ -604,7 +604,7 @@ Therefore the ideal pulse-width spacing is:
 For lookup-table entry $n$:
 
 ```math
-t_n = 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{n(2000\,\mu\text{s})}{63}\right)
+t_n = 500\,\mu\text{s} + \mathrm{round}\!\left(\frac{n(2000\,\mu\text{s})}{63}\right)
 ```
 
 The first entry should produce approximately 500 us and the last entry should produce approximately 2500 us.
@@ -635,9 +635,9 @@ Then calculate the ideal table value:
 
 ```math
 \begin{aligned}
-t_{32} &= 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{32(2000\,\mu\text{s})}{63}\right) \\
-&= 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{64000\,\mu\text{s}}{63}\right) \\
-&= 500\,\mu\text{s} + \operatorname{round}(1015.873\ldots\,\mu\text{s}) \\
+t_{32} &= 500\,\mu\text{s} + \mathrm{round}\!\left(\frac{32(2000\,\mu\text{s})}{63}\right) \\
+&= 500\,\mu\text{s} + \mathrm{round}\!\left(\frac{64000\,\mu\text{s}}{63}\right) \\
+&= 500\,\mu\text{s} + \mathrm{round}(1015.873\ldots\,\mu\text{s}) \\
 &= 500\,\mu\text{s} + 1016\,\mu\text{s} \\
 &= 1516\,\mu\text{s}
 \end{aligned}
