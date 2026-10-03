@@ -274,7 +274,7 @@ Generate a servo-control waveform on an available PORTA output with:
 
 The inclusive range is:
 
-$
+```math
 \begin{aligned}
 \text{pulse-width span} &= 2.5\,\text{ms} - 0.5\,\text{ms} \\
 &= 2.0\,\text{ms} \\
@@ -283,7 +283,7 @@ $
 \text{number of positions} &= 20 + 1 \\
 &= 21
 \end{aligned}
-$
+```
 
 Use the potentiometer from Part 1 to select the commanded position across its 0 V to VDD input range.
 
@@ -301,9 +301,9 @@ Represent the commanded position with an integer index from 0 through 20.
 
 The required pulse width for position index $n$ is:
 
-$
+```math
 t_{\text{pulse}} = 500\,\mu\text{s} + n(100\,\mu\text{s}), \qquad 0 \le n \le 20
-$
+```
 
 Therefore:
 
@@ -569,9 +569,9 @@ For the register-level details, use the PIC16F883 data sheet sections for Timer1
 
 Use the upper 6 bits of the 10-bit ADC conversion as the command index.
 
-$
+```math
 n = \text{ADC} \gg 4 = \left\lfloor \frac{\text{ADC}}{16} \right\rfloor
-$
+```
 
 This produces:
 
@@ -593,19 +593,19 @@ There are 64 command values but only 63 intervals between the first and last com
 
 Therefore the ideal pulse-width spacing is:
 
-$
+```math
 \begin{aligned}
 \Delta t &= \frac{2500\,\mu\text{s} - 500\,\mu\text{s}}{63} \\
 &= \frac{2000\,\mu\text{s}}{63} \\
 &= 31.746\ldots\,\mu\text{s}
 \end{aligned}
-$
+```
 
 For lookup-table entry $n$:
 
-$
+```math
 t_n = 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{n(2000\,\mu\text{s})}{63}\right)
-$
+```
 
 The first entry should produce approximately 500 us and the last entry should produce approximately 2500 us.
 
@@ -623,17 +623,17 @@ Assume:
 
 First reduce the 10-bit ADC value to 6 bits:
 
-$
+```math
 \begin{aligned}
 n &= 512 \gg 4 \\
 &= \left\lfloor \frac{512}{16} \right\rfloor \\
 &= 32
 \end{aligned}
-$
+```
 
 Then calculate the ideal table value:
 
-$
+```math
 \begin{aligned}
 t_{32} &= 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{32(2000\,\mu\text{s})}{63}\right) \\
 &= 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{64000\,\mu\text{s}}{63}\right) \\
@@ -641,23 +641,23 @@ t_{32} &= 500\,\mu\text{s} + \operatorname{round}\!\left(\frac{32(2000\,\mu\text
 &= 500\,\mu\text{s} + 1016\,\mu\text{s} \\
 &= 1516\,\mu\text{s}
 \end{aligned}
-$
+```
 
 Because Timer1 began the frame at `0xB1E0`, first convert the preload to decimal:
 
-$
+```math
 0x\mathrm{B1E0} = 45536
-$
+```
 
 Then add the pulse width in Timer1 ticks and convert the result back to hexadecimal:
 
-$
+```math
 \begin{aligned}
 \text{CCP match} &= 45536 + 1516 \\
 &= 47052 \\
 &= 0x\mathrm{B7CC}
 \end{aligned}
-$
+```
 
 So the table entry for index 32 would contain the bytes needed to load `CCPR1H:CCPR1L = 0xB7CC`.
 
@@ -748,50 +748,50 @@ A 6-bit command requires 64 entries.
 
 A full 10-bit command has:
 
-$
+```math
 2^{10} = 1024 \text{ possible ADC codes}
-$
+```
 
 If every 10-bit ADC code had its own stored 16-bit compare value, the table would become very large. Instead, calculate the compare value from the ADC result.
 
 The ideal pulse-width equation is:
 
-$
+```math
 t_{\text{pulse}} = 500\,\mu\text{s} + \frac{\text{ADC}(2000\,\mu\text{s})}{1023}
-$
+```
 
 The ideal change per ADC count is approximately:
 
-$
+```math
 \begin{aligned}
 \Delta t_{\text{ideal}} &= \frac{2000\,\mu\text{s}}{1023} \\
 &= 1.955034\ldots\,\mu\text{s/count}
 \end{aligned}
-$
+```
 
 ### Integer mapping used in this lab
 
 A convenient PIC-friendly approximation, with the result expressed in microseconds, is:
 
-$
+```math
 t_{\text{pulse}}[\mu\text{s}] = 500 + 2(\text{ADC}) - \left\lfloor \frac{3(\text{ADC})}{64} \right\rfloor
-$
+```
 
 This works because:
 
-$
+```math
 \begin{aligned}
 2 - \frac{3}{64} &= \frac{128}{64} - \frac{3}{64} \\
 &= \frac{125}{64} \\
 &= 1.953125
 \end{aligned}
-$
+```
 
 which is very close to the ideal slope:
 
-$
+```math
 \frac{2000}{1023} = 1.955034\ldots
-$
+```
 
 The calculation can be implemented with shifts, additions, and subtraction rather than a general multiply or divide routine.
 
@@ -799,17 +799,17 @@ Check the endpoints.
 
 For $\text{ADC}=0$:
 
-$
+```math
 \begin{aligned}
 t_{\text{pulse}} &= 500 + 2(0) - \left\lfloor \frac{3(0)}{64} \right\rfloor \\
 &= 500 + 0 - 0 \\
 &= 500\,\mu\text{s}
 \end{aligned}
-$
+```
 
 For $\text{ADC}=1023$:
 
-$
+```math
 \begin{aligned}
 t_{\text{pulse}} &= 500 + 2(1023) - \left\lfloor \frac{3(1023)}{64} \right\rfloor \\
 &= 500 + 2046 - \left\lfloor \frac{3069}{64} \right\rfloor \\
@@ -817,7 +817,7 @@ t_{\text{pulse}} &= 500 + 2(1023) - \left\lfloor \frac{3(1023)}{64} \right\rfloo
 &= 500 + 2046 - 47 \\
 &= 2499\,\mu\text{s}
 \end{aligned}
-$
+```
 
 The 1 us high-end difference is an acceptable consequence of this simple integer approximation.
 
@@ -831,7 +831,7 @@ Assume:
 
 Using the integer mapping:
 
-$
+```math
 \begin{aligned}
 t_{\text{pulse}} &= 500 + 2(512) - \left\lfloor \frac{3(512)}{64} \right\rfloor \\
 &= 500 + 1024 - \left\lfloor \frac{1536}{64} \right\rfloor \\
@@ -839,39 +839,39 @@ t_{\text{pulse}} &= 500 + 2(512) - \left\lfloor \frac{3(512)}{64} \right\rfloor 
 &= 500 + 1024 - 24 \\
 &= 1500\,\mu\text{s}
 \end{aligned}
-$
+```
 
 The corresponding absolute CCP match is found by converting the Timer1 preload to decimal, adding the pulse width in timer ticks, and converting back to hexadecimal:
 
-$
+```math
 \begin{aligned}
 0x\mathrm{B1E0} &= 45536 \\
 \text{CCP match} &= 45536 + 1500 \\
 &= 47036 \\
 &= 0x\mathrm{B7BC}
 \end{aligned}
-$
+```
 
 For comparison, the ideal linear equation gives:
 
-$
+```math
 \begin{aligned}
 t_{\text{ideal}} &= 500\,\mu\text{s} + \frac{512(2000\,\mu\text{s})}{1023} \\
 &= 500\,\mu\text{s} + \frac{1{,}024{,}000\,\mu\text{s}}{1023} \\
 &= 500\,\mu\text{s} + 1000.9775\ldots\,\mu\text{s} \\
 &= 1500.9775\ldots\,\mu\text{s}
 \end{aligned}
-$
+```
 
 The difference between the ideal and integer results is:
 
-$
+```math
 \begin{aligned}
 \text{error} &= 1500.9775\ldots\,\mu\text{s} - 1500\,\mu\text{s} \\
 &= 0.9775\ldots\,\mu\text{s} \\
 &\approx 0.98\,\mu\text{s}
 \end{aligned}
-$
+```
 
 ### Program structure
 
@@ -1004,15 +1004,15 @@ current_match
 
 Define a minimum software service window:
 
-$
+```math
 \texttt{service\_limit} = \texttt{current\_match} + \texttt{service\_margin}
-$
+```
 
 Any active servo with:
 
-$
+```math
 \texttt{servo\_match} \le \texttt{service\_limit}
-$
+```
 
 is driven LOW during the current interrupt.
 
