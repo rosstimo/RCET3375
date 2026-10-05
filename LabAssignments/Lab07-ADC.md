@@ -404,12 +404,14 @@ CCP1 compare:
     clear pulse busy
 
 main:
-    when not busy, acquire ADC
+    wait for the frame pulse to start
+    wait for the pulse to end
+    acquire ADC once
     reduce to 6 bits
     call lookup routine for next frame
 ```
 
-Do not change the compare value during an active pulse.
+Prepare one command per frame after the active pulse ends. Do not repeatedly acquire/map during the remaining idle time, and do not change the compare value during an active pulse.
 
 ### Before Lab
 
@@ -425,7 +427,7 @@ Prepare or reference:
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
 2. Verify first, center, and last table entries, then several intermediate values.
-3. Confirm adjacent command spacing is approximately $31.75\,\mu\text{s}$.
+3. Confirm adjacent table entries differ by $31$ or $32\,\mu\text{s}$, averaging approximately $31.75\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 64 commands.
 
@@ -448,7 +450,7 @@ Part 3 is complete when all 64 commands are reachable, CCP schedules the falling
 
 ### Goal
 
-Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP architecture from Part 3 and replace only the mapping method.
+Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP frame and pulse architecture from Part 3, use a right-justified 10-bit ADC result, and replace the 6-bit lookup mapping with a calculation.
 
 ### Quick calculation reference
 
@@ -531,6 +533,16 @@ After `ReadAdc` stores the right-justified result in `adc_l:adc_h`:
 ```
 
 The routine writes the next absolute CCP match to `ccp_next_l:ccp_next_h`, uses `adc_l:adc_h` as working registers, and reserves Bank 0 address `0x25`.
+
+Keep the same one-update-per-frame sequence from Part 3:
+
+```text
+main:
+    wait for the frame pulse to start
+    wait for the pulse to end
+    read the right-justified 10-bit ADC result
+    call mapping routine for next frame
+```
 
 ### Before Lab
 
