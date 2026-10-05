@@ -613,6 +613,61 @@ A straightforward PIC implementation may use two 64-entry `RETLW` tables, one fo
 
 This table is intentionally large enough to make the memory cost visible. Part 4 will replace it with a calculation.
 
+### Supplied lookup-table source file
+
+You are **not** expected to type the 128 `RETLW` values by hand. Use the supplied [`Lab07-Part3-Lookup.S`](support/Lab07/Lab07-Part3-Lookup.S) file.
+
+Keep the lookup table in a separate source file from your main program. For Part 3, a simple project layout is:
+
+```text
+ADCServo.X/
+├── main.S
+├── Lab07-Part3-Lookup.S
+└── nbproject/
+```
+
+In MPLAB X, both assembly files should appear under **Source Files**. Copy the supplied file into your project directory, then right-click **Source Files** and add the existing `.S` file to the project.
+
+Do **not** use `#include` to paste `Lab07-Part3-Lookup.S` into `main.S`. MPLAB X assembles each `.S` file separately. The linker then combines the object files into one program.
+
+Only `main.S` should contain the configuration bits, reset vector, interrupt vector, main loop, and interrupt handler. The supplied lookup file contains only the lookup routine and table data.
+
+#### Sharing names between source files
+
+A symbol normally belongs to the source file where it is defined. Use `GLOBAL` to make a symbol available to other source files and `EXTRN` to declare a symbol that is defined in another source file.
+
+The supplied lookup module exports one routine:
+
+```text
+LookupAdc6ToCcp
+```
+
+It expects the 6-bit command index in W and writes the resulting 16-bit CCP match into `ccp_next_l:ccp_next_h`.
+
+In `main.S`, define the output registers and make them visible to the lookup module:
+
+```assembly
+ccp_next_l      EQU 0x23
+ccp_next_h      EQU 0x24
+
+GLOBAL  ccp_next_l, ccp_next_h
+EXTRN   LookupAdc6ToCcp
+```
+
+After reducing the ADC result to a 6-bit index, call the routine just like a subroutine in the same source file:
+
+```assembly
+    BANKSEL adc_index
+    movf    adc_index,w
+    call    LookupAdc6ToCcp
+```
+
+When the call returns, `ccp_next_l:ccp_next_h` contains the absolute Timer1 compare value for the next servo pulse.
+
+The `call` instruction does not change because the routine is in another file. `EXTRN` tells the assembler/linker that the routine is defined elsewhere, and `GLOBAL` makes the matching definition visible during linking.
+
+The supplied lookup module reserves Bank 0 address `0x25` for its temporary value. Do not assign another variable to `0x25` while using this file.
+
 ### Worked mapping example
 
 Assume:
@@ -684,6 +739,8 @@ Prepare or reference:
 - the 64-command pulse-width calculation;
 - one complete worked mapping example;
 - lookup-table structure and program-memory estimate;
+- supplied `Lab07-Part3-Lookup.S` added to the MPLAB X project;
+- `GLOBAL`/`EXTRN` interface between `main.S` and the lookup module;
 - main-loop and ISR flowcharts;
 - source code.
 
@@ -708,7 +765,7 @@ Include or reference:
 - 6-bit ADC mapping calculation;
 - worked mapping example;
 - lookup table and program-memory estimate;
-- final source code;
+- final `main.S` and supplied lookup source file;
 - oscilloscope captures showing the 20 ms frame and CCP-controlled falling edge;
 - measured pulse widths at the endpoints, center, and several intermediate commands;
 - comparison with Part 2 resolution;
@@ -873,6 +930,52 @@ The difference between the ideal and integer results is:
 \end{aligned}
 ```
 
+### Supplied mapping source file
+
+For Part 4, replace the Part 3 lookup module with the supplied [`Lab07-Part4-Map.S`](support/Lab07/Lab07-Part4-Map.S) file.
+
+Your Part 4 project should look like:
+
+```text
+ADCServo.X/
+├── main.S
+├── Lab07-Part4-Map.S
+└── nbproject/
+```
+
+Remove `Lab07-Part3-Lookup.S` from the MPLAB X project for Part 4. This part replaces the lookup table with a calculation, so the old table should not be linked into the new build.
+
+The Part 4 module exports:
+
+```text
+MapAdcToCcp
+```
+
+Your `main.S` owns the ADC result registers and the saved compare value. Define and export them, then declare the external routine:
+
+```assembly
+ccp_next_l      EQU 0x21
+ccp_next_h      EQU 0x22
+adc_l           EQU 0x23
+adc_h           EQU 0x24
+
+GLOBAL  ccp_next_l, ccp_next_h, adc_l, adc_h
+EXTRN   MapAdcToCcp
+```
+
+After `ReadAdc` stores the right-justified 10-bit conversion in `adc_l:adc_h`, call the supplied routine:
+
+```assembly
+    call    ReadAdc
+    call    MapAdcToCcp
+```
+
+The mapping routine reads `adc_l:adc_h`, performs the integer calculation shown above, and writes the absolute compare value into `ccp_next_l:ccp_next_h`. It uses `adc_l:adc_h` as working registers, so the original ADC value is not preserved after the call.
+
+The supplied mapping module reserves Bank 0 address `0x25` as a loop counter. Do not assign another variable to `0x25` while using this file.
+
+This is the same multi-file mechanism used in Part 3: each source file is assembled separately, `GLOBAL` exposes definitions, `EXTRN` declares outside definitions, and the linker connects the `call` in `main.S` to the routine in the support file.
+
 ### Program structure
 
 Keep the interrupt work short.
@@ -919,6 +1022,8 @@ Prepare or reference:
 - one complete worked mapping example;
 - endpoint calculations for ADC 0 and ADC 1023;
 - predicted pulse-width change per ADC count;
+- supplied `Lab07-Part4-Map.S` added to the MPLAB X project;
+- `GLOBAL`/`EXTRN` interface between `main.S` and the mapping module;
 - main-loop and ISR flowcharts;
 - source code.
 
@@ -941,7 +1046,7 @@ Include or reference:
 - integer approximation and derivation;
 - worked mapping example;
 - endpoint calculations;
-- final source code;
+- final `main.S` and supplied mapping source file;
 - oscilloscope evidence for low, center, and high commands;
 - measured pulse-width error at several ADC values;
 - comparison of Part 3 lookup-table memory cost with Part 4 calculation cost;
