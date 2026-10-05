@@ -58,16 +58,6 @@ Use the PIC16F883 data sheet as the device authority. Use the current errata cor
 
 [Back to top](#top)
 
-<a id="visual-code"></a>
-## Visual and code references
-
-- **SCHEMATIC LAB07-P1-01:** student-created ADC circuit showing the potentiometer, selected ANx pin, PORTB/PORTC LEDs, diagnostic output, supply, and ground.
-- **VISUAL LAB07-P2-01:** [servo timing reference](images/servo-timing.jpg).
-- **SCHEMATIC LAB07-P2-01:** student-created servo connection showing control signal, servo supply, and common ground.
-- **CODE LAB07-P3-01:** [Part 3 lookup module](support/Lab07/Lab07-Part3-Lookup.S).
-- **CODE LAB07-P4-01:** [Part 4 calculated mapping module](support/Lab07/Lab07-Part4-Map.S).
-
-[Back to top](#top)
 
 <a id="part-1"></a>
 ## Part 1 - ADC Proof of Life
