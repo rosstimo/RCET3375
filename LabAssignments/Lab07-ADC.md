@@ -312,6 +312,16 @@ Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, 
 
 For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
+### Required setup
+
+| Area | Required configuration |
+| --- | --- |
+| I/O | RA0/AN0 is the potentiometer analog input. RC2 is a digital servo output, starts LOW, and is driven by software. Disable the comparators. All other analog channels are disabled. |
+| ADC | Enable the ADC on AN0 with VDD and VSS references, use $F_{OSC}/8$ as the ADC clock, and left justify the result. Use `ADRESH` bits 7:2 as the six-bit command index. |
+| Timer1 | Use the internal instruction clock ($F_{OSC}/4$) with 1:1 prescale so Timer1 advances once per microsecond. Reload it to `0xB1E0` at each frame start so overflow occurs every $20\,\text{ms}$. |
+| CCP1 | Use CCP1 Compare in interrupt-only mode. A Timer1/CCP1 match sets the CCP1 interrupt flag; CCP1 does not change RC2 directly. Load the saved absolute compare value at the start of each frame. |
+| Interrupts/state | Enable Timer1 and CCP1 peripheral interrupts, clear their flags before starting, then enable peripheral and global interrupts. Keep a pulse-busy flag, a six-bit ADC index, and a saved 16-bit CCP value for the next frame. Preserve W and STATUS in the ISR. The supplied lookup module reserves Bank 0 address `0x25`. |
+
 ### CCP Compare quick reference
 
 Timer1 provides the running 16-bit timebase. `CCPR1H:CCPR1L` stores a 16-bit compare value. When Timer1 matches that value, CCP1 sets `CCP1IF`.
@@ -326,14 +336,15 @@ Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, and 
 
 **Why:** the lookup table stores the deadline at which CCP should end the pulse.
 
-For ADC result 512:
+For ADC result 512, a left-justified result places ADC bits 9:2 in `ADRESH`:
 
-```math
-\begin{aligned}
-n &= 512 \gg 4 \\
-&= 32
-\end{aligned}
+```text
+ADC = 512          -> 10-bit: 1000000000
+ADRESH             ->        10000000
+ADRESH >> 2        ->        00100000 = 32
 ```
+
+Only two right shifts are required because `ADRESH` already contains the upper eight ADC bits. The resulting six-bit index is ADC bits 9:4.
 
 There are 64 commands and 63 intervals:
 
@@ -419,7 +430,7 @@ Prepare or reference:
 
 - Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation;
 - CCP1 SFR documentation;
-- 10-bit to 6-bit reduction and one worked lookup calculation;
+- left-justified `ADRESH` to 6-bit index reduction and one worked lookup calculation;
 - supplied lookup module added to the project;
 - main/ISR flowcharts and source code.
 
@@ -451,6 +462,16 @@ Part 3 is complete when all 64 commands are reachable, CCP schedules the falling
 ### Goal
 
 Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP frame and pulse architecture from Part 3, use a right-justified 10-bit ADC result, and replace the 6-bit lookup mapping with a calculation.
+
+### Required setup
+
+| Area | Required configuration |
+| --- | --- |
+| I/O | RA0/AN0 is the potentiometer analog input. RC2 is a digital servo output, starts LOW, and is driven by software. Disable the comparators. All other analog channels are disabled. |
+| ADC | Enable the ADC on AN0 with VDD and VSS references, use $F_{OSC}/8$ as the ADC clock, and right justify the result so all 10 bits can be stored and mapped. |
+| Timer1 | Use the internal instruction clock ($F_{OSC}/4$) with 1:1 prescale so Timer1 advances once per microsecond. Reload it to `0xB1E0` at each frame start so overflow occurs every $20\,\text{ms}$. |
+| CCP1 | Use CCP1 Compare in interrupt-only mode. A Timer1/CCP1 match sets the CCP1 interrupt flag; CCP1 does not change RC2 directly. Load the saved absolute compare value at the start of each frame. |
+| Interrupts/state | Enable Timer1 and CCP1 peripheral interrupts, clear their flags before starting, then enable peripheral and global interrupts. Keep a pulse-busy flag, the full 10-bit ADC result in two bytes, and a saved 16-bit CCP value for the next frame. Preserve W and STATUS in the ISR. The supplied mapping module reserves Bank 0 address `0x25`. |
 
 ### Quick calculation reference
 
