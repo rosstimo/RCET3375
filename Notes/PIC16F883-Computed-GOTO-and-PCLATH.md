@@ -26,16 +26,146 @@ That is why introducing `PCLATH` during a first interrupt exercise can create mo
 
 ## CALL and GOTO
 
-A `CALL` or `GOTO` instruction contains only part of the destination address in the instruction itself. On classic mid-range PIC devices, page-selection information comes from `PCLATH`.
+A `CALL` or `GOTO` instruction does not contain the complete PIC16F883 program-memory address.
 
-For new PIC Assembler code, use the assembler-supported page-selection mechanism rather than hand-maintaining page bits when practical. `PAGESEL` selects the page needed by a following `CALL` or `GOTO`.
+The PIC16F883 Program Counter is 13 bits wide. For `CALL` and `GOTO`:
 
-Conceptually:
+- the instruction supplies the low 11 destination bits;
+- `PCLATH<4:3>` supplies the upper program-counter bits.
+
+This makes the directly encoded destination a **2K-word program-memory page**. If the target is on another page, the appropriate `PCLATH` page bits must be selected before the `CALL` or `GOTO`.
+
+This is a different use of `PCLATH` from a computed `GOTO`. A write to `PCL` uses `PCLATH<4:0>`, while `CALL` and `GOTO` use only `PCLATH<4:3>`.
+
+For PIC Assembler code, use the assembler-supported page-selection mechanism rather than hand-maintaining the page bits:
 
 ```assembly
     PAGESEL SomeRoutine
-    CALL    SomeRoutine
+    call    SomeRoutine
+    PAGESEL $
 ```
+
+`PAGESEL SomeRoutine` generates the instructions needed to select the page containing the target. After `return`, execution resumes at the correct caller address because the hardware stack stores the complete return PC. However, `PCLATH` is not restored by the stack. `PAGESEL # PIC16F883 Computed GOTO and PCLATH
+
+This note explains why `PCLATH` exists, when it matters, and why interrupt-context discussions should not introduce it before computed program-counter changes are understood.
+
+The PIC16F883 data sheet is the device-specific authority. Microchip Application Note AN556, *Implementing a Table Read*, provides additional worked examples for the classic PIC16 mid-range architecture.
+
+## Start with the Program Counter
+
+The PIC16F883 executes instructions from program memory using the Program Counter (PC).
+
+The architectural PC is wider than the directly accessible `PCL` register:
+
+- `PCL` contains the low 8 bits of the PC and is readable/writable.
+- The high PC bits are not directly writable.
+- `PCLATH` is a holding register used to supply high PC bits in specific situations.
+
+The important point is that **`PCLATH` is not the Program Counter**. It is a latch that contributes high address bits when certain operations change the PC.
+
+See PIC16F883 data sheet Section 2.3.1, *Modifying PCL*.
+
+## Ordinary sequential execution
+
+During ordinary sequential execution, the PC simply advances to the next instruction. Code that stays in a simple loop does not need to manipulate `PCLATH` merely because the PC exists.
+
+That is why introducing `PCLATH` during a first interrupt exercise can create more confusion than understanding. Students first need to see an operation where the high PC bits actually matter.
+
+ selects the page containing the caller again so later `CALL` and `GOTO` instructions have the expected page state.
+
+Microchip's PIC Assembler User's Guide for Embedded Engineers, Section 5.2, **Psect Concatenation and Paging**, shows this exact `PAGESEL target` / `call target` / `PAGESEL # PIC16F883 Computed GOTO and PCLATH
+
+This note explains why `PCLATH` exists, when it matters, and why interrupt-context discussions should not introduce it before computed program-counter changes are understood.
+
+The PIC16F883 data sheet is the device-specific authority. Microchip Application Note AN556, *Implementing a Table Read*, provides additional worked examples for the classic PIC16 mid-range architecture.
+
+## Start with the Program Counter
+
+The PIC16F883 executes instructions from program memory using the Program Counter (PC).
+
+The architectural PC is wider than the directly accessible `PCL` register:
+
+- `PCL` contains the low 8 bits of the PC and is readable/writable.
+- The high PC bits are not directly writable.
+- `PCLATH` is a holding register used to supply high PC bits in specific situations.
+
+The important point is that **`PCLATH` is not the Program Counter**. It is a latch that contributes high address bits when certain operations change the PC.
+
+See PIC16F883 data sheet Section 2.3.1, *Modifying PCL*.
+
+## Ordinary sequential execution
+
+During ordinary sequential execution, the PC simply advances to the next instruction. Code that stays in a simple loop does not need to manipulate `PCLATH` merely because the PC exists.
+
+That is why introducing `PCLATH` during a first interrupt exercise can create more confusion than understanding. Students first need to see an operation where the high PC bits actually matter.
+
+ pattern.
+
+### Calls to routines in separate source modules
+
+A separate `.S` source module is assembled independently and then placed by the linker. The caller should therefore not assume that a routine defined in another module will land on the same program-memory page.
+
+For example:
+
+```assembly
+; main.S
+EXTRN   ConvertValue
+
+    PAGESEL ConvertValue
+    call    ConvertValue
+    PAGESEL $
+```
+
+```assembly
+; conversion.S
+GLOBAL  ConvertValue
+
+ConvertValue:
+    ; routine body
+    return
+```
+
+The source-file organization, `GLOBAL`/`EXTRN` interface, and difference between include files and separate source modules are covered in [Starting a PIC-AS Project](../HowTo/PIC-AS-Project-Setup.md). This topic owns only the program-counter and paging behavior.
+
+### `fcall` as the page-independent alternative
+
+PIC Assembler also provides the `fcall` pseudo-instruction:
+
+```assembly
+    fcall   SomeRoutine
+```
+
+On baseline and mid-range PIC devices, `fcall` expands to a normal `call` plus whatever page-selection instructions are required for the final linked address. It also restores the previous page selection as needed.
+
+Microchip recommends `fcall` where practical because it makes the source less dependent on final routine placement. In this course, the explicit `PAGESEL` / `call` / `PAGESEL # PIC16F883 Computed GOTO and PCLATH
+
+This note explains why `PCLATH` exists, when it matters, and why interrupt-context discussions should not introduce it before computed program-counter changes are understood.
+
+The PIC16F883 data sheet is the device-specific authority. Microchip Application Note AN556, *Implementing a Table Read*, provides additional worked examples for the classic PIC16 mid-range architecture.
+
+## Start with the Program Counter
+
+The PIC16F883 executes instructions from program memory using the Program Counter (PC).
+
+The architectural PC is wider than the directly accessible `PCL` register:
+
+- `PCL` contains the low 8 bits of the PC and is readable/writable.
+- The high PC bits are not directly writable.
+- `PCLATH` is a holding register used to supply high PC bits in specific situations.
+
+The important point is that **`PCLATH` is not the Program Counter**. It is a latch that contributes high address bits when certain operations change the PC.
+
+See PIC16F883 data sheet Section 2.3.1, *Modifying PCL*.
+
+## Ordinary sequential execution
+
+During ordinary sequential execution, the PC simply advances to the next instruction. Code that stays in a simple loop does not need to manipulate `PCLATH` merely because the PC exists.
+
+That is why introducing `PCLATH` during a first interrupt exercise can create more confusion than understanding. Students first need to see an operation where the high PC bits actually matter.
+
+ form is useful when learning the hardware mechanism; `fcall` is the cleaner choice once that mechanism is understood.
+
+See MPLAB XC8 PIC Assembler User's Guide, Section 4.1.7, **Long Jumps and Calls**.
 
 The important lesson is that a normal `CALL` or `GOTO` is **not** the same mechanism as writing to `PCL`.
 
@@ -145,12 +275,15 @@ For ordinary ISR code that does not modify `PCLATH` in this way, introducing ext
 
 ## References
 
-- Microchip, *PIC16F882/883/884/886/887 Data Sheet*, DS40001291H:
+- Microchip, *PIC16F882/883/884/886/887 Data Sheet*, DS40001291H: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf
+  - Section 2.3, PCL and PCLATH
   - Section 2.3.1, Modifying PCL
   - Section 2.3.2, Stack
   - Section 14.4, Context Saving During Interrupts
-- Microchip, *PICmicro Mid-Range MCU Family Reference Manual*, DS33023A:
+- Microchip, *PIC Assembler User's Guide for Embedded Engineers*, Section 5, **Multiple Source Files, Paging and Linear Memory Example**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-79324E62-113F-4297-9BD9-D06E9565D522.html
+- Microchip, same guide, Section 5.2, **Psect Concatenation and Paging**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-5F31E8EE-6965-42C0-AFAC-9139CCA1B76C.html
+- Microchip, *MPLAB XC8 PIC Assembler User's Guide*, Section 4.1.7, **Long Jumps and Calls** (`fcall`, `ljmp`): https://onlinedocs.microchip.com/oxy/GUID-4DC87671-9D8E-428A-ADFE-98D694F9F089-en-US-7/GUID-9057119A-E61B-4AEF-9FDE-14C5D8A15398.html
+- Microchip, *PICmicro Mid-Range MCU Family Reference Manual*, DS33023A: https://ww1.microchip.com/downloads/en/DeviceDoc/33023a.pdf
   - Section 6.2.4.1, Computed GOTO
   - Section 6.2.5, Stack
-- Microchip AN556, *Implementing a Table Read*, DS00556E
-- Microchip PIC Assembler documentation, `PAGESEL` directive and `high` address operator
+- Microchip AN556, *Implementing a Table Read*, DS00556E: https://ww1.microchip.com/downloads/en/AppNotes/00556e.pdf
