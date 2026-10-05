@@ -345,19 +345,22 @@ interrupts:
     enable Timer1 and CCP1 interrupts
     enable peripheral and global interrupts after setup
 
-state:
-    pulse-busy flag
-    6-bit ADC index
-    saved 16-bit CCP match for next frame
-    preserve W and STATUS in ISR
-    leave Bank 0 address 0x25 for supplied lookup module
-
 startup:
     clear busy flag
     read ADC once
     calculate first CCP match
     start Timer1
     enable interrupts
+```
+
+### Required RAM
+
+```text
+pulse-busy flag
+6-bit ADC index
+saved 16-bit CCP match for next frame
+ISR context storage for W and STATUS
+Bank 0 address 0x25 reserved by supplied lookup module
 ```
 
 ### CCP Compare quick reference
@@ -535,19 +538,22 @@ interrupts:
     enable Timer1 and CCP1 interrupts
     enable peripheral and global interrupts after setup
 
-state:
-    pulse-busy flag
-    right-justified 10-bit ADC result in two bytes
-    saved 16-bit CCP match for next frame
-    preserve W and STATUS in ISR
-    leave Bank 0 address 0x25 for supplied mapping module
-
 startup:
     clear busy flag
     read ADC once
     calculate first CCP match
     start Timer1
     enable interrupts
+```
+
+### Required RAM
+
+```text
+pulse-busy flag
+right-justified 10-bit ADC result in two bytes
+saved 16-bit CCP match for next frame
+ISR context storage for W and STATUS
+Bank 0 address 0x25 reserved by supplied mapping module
 ```
 
 ### Quick calculation reference
