@@ -11,17 +11,14 @@ Use this guide whenever an RCET 3375 assignment requires a new PIC-AS project un
 
 Official resources:
 
-- MPLAB X IDE: https://www.microchip.com/en-us/tools-resources/develop/mplab-x-ide
-- MPLAB archive: https://www.microchip.com/en-us/tools-resources/archives/mplab-ecosystem
-- MPLAB X IDE User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB_X_IDE_Users_Guide_50002027.pdf
-- MPLAB XC8 PIC Assembler User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB-XC8-PIC-Assembler-Users-Guide-DS50002974.pdf
-- PIC Assembler User's Guide for Embedded Engineers: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/
-  - Section 3.3, **Include Files**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-1654DE39-041E-41F5-8336-D5D9B05F8F0D.html
-  - Section 5, **Multiple Source Files, Paging and Linear Memory Example**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-79324E62-113F-4297-9BD9-D06E9565D522.html
-- MPLAB XC8 PIC Assembler User's Guide, Section 6.1.9, **Assembler Directives** (`GLOBAL`, `EXTRN`, `INCLUDE`, `PAGESEL`): https://onlinedocs.microchip.com/oxy/GUID-BB433107-FD4E-4D28-BB58-9D4A58955B1A-en-US-9/GUID-C469821D-5C5E-4F01-B8B5-F5D0A5565729.html
-- MPLAB X IDE User's Guide, Section 14.24.2, **Projects Window / Add Existing Item**: https://onlinedocs.microchip.com/oxy/GUID-D79ACEBE-41BD-43EF-8E1B-9462847AE13E-en-US-12/GUID-8F50F909-811E-41F1-9D14-641561422C44.html
-- PICkit 3 User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/UserGuides/52116A.pdf
-- PIC16F883 datasheet: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf
+- [RCET Microchip Documentation Guide](https://github.com/rosstimo/pic_projects/blob/main/References/Microchip-Documentation-Guide.md) - shared RCET index of official Microchip documentation.
+- [MPLAB X IDE](https://www.microchip.com/en-us/tools-resources/develop/mplab-x-ide)
+- [MPLAB ecosystem archive](https://www.microchip.com/en-us/tools-resources/archives/mplab-ecosystem)
+- [MPLAB X IDE User's Guide](https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB_X_IDE_Users_Guide_50002027.pdf)
+- [MPLAB XC8 PIC Assembler User's Guide](https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB-XC8-PIC-Assembler-Users-Guide-DS50002974.pdf)
+- [PIC Assembler User's Guide for Embedded Engineers](https://ww1.microchip.com/downloads/en/DeviceDoc/50002994B.pdf)
+- [PICkit 3 User's Guide](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/UserGuides/52116A.pdf)
+- [PIC16F883 datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
 - [RCET PIC-AS Style Guide](../Notes/RCET_PIC-AS_Style_Guide.md)
 - [RCET 3375 Lab Standard](../LAB_STANDARD.md)
 
@@ -93,7 +90,7 @@ Use an include file for material that should be shared as source text, such as:
 
 The `.inc` extension is a useful convention, but the important action is the include directive itself.
 
-An uppercase `.S` source file is passed through the preprocessor, which is why `#include` works in the course assembly files. See the official PIC Assembler guide, Section 3.3, **Include Files**.
+An uppercase `.S` source file is passed through the preprocessor, which is why `#include` works in the course assembly files. See the [PIC Assembler User's Guide for Embedded Engineers](https://ww1.microchip.com/downloads/en/DeviceDoc/50002994B.pdf), Section 3.3, **Include Files**.
 
 ### Separate `.S` files are separate source modules
 
@@ -134,11 +131,13 @@ Use a separate source module when executable code or data has its own job, such 
 - a reusable driver;
 - a larger group of related subroutines.
 
-Microchip's Section 5, **Multiple Source Files, Paging and Linear Memory Example**, demonstrates this model with two independently assembled source files.
+Section 5, **Multiple Source Files, Paging and Linear Memory Example**, in the [PIC Assembler User's Guide for Embedded Engineers](https://ww1.microchip.com/downloads/en/DeviceDoc/50002994B.pdf) demonstrates this model with two independently assembled source files.
 
 ### Add an existing source module to MPLAB X
 
 Copy the source file into the MPLAB X project directory, then add it under **Source Files** in the Projects window using **Add Existing Item**.
+
+See the [MPLAB X IDE User's Guide](https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB_X_IDE_Users_Guide_50002027.pdf), **Add Existing Files to a Project**.
 
 A simple project may look like:
 
@@ -180,7 +179,7 @@ For this course, use the following convention:
 
 PIC Assembler also permits `GLOBAL` to reference a global symbol defined in another module, but using `EXTRN` for imports makes the direction of ownership easier to read.
 
-See the official PIC Assembler User's Guide, Section 6.1.9, **Assembler Directives**.
+See the [MPLAB XC8 PIC Assembler User's Guide](https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB-XC8-PIC-Assembler-Users-Guide-DS50002974.pdf), Section 6.1.9, **Assembler Directives**.
 
 ### Calling a routine in another module
 
