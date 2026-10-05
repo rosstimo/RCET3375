@@ -318,7 +318,6 @@ For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied look
 I/O:
     RA0/AN0 = potentiometer input
     RC2 = servo output, software controlled, start LOW
-    disable both comparators
     AN0 = only analog channel
 
 ADC:
@@ -338,7 +337,7 @@ Timer1:
 CCP1:
     mode = Compare, interrupt only
     timebase = Timer1
-    CCP1 does not control RC2 directly
+    compare mode, generate interrupt on match. CCP1 unaffected.
     load saved absolute compare value at frame start
 
 interrupts:
@@ -528,7 +527,7 @@ Timer1:
 CCP1:
     mode = Compare, interrupt only
     timebase = Timer1
-    CCP1 does not control RC2 directly
+    compare mode, generate interrupt on match. CCP1 unaffected.
     load saved absolute compare value at frame start
 
 interrupts:
