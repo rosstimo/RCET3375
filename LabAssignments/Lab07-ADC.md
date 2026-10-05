@@ -314,15 +314,52 @@ For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied look
 
 ### Required setup
 
-| Area | Required configuration |
-| --- | --- |
-| I/O | RA0/AN0 is the potentiometer input and remains an input. RC2 is the only required PORTC output, starts LOW, and is driven by software. Leave the other PORTA/PORTC pins as inputs unless your design needs them. Disable both comparators. AN0 is the only analog channel; configure the other analog-capable pins for digital I/O. |
-| ADC | Enable the ADC, select AN0, use VDD and VSS as the references, and use $F_{OSC}/8$ as the conversion clock. Left justify the result. Keep the ADC on and AN0 selected between conversions; use `ADRESH` bits 7:2 as the six-bit command index. |
-| Timer1 | Use the internal instruction clock ($F_{OSC}/4$), not an external Timer1 clock or Timer1 oscillator. Use 1:1 prescale so the timer advances once per microsecond. Reload Timer1 to `0xB1E0` at each frame start, then let it run continuously until the next overflow. |
-| CCP1 | Use CCP1 Compare with Timer1 as the timebase and select the compare mode that generates an interrupt without changing the CCP1 pin. RC2 remains software controlled. Load the saved absolute compare value at the start of each frame. |
-| Interrupts | Keep global and peripheral interrupts disabled during setup. Clear the Timer1-overflow and CCP1-compare flags, enable both peripheral interrupt sources, then enable peripheral and global interrupts after setup is complete. The ISR services Timer1 overflow and CCP1 compare. |
-| State/RAM | Keep one pulse-busy flag, one six-bit ADC index, and a two-byte saved CCP match for the next frame. Preserve W and STATUS in common RAM during the ISR. Do not use Bank 0 address `0x25`; the supplied lookup module reserves it. |
-| Startup | Clear the pulse-busy state, take one ADC sample, generate the first saved CCP match, start Timer1, then enable interrupts. This gives the first frame a valid compare value. |
+```text
+I/O:
+    RA0/AN0 = potentiometer input
+    RC2 = servo output, software controlled, start LOW
+    disable both comparators
+    AN0 = only analog channel
+
+ADC:
+    channel = AN0
+    references = VDD and VSS
+    clock = FOSC/8
+    result = left justified
+    ADC stays enabled between conversions
+
+Timer1:
+    clock = FOSC/4
+    prescaler = 1:1
+    tick = 1 us
+    reload = 0xB1E0
+    overflow = 20 ms frame
+
+CCP1:
+    mode = Compare, interrupt only
+    timebase = Timer1
+    CCP1 does not control RC2 directly
+    load saved absolute compare value at frame start
+
+interrupts:
+    clear Timer1 and CCP1 flags before starting
+    enable Timer1 and CCP1 interrupts
+    enable peripheral and global interrupts after setup
+
+state:
+    pulse-busy flag
+    6-bit ADC index
+    saved 16-bit CCP match for next frame
+    preserve W and STATUS in ISR
+    leave Bank 0 address 0x25 for supplied lookup module
+
+startup:
+    clear busy flag
+    read ADC once
+    calculate first CCP match
+    start Timer1
+    enable interrupts
+```
 
 ### CCP Compare quick reference
 
@@ -467,15 +504,52 @@ Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP frame
 
 ### Required setup
 
-| Area | Required configuration |
-| --- | --- |
-| I/O | RA0/AN0 is the potentiometer input and remains an input. RC2 is the only required PORTC output, starts LOW, and is driven by software. Leave the other PORTA/PORTC pins as inputs unless your design needs them. Disable both comparators. AN0 is the only analog channel; configure the other analog-capable pins for digital I/O. |
-| ADC | Enable the ADC, select AN0, use VDD and VSS as the references, and use $F_{OSC}/8$ as the conversion clock. Right justify the result so the complete 10-bit value can be stored in two bytes. Keep the ADC on and AN0 selected between conversions. |
-| Timer1 | Use the internal instruction clock ($F_{OSC}/4$), not an external Timer1 clock or Timer1 oscillator. Use 1:1 prescale so the timer advances once per microsecond. Reload Timer1 to `0xB1E0` at each frame start, then let it run continuously until the next overflow. |
-| CCP1 | Use CCP1 Compare with Timer1 as the timebase and select the compare mode that generates an interrupt without changing the CCP1 pin. RC2 remains software controlled. Load the saved absolute compare value at the start of each frame. |
-| Interrupts | Keep global and peripheral interrupts disabled during setup. Clear the Timer1-overflow and CCP1-compare flags, enable both peripheral interrupt sources, then enable peripheral and global interrupts after setup is complete. The ISR services Timer1 overflow and CCP1 compare. |
-| State/RAM | Keep one pulse-busy flag, two bytes for the right-justified 10-bit ADC result, and a two-byte saved CCP match for the next frame. Preserve W and STATUS in common RAM during the ISR. Do not use Bank 0 address `0x25`; the supplied mapping module reserves it as working RAM. |
-| Startup | Clear the pulse-busy state, take one ADC sample, calculate the first saved CCP match, start Timer1, then enable interrupts. This gives the first frame a valid compare value. |
+```text
+I/O:
+    RA0/AN0 = potentiometer input
+    RC2 = servo output, software controlled, start LOW
+    disable both comparators
+    AN0 = only analog channel
+
+ADC:
+    channel = AN0
+    references = VDD and VSS
+    clock = FOSC/8
+    result = right justified
+    ADC stays enabled between conversions
+
+Timer1:
+    clock = FOSC/4
+    prescaler = 1:1
+    tick = 1 us
+    reload = 0xB1E0
+    overflow = 20 ms frame
+
+CCP1:
+    mode = Compare, interrupt only
+    timebase = Timer1
+    CCP1 does not control RC2 directly
+    load saved absolute compare value at frame start
+
+interrupts:
+    clear Timer1 and CCP1 flags before starting
+    enable Timer1 and CCP1 interrupts
+    enable peripheral and global interrupts after setup
+
+state:
+    pulse-busy flag
+    right-justified 10-bit ADC result in two bytes
+    saved 16-bit CCP match for next frame
+    preserve W and STATUS in ISR
+    leave Bank 0 address 0x25 for supplied mapping module
+
+startup:
+    clear busy flag
+    read ADC once
+    calculate first CCP match
+    start Timer1
+    enable interrupts
+```
 
 ### Quick calculation reference
 
