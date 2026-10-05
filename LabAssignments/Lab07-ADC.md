@@ -17,7 +17,7 @@ PIC16F883 | pic-as | ADC | CCP Compare | Servo Control | Measurement
 - [Part 3 - 6-bit lookup table and CCP Compare](#part-3)
 - [Part 4 - Full 10-bit calculated mapping](#part-4)
 - [Part 5 - Mastery: three-servo CCP scheduler](#part-5)
-- [Submission and checkoff](#submission)
+- [Submission and checkoff](#submission)[text](Lab07-ADC.md)
 
 <a id="purpose"></a>
 ## Purpose
@@ -308,7 +308,7 @@ Part 2 is complete when all 21 commands are reachable, measured pulse widths mat
 
 ### Goal
 
-Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase, and CCP1 Compare to schedule the servo falling edge.
+Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
 
 For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
@@ -388,7 +388,7 @@ Call the supplied routine with the 6-bit index in W:
     PAGESEL $
 ```
 
-The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. It reserves Bank 0 address `0x25`.
+**The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. It reserves Bank 0 address `0x25`.**
 
 ### Program structure
 
@@ -409,7 +409,7 @@ main:
     call lookup routine for next frame
 ```
 
-Do not change the compare value for an active pulse.
+Do not change the compare value during an active pulse.
 
 ### Before Lab
 
