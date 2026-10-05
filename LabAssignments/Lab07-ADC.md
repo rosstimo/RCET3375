@@ -510,7 +510,6 @@ Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP frame
 I/O:
     RA0/AN0 = potentiometer input
     RC2 = servo output, software controlled, start LOW
-    disable both comparators
     AN0 = only analog channel
 
 ADC:
