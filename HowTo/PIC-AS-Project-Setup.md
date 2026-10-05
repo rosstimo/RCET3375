@@ -16,6 +16,10 @@ Official resources:
 - MPLAB X IDE User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB_X_IDE_Users_Guide_50002027.pdf
 - MPLAB XC8 PIC Assembler User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/UserGuides/MPLAB-XC8-PIC-Assembler-Users-Guide-DS50002974.pdf
 - PIC Assembler User's Guide for Embedded Engineers: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/
+  - Section 3.3, **Include Files**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-1654DE39-041E-41F5-8336-D5D9B05F8F0D.html
+  - Section 5, **Multiple Source Files, Paging and Linear Memory Example**: https://onlinedocs.microchip.com/oxy/GUID-205B1F42-0E06-45E1-8D34-E3D05C15710F-en-US-3/GUID-79324E62-113F-4297-9BD9-D06E9565D522.html
+- MPLAB XC8 PIC Assembler User's Guide, Section 6.1.9, **Assembler Directives** (`GLOBAL`, `EXTRN`, `INCLUDE`, `PAGESEL`): https://onlinedocs.microchip.com/oxy/GUID-BB433107-FD4E-4D28-BB58-9D4A58955B1A-en-US-9/GUID-C469821D-5C5E-4F01-B8B5-F5D0A5565729.html
+- MPLAB X IDE User's Guide, Section 14.24.2, **Projects Window / Add Existing Item**: https://onlinedocs.microchip.com/oxy/GUID-D79ACEBE-41BD-43EF-8E1B-9462847AE13E-en-US-12/GUID-8F50F909-811E-41F1-9D14-641561422C44.html
 - PICkit 3 User's Guide: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/UserGuides/52116A.pdf
 - PIC16F883 datasheet: https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf
 - [RCET PIC-AS Style Guide](../Notes/RCET_PIC-AS_Style_Guide.md)
@@ -63,7 +67,130 @@ The starter file should contain the standard sections needed for the assignment,
 
 Keep a known-good starter version that can be copied into later assignment repositories.
 
-## 4. Configuration bits
+## 4. Organize larger projects with include files and source modules
+
+As a project grows, do not put every definition and every routine into one large source file. PIC Assembler supports two different ways to divide source material. They solve different problems.
+
+### Include files are textual source
+
+An include directive such as:
+
+```assembly
+#include <xc.inc>
+#include "project-definitions.inc"
+```
+
+causes the included text to become part of the source module being preprocessed and assembled.
+
+The included file does **not** become a separately assembled module and does not produce its own object file.
+
+Use an include file for material that should be shared as source text, such as:
+
+- constants and symbolic definitions;
+- macros;
+- shared declarations;
+- small common definitions that several modules must see.
+
+The `.inc` extension is a useful convention, but the important action is the include directive itself.
+
+An uppercase `.S` source file is passed through the preprocessor, which is why `#include` works in the course assembly files. See the official PIC Assembler guide, Section 3.3, **Include Files**.
+
+### Separate `.S` files are separate source modules
+
+When two `.S` files are both added to **Source Files** in the MPLAB X project, they are not pasted together.
+
+Conceptually:
+
+```text
+main.S              helper.S
+  |                    |
+assembler            assembler
+  |                    |
+main.o              helper.o
+   \                  /
+          linker
+            |
+            v
+       final program
+```
+
+Each source module is preprocessed and assembled independently. The linker combines the resulting object files.
+
+This means each source module should contain the setup it needs to assemble on its own, normally including:
+
+```assembly
+PROCESSOR 16F883
+RADIX dec
+
+#include <xc.inc>
+```
+
+Configuration bits, reset vectors, interrupt vectors, and the main application entry point should normally have one clear owner rather than being repeated in every module.
+
+Use a separate source module when executable code or data has its own job, such as:
+
+- a lookup-table module;
+- a numeric conversion or mapping routine;
+- a reusable driver;
+- a larger group of related subroutines.
+
+Microchip's Section 5, **Multiple Source Files, Paging and Linear Memory Example**, demonstrates this model with two independently assembled source files.
+
+### Add an existing source module to MPLAB X
+
+Copy the source file into the MPLAB X project directory, then add it under **Source Files** in the Projects window using **Add Existing Item**.
+
+A simple project may look like:
+
+```text
+MyProject.X/
+├── main.S
+├── helper.S
+└── nbproject/
+```
+
+Do not use `#include "helper.S"` merely to make the routine available. That would turn the helper into pasted source instead of a separate module.
+
+### Share symbols across modules with `GLOBAL` and `EXTRN`
+
+A symbol defined in one source module is not automatically visible to another module.
+
+The module that owns a routine or object exports its symbol with `GLOBAL`:
+
+```assembly
+GLOBAL  ConvertValue
+
+ConvertValue:
+    ; routine body
+    return
+```
+
+The module that uses that symbol declares it with `EXTRN`:
+
+```assembly
+EXTRN   ConvertValue
+```
+
+The same mechanism can be used for shared RAM symbols when one module owns the address and another module needs to access it.
+
+For this course, use the following convention:
+
+- `GLOBAL` means **this module provides this symbol**;
+- `EXTRN` means **this module uses a symbol provided elsewhere**.
+
+PIC Assembler also permits `GLOBAL` to reference a global symbol defined in another module, but using `EXTRN` for imports makes the direction of ownership easier to read.
+
+See the official PIC Assembler User's Guide, Section 6.1.9, **Assembler Directives**.
+
+### Calling a routine in another module
+
+The linker decides where separately assembled code is finally placed in program memory. On the PIC16F883, that means a routine in another source module cannot be assumed to occupy the same program-memory page as the caller.
+
+Program-memory paging and the correct use of `PAGESEL`, `fcall`, and `PCLATH` are a separate processor-addressing topic. Read [PIC16F883 Computed GOTO and PCLATH](../Notes/PIC16F883-Computed-GOTO-and-PCLATH.md) before making cross-module calls.
+
+The project-organization rule is simple: **separate source files create linker-visible module boundaries; include files do not.**
+
+## 5. Configuration bits
 
 Use the PIC16F883 datasheet and MPLAB X Configuration Bits window to determine the settings required by the actual hardware.
 
@@ -77,7 +204,7 @@ For every configuration setting used, know:
 
 Do not copy a configuration block without checking it against the current hardware.
 
-## 5. PSECT placement
+## 6. PSECT placement
 
 A named PSECT is not automatically placed at a required device vector address.
 
@@ -87,7 +214,7 @@ Verify the linked addresses using generated map/listing information.
 
 Record the custom linker options somewhere you can reuse them when creating the next project.
 
-## 6. PICkit 3 setup
+## 7. PICkit 3 setup
 
 Use the PICkit 3 User's Guide and PIC16F883 datasheet to identify the ICSP connections:
 
@@ -106,7 +233,7 @@ In MPLAB X, verify that:
 - the target device is detected;
 - the project can be programmed successfully.
 
-## 7. Build and verify
+## 8. Build and verify
 
 Before adding assignment-specific code:
 

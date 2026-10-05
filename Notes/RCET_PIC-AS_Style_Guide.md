@@ -116,8 +116,6 @@ CONFIG "LVP = OFF"
 count_reg       EQU 0x20
 w_temp          EQU 0x70
 status_temp     EQU 0x71
-pclath_temp     EQU 0x72
-
 PSECT resetVect,class=CODE,delta=2
 ResetVector:
     goto Setup
@@ -618,7 +616,7 @@ Typical form:
 
 ```assembly
     BANKSEL TRISB
-    clrf    BANKMASK(TRISB)
+    clrf    TRISB
 ```
 
 ### 10.2 Do Not Hide Banking Assumptions
@@ -746,14 +744,9 @@ IsrHandler:
     movwf   w_temp
     swapf   STATUS,w
     movwf   status_temp
-    movf    PCLATH,w
-    movwf   pclath_temp
-
     ; ISR body
 
 LeaveIsr:
-    movf    pclath_temp,w
-    movwf   PCLATH
     swapf   status_temp,w
     movwf   STATUS
     swapf   w_temp,f
@@ -791,14 +784,14 @@ PSECT code,class=CODE,delta=2
 
 Setup:
     BANKSEL ANSEL
-    clrf    BANKMASK(ANSEL)
-    clrf    BANKMASK(ANSELH)
+    clrf    ANSEL
+    clrf    ANSELH
 
     BANKSEL TRISB
-    clrf    BANKMASK(TRISB)
+    clrf    TRISB
 
     BANKSEL PORTB
-    clrf    BANKMASK(PORTB)
+    clrf    PORTB
 
     goto    MainLoop
 

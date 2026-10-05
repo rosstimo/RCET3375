@@ -49,6 +49,45 @@ Part 5 is not required for ordinary full credit. Completing the Mastery section 
 
 Difficulty should progress both **within each lab** and **across the semester**. Early PIC labs may still provide considerable guidance in Parts 3 and 4. Later labs should expect increasingly independent design and troubleshooting.
 
+## Writing style and instructional scope
+
+Lab instructions are working documents for students. Optimize for clear execution, not exhaustive explanation.
+
+- Keep instructions complete but as short as practical.
+- Prefer brief sentences and compact lists. Too many words or bullets make requirements harder to follow.
+- Remove repetition, background, and commentary that do not change what the student must do.
+- Put instructions and required detail at the point of use.
+- Link reusable concept material instead of teaching the same concept again in the lab.
+- Use part-specific headings and requirements so students can quickly answer: what am I doing, what must I prepare, what evidence do I need, what must I demonstrate, and when am I done?
+
+### Mathematics and worked examples
+
+Include mathematics only when the calculation is new to the lab or specifically needed for the current task.
+
+Lab mathematics is a quick reference for applying a concept in context. It is not the canonical concept lesson.
+
+When mathematics is included:
+
+- include at least one complete worked example with representative values;
+- briefly state **what** each step does and **why** it is needed;
+- let the equations show **how** the calculation is performed;
+- show the starting equation, required rearrangement, substitution, arithmetic, units, and final value;
+- keep explanation brief and avoid unrelated derivations or theory.
+
+Deeper mathematical or conceptual explanation belongs in the owning self-learning material.
+
+### Missing supporting content
+
+When a lab depends on concept material that already exists, link to the canonical self-learning topic and keep only the context needed for the lab task.
+
+When required self-learning material does not yet exist:
+
+1. record or confirm the gap in the appropriate project/course TODO;
+2. create or update an issue in the course repository that owns the missing concept;
+3. keep only the minimum temporary explanation needed for students to complete the lab safely and correctly.
+
+Do not turn a missing self-learning topic into a large theory section inside the lab.
+
 ## Repeated part structure
 
 When practical, each required part should use the following headings:
