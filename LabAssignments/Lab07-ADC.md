@@ -360,7 +360,7 @@ For index 32:
 \begin{aligned}
 t_{32} &=
 500\,\mu\text{s}
-+\operatorname{round}\left(\frac{32(2000\,\mu\text{s})}{63}\right) \\
++\mathrm{round}\left(\frac{32(2000\,\mu\text{s})}{63}\right) \\
 &= 500\,\mu\text{s}+1016\,\mu\text{s} \\
 &= 1516\,\mu\text{s}
 \end{aligned}
