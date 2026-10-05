@@ -287,17 +287,17 @@ Keep the servo disconnected until instructor waveform checkoff.
 2. Select each of the 21 indexes with the potentiometer and measure its HIGH pulse width.
 3. Compare each measurement with the expected $500\,\mu\text{s}$ through $2.5\,\text{ms}$ sequence.
 4. After checkoff, connect the servo with a suitable supply and common ground.
-5. Sweep all 21 commands and compare expected versus observed mechanical position. Do not force the servo against a stop.
+5. Sweep all 21 commands and record the observed mechanical position. Do not force the servo against a stop.
 
 ### Evidence
 
 Use one table for the complete 21-position verification.
 
-| Index | ADC range/code | Expected pulse | Measured pulse | Expected position | Measured position |
-| ---: | --- | ---: | ---: | ---: | ---: |
-| 0 |  | $500\,\mu\text{s}$ |  |  |  |
-| ... | ... | ... | ... | ... | ... |
-| 20 |  | $2.5\,\text{ms}$ |  |  |  |
+| Index | ADC range/code | Expected pulse | Measured pulse | Observed servo position |
+| ---: | --- | ---: | ---: | ---: |
+| 0 |  | $500\,\mu\text{s}$ |  |  |
+| ... | ... | ... | ... | ... |
+| 20 |  | $2.5\,\text{ms}$ |  |  |
 
 Also include or reference the timer calculation, flowchart, final source, servo electrical analysis, and representative scope captures.
 
@@ -617,6 +617,23 @@ Any active servo with:
 is driven LOW during the current interrupt.
 
 Estimate `service_margin` from interrupt timing, verify it on the oscilloscope, then determine the minimum reliable independently scheduled spacing.
+
+#### Worked example
+
+**What:** decide whether a nearby deadline must be handled during the current interrupt.
+
+**Why:** a second compare event may be too close for another complete interrupt cycle.
+
+For `current_match = 47000` and `service_margin = 20` Timer1 ticks:
+
+```math
+\begin{aligned}
+\texttt{service\_limit} &= 47000+20 \\
+&=47020
+\end{aligned}
+```
+
+A saved deadline of 47012 is handled now because $47012\le47020$. A deadline of 47030 remains scheduled for a later compare event.
 
 ### Before Lab
 
