@@ -59,7 +59,7 @@ LookupAdc6ToCcp:
 ;------------------------------------------------------------------------------
 ; 64-entry lookup tables.
 ;
-; Timer1 reload = 0xB1E0
+; Timer1 reload = 0xB1E0 for 20ms frame
 ; Timer1 tick   = 1 us
 ; Pulse range   = 500 us through 2500 us
 ;
