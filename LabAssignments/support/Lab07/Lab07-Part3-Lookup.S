@@ -9,6 +9,9 @@
 ;       Input:  W = 6-bit ADC command index, 0 through 63
 ;       Output: ccp_next_l:ccp_next_h = absolute Timer1 CCP match value
 ;
+; Call this routine with PAGESEL/call/PAGESEL (or fcall) because a separate
+; source module may be linked onto a different program-memory page.
+;
 ; main.S must define and export:
 ;   ccp_next_l
 ;   ccp_next_h
@@ -37,20 +40,20 @@ LookupAdc6ToCcp:
     movwf   table_index
 
     movf    table_index,w
+    PAGESEL LookupLow
     call    LookupLow
+    PAGESEL $
     BANKSEL ccp_next_l
     movwf   ccp_next_l
 
     BANKSEL table_index
     movf    table_index,w
+    PAGESEL LookupHigh
     call    LookupHigh
+    PAGESEL $
     BANKSEL ccp_next_h
     movwf   ccp_next_h
 
-    ; The computed table jumps use PCLATH. Restore the normal code page
-    ; before returning to main.S.
-    BANKSEL PCLATH
-    clrf    PCLATH
     return
 
 ;------------------------------------------------------------------------------
