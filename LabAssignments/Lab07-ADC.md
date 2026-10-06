@@ -308,41 +308,45 @@ Part 2 is complete when all 21 commands are reachable, measured pulse widths mat
 
 ### Goal
 
-Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
+Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\,\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
 
-For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
+For this part, Timer1 reloads to `0xB1E0` for the required $20\,\text{ms}$ timing at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
 ### CCP Compare quick reference
 
 Timer1 provides the running 16-bit timebase. `CCPR1H:CCPR1L` stores a 16-bit compare value. When Timer1 matches that value, CCP1 sets `CCP1IF`.
 
-Use the compare interrupt to drive the servo output LOW. The CPU does not need to wait in a software delay for the falling edge.
+Use the compare interrupt to drive the servo output LOW so the CPU does not need to wait in a software delay for the falling edge and there will be only one interrupt at the end of the pulse.
 
-Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, and `PIE1.CCP1IE` from the PIC16F883 data sheet.
+Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, `PIE1.CCP1IE`, and any other required SFRs from the PIC16F883 data sheet.
 
-### Worked mapping example
-
-**What:** reduce the ADC result to 6 bits and convert that index into an absolute Timer1 compare value.
-
-**Why:** the lookup table stores the deadline at which CCP should end the pulse.
-
-For ADC result 512:
-
-```math
-\begin{aligned}
-n &= 512 \gg 4 \\
-&= 32
-\end{aligned}
-```
+### 6-bit ADC result to 16-bit CCP1 compare value mapping
 
 There are 64 commands and 63 intervals:
-
 ```math
 \begin{aligned}
 \Delta t &= \frac{2500\,\mu\text{s}-500\,\mu\text{s}}{63} \\
 &= 31.746\ldots\,\mu\text{s}
 \end{aligned}
 ```
+#### Worked example
+
+**What:** reduce the ADC result to 6 bits and convert that index into an absolute Timer1 compare value.
+
+**Why:** the lookup table stores the deadline at which CCP will end the pulse.
+
+For ADC result 512, a **left-justified** result places ADC bits 9:2 in `ADRESH`. Using only the high byte reduces the 10-bit result to its upper 8 bits. Reduce it to 6 bits by right-shifting the stored `ADRESH` value:
+
+```text
+ADC = 512
+ADRESH:ADRESL     -> 10-bit: 1000000000
+adc_h             -> 8-bit:  10000000
+adc_h >> 2        -> 6-bit:  00100000 
+adc_h = 32
+```
+Only two right shifts are required because `ADRESH` already contains the upper eight ADC bits. The resulting six-bit index is ADC bits 9:4.
+
+
 
 For index 32:
 
@@ -362,9 +366,9 @@ Timer1 starts at `0xB1E0 = 45536` and ticks every $1\,\mu\text{s}$:
 \begin{aligned}
 \text{CCP match} &= 45536+1516 \\
 &= 47052 \\
-&= 0x\mathrm{B7CC}
 \end{aligned}
 ```
+The lookup table stores the absolute compare value for each index. The supplied module returns the 16-bit value in `ccp_next_h:ccp_next_l = 0xB7CC`, providing the falling-edge timing for the next frame.
 
 ### Supplied lookup module
 
@@ -388,36 +392,90 @@ Call the supplied routine with the 6-bit index in W:
     PAGESEL $
 ```
 
-**The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. It reserves Bank 0 address `0x25`.**
+The routine returns the absolute compare value in `ccp_next_h:ccp_next_l`. **It reserves Bank 0 address `0x25`.**
+> **Note:** `PAGESEL` is required because the called routine may be linked on a different program-memory page than the main program.
 
+### Required RAM
+
+```text
+pulse-busy flag
+ADC conversion done flag
+6-bit ADC index
+saved 16-bit CCP match for next frame
+ISR context storage for W and STATUS
+Bank 0 address 0x25 reserved by supplied lookup module
+```
+### Required setup
+
+```text
+I/O:
+    RA0/AN0 = potentiometer input
+    RC2 = servo output, software controlled, start LOW
+
+ADC:
+    channel = AN0
+    references = VDD and VSS
+    clock = FOSC/8
+    result = left justified
+    ADC stays enabled between conversions
+
+Timer1:
+    clock = FOSC/4
+    prescaler = 1:1
+    tick = 1 us
+    reload = 0xB1E0
+    overflow = 20 ms frame
+
+CCP1:
+    mode = Compare, generate software interrupt on match; CCP1 pin unaffected
+    timebase = Timer1
+
+interrupts:
+    clear Timer1 and CCP1 flags before starting
+    enable Timer1 and CCP1 interrupts
+    enable peripheral interrupts
+
+startup:
+    clear busy flag
+    read ADC once
+    set ADC conversion done flag
+    calculate and load first CCP match
+    start Timer1
+    enable global interrupts
+```
 ### Program structure
 
 ```text
+main:
+    only when pulse is not busy and ADC conversion not already done for the next frame
+        acquire ADC once
+        reduce to 6 bits and store
+        call lookup routine for next frame
+        set ADC conversion done flag
+    Do other work that can be interrupted without issue
+
 Timer1 overflow:
+    start new 20ms frame
     reload Timer1 to 0xB1E0
     servo HIGH
     load saved CCP match
+    clear ADC conversion done flag
     mark pulse busy
 
 CCP1 compare:
     servo LOW
     clear pulse busy
-
-main:
-    when not busy, acquire ADC
-    reduce to 6 bits
-    call lookup routine for next frame
 ```
 
-Do not change the compare value during an active pulse.
+Prepare **one** command per frame after the active pulse ends. **Do not** repeatedly acquire/map during the remaining idle time. **Do not** change the compare value during an active pulse.
 
 ### Before Lab
 
 Prepare or reference:
 
-- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation;
+- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation. Verify the $20\,\text{ms}$ frame time;
 - CCP1 SFR documentation;
-- 10-bit to 6-bit reduction and one worked lookup calculation;
+- left-justified `ADRESH` to 6-bit index reduction and one worked lookup calculation;
 - supplied lookup module added to the project;
 - main/ISR flowcharts and source code.
 
@@ -425,9 +483,10 @@ Prepare or reference:
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
 2. Verify first, center, and last table entries, then several intermediate values.
-3. Confirm adjacent command spacing is approximately $31.75\,\mu\text{s}$.
+3. Confirm adjacent table entries differ by $31$ or $32\,\mu\text{s}$, averaging approximately $31.75\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 64 commands.
+6. Observe the mechanical response and compare it with Part 2 resolution. Is the servo resolution noticeable? Is the servo movement smooth?
 
 ### Evidence
 
@@ -435,11 +494,11 @@ Include or reference Timer1/CCP calculations and SFRs, flowcharts, final source,
 
 ### Demonstrate
 
-Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, Timer1 role, and CCP Compare role.
+Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, Timer1 role, and CCP Compare role. Sweep the full range of the servo and explain the mechanical response compared with Part 2.
 
 ### Complete When
 
-Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and the $20\,\text{ms}$ frame remains stable.
+Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
@@ -448,9 +507,9 @@ Part 3 is complete when all 64 commands are reachable, CCP schedules the falling
 
 ### Goal
 
-Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP architecture from Part 3 and replace only the mapping method.
+Using lookup tables to increase servo PW resolution quickly becomes impractical. Use all 10 ADC bits without two 1024-entry lookup tables by replacing the 6-bit lookup mapping with a full 10-bit mapping calculation. Keep the Timer1/CCP frame and pulse architecture from Part 3, use a right-justified 10-bit ADC result.
 
-### Quick calculation reference
+### 10-bit ADC result to 16-bit CCP1 compare value mapping
 
 The ideal linear mapping is:
 
@@ -502,13 +561,12 @@ With Timer1 starting at `0xB1E0 = 45536`:
 \begin{aligned}
 \text{CCP match} &= 45536+1500 \\
 &=47036 \\
-&=0x\mathrm{B7BC}
 \end{aligned}
 ```
+The supplied mapping module uses the stored 10-bit ADC result in `adc_h:adc_l = 0x0200` and returns the 16-bit absolute compare value in `ccp_next_h:ccp_next_l = 0xB7BC` providing the falling edge timing for the next frame.
 
 ### Supplied mapping module
-
-Replace the Part 3 lookup file with [`Lab07-Part4-Map.S`](support/Lab07/Lab07-Part4-Map.S).
+Part 4 is essentially the same as Part 3 except the mapping is calculated instead of looked up. Add the mapping file [`Lab07-Part4-Map.S`](support/Lab07/Lab07-Part4-Map.S) to your MPLAB X project as a **separate source file**. Do not `#include` it. See [Starting a PIC-AS Project](../HowTo/PIC-AS-Project-Setup.md#4-organize-larger-projects-with-include-files-and-source-modules) for the module/linker explanation.
 
 In `main.S`:
 
@@ -522,7 +580,7 @@ GLOBAL  ccp_next_l, ccp_next_h, adc_l, adc_h
 EXTRN   MapAdcToCcp
 ```
 
-After `ReadAdc` stores the right-justified result in `adc_l:adc_h`:
+After `ReadAdc` stores the right-justified result in `adc_h:adc_l`:
 
 ```assembly
     PAGESEL MapAdcToCcp
@@ -530,24 +588,34 @@ After `ReadAdc` stores the right-justified result in `adc_l:adc_h`:
     PAGESEL $
 ```
 
-The routine writes the next absolute CCP match to `ccp_next_l:ccp_next_h`, uses `adc_l:adc_h` as working registers, and reserves Bank 0 address `0x25`.
+The routine writes the next absolute CCP match to `ccp_next_h:ccp_next_l`, uses `adc_h:adc_l` as working registers, and **reserves Bank 0 address `0x25`**.
+### Required RAM
+
+Same as Part 3 but with a stored 2-byte ADC result instead of a 6-bit index.
+
+### Required setup
+Same as Part 3 but with a right-justified ADC result instead of left-justified.
+
+### Program structure
+Keep the same one-update-per-frame sequence from Part 3.
 
 ### Before Lab
 
 Prepare or reference:
 
 - Part 3 Timer1/CCP design;
-- integer mapping, endpoint checks, and one worked example;
+- right-justified 10-bit ADC result, integer mapping, endpoint checks, and one worked example;
 - supplied mapping module added to the project;
 - main/ISR flowcharts and source code.
 
 ### In the Lab
 
-1. Verify low, center, and high commands with the servo disconnected.
-2. Measure several additional values across the ADC range and compare them with the calculated pulse width.
-3. Verify nearby ADC codes produce small, repeatable pulse-width changes.
-4. Verify the $20\,\text{ms}$ frame remains stable.
-5. Obtain waveform checkoff, then connect the servo and compare electrical resolution with mechanical response.
+1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
+2. Verify low, center, and high ADC commands, then several intermediate values.
+3. Confirm adjacent ADC codes change the calculated pulse width by $1$ or $2\,\mu\text{s}$, averaging approximately $1.96\,\mu\text{s}$ across the full range.
+4. Obtain instructor waveform checkoff.
+5. Connect the servo and sweep the 1024 commands.
+6. Observe the mechanical response and compare it with Parts 2 and 3 resolution. Is the servo resolution noticeable? Is the servo movement smooth?
 
 ### Evidence
 
@@ -559,7 +627,7 @@ Explain how the 10-bit ADC result becomes a CCP deadline, what work happens in m
 
 ### Complete When
 
-Part 4 is complete when all 10 ADC bits are used, the calculated mapping produces the expected pulse range, CCP controls the falling edge, and measured timing agrees with the calculated values.
+Part 4 is complete when all 1024 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
@@ -570,96 +638,34 @@ Part 5 is optional Mastery. Complete Parts 1 through 4 first.
 
 ### Goal
 
-Control three servos from three independent 10-bit ADC commands while sharing one Timer1 timebase and one CCP Compare module.
+Extend your working Part 4 program to independently control **three servos** from **three potentiometers**.
 
-### Timing model
+Use the same Timer1/CCP timing approach from Part 4. Each servo must use the full 10-bit ADC result and the calculated pulse-width mapping.
 
-At each $20\,\text{ms}$ frame boundary:
+### Requirements
 
-1. drive all three servo outputs HIGH;
-2. load CCP1 with the earliest saved falling-edge deadline;
-3. on each CCP interrupt, drive LOW every servo whose deadline must be serviced now;
-4. load the next remaining deadline;
-5. after all three outputs are LOW, acquire and calculate the next frame's commands.
+- three independent ADC inputs;
+- three independent servo outputs;
+- one $20\,\text{ms}$ frame;
+- pulse widths from approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$ for each servo;
+- each servo responds only to its own potentiometer.
 
-### Closely spaced deadlines
-
-Software cannot necessarily service independent CCP events only $1\,\mu\text{s}$ apart.
-
-Keep the compare value that caused the current interrupt as `current_match`. Define:
-
-```math
-\texttt{service\_limit}
-=
-\texttt{current\_match}
-+
-\texttt{service\_margin}
-```
-
-Any active servo with:
-
-```math
-\texttt{servo\_match}
-\le
-\texttt{service\_limit}
-```
-
-is driven LOW during the current interrupt.
-
-Estimate `service_margin` from interrupt timing, verify it on the oscilloscope, then determine the minimum reliable independently scheduled spacing.
-
-#### Worked example
-
-**What:** decide whether a nearby deadline must be handled during the current interrupt.
-
-**Why:** a second compare event may be too close for another complete interrupt cycle.
-
-For `current_match = 47000` and `service_margin = 20` Timer1 ticks:
-
-```math
-\begin{aligned}
-\texttt{service\_limit} &= 47000+20 \\
-&=47020
-\end{aligned}
-```
-
-A saved deadline of 47012 is handled now because $47012\le47020$. A deadline of 47030 remains scheduled for a later compare event.
-
-### Before Lab
-
-Prepare or reference:
-
-- three-servo schematic and loading analysis;
-- three ADC channels and three output pins;
-- saved 16-bit deadline for each servo;
-- active-servo state representation;
-- earliest-deadline selection algorithm;
-- initial service-margin estimate;
-- main/ISR flowcharts and source code.
+Keep the design as simple as practical.
 
 ### In the Lab
 
-With servos disconnected, verify:
-
-1. three separated deadlines;
-2. two and three equal deadlines;
-3. deadlines inside the service margin;
-4. deadlines just outside the service margin;
-5. independent command changes.
-
-After instructor waveform checkoff, connect the servos using a suitable external supply and common ground.
+1. Verify all three servo waveforms on the oscilloscope before connecting the servos.
+2. Verify minimum, center, and maximum pulse widths for each channel.
+3. Connect the servos using a suitable external supply and common ground.
+4. Demonstrate independent control of all three servos.
 
 ### Evidence
 
-Include or reference the three-servo schematic, loading analysis, state/deadline design, service-margin calculation, final source, scope captures for separated and combined deadlines, and measured minimum independent event spacing.
-
-### Demonstrate
-
-Show three independent servo commands and explain deadline selection, combined close events, and why scheduler resolution is limited by interrupt service time rather than Timer1 resolution alone.
+Include or reference the final source code and representative scope captures showing all three servo signals.
 
 ### Complete When
 
-Mastery is complete when three servos operate independently, one Timer1 and one CCP module schedule all three waveforms, close deadlines follow the measured service-margin policy, and waveform timing is verified before servo connection.
+Mastery is complete when all three servos operate independently with stable $20\,\text{ms}$ frames and correct pulse-width control.
 
 [Back to top](#top)
 
