@@ -482,7 +482,7 @@ Prepare or reference:
 ### In the Lab
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
-2. Verify low, center, and high ADC commands, then several intermediate values.
+2. Verify first, center, and last table entries, then several intermediate values.
 3. Confirm adjacent table entries differ by $31$ or $32\,\mu\text{s}$, averaging approximately $31.75\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 64 commands.
@@ -611,7 +611,7 @@ Prepare or reference:
 ### In the Lab
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
-2. Verify first, center, and last table entries, then several intermediate values.
+2. Verify low, center, and high ADC commands, then several intermediate values.
 3. Confirm adjacent ADC codes change the calculated pulse width by $1$ or $2\,\mu\text{s}$, averaging approximately $1.96\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 1024 commands.
