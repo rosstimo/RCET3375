@@ -310,79 +310,31 @@ Part 2 is complete when all 21 commands are reachable, measured pulse widths mat
 
 Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
 
-For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
-
-### Required setup
-
-```text
-I/O:
-    RA0/AN0 = potentiometer input
-    RC2 = servo output, software controlled, start LOW
-
-ADC:
-    channel = AN0
-    references = VDD and VSS
-    clock = FOSC/8
-    result = left justified
-    ADC stays enabled between conversions
-
-Timer1:
-    clock = FOSC/4
-    prescaler = 1:1
-    tick = 1 us
-    reload = 0xB1E0
-    overflow = 20 ms frame
-
-CCP1:
-    mode = Compare, interrupt only CCP1 unaffected
-    timebase = Timer1
-
-interrupts:
-    clear Timer1 and CCP1 flags before starting
-    enable Timer1 and CCP1 interrupts
-    enable peripheral and global interrupts after setup
-
-startup:
-    clear busy flag
-    read ADC once
-    calculate first CCP match
-    start Timer1
-    enable interrupts
-```
-
-### Required RAM
-
-```text
-pulse-busy flag
-ADC conversion done flag
-6-bit ADC index
-saved 16-bit CCP match for next frame
-ISR context storage for W and STATUS
-Bank 0 address 0x25 reserved by supplied lookup module
-```
+For this part, Timer1 reloads to `0xB1E0` for the required $20\,\text{ms}$ timing at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
 ### CCP Compare quick reference
 
 Timer1 provides the running 16-bit timebase. `CCPR1H:CCPR1L` stores a 16-bit compare value. When Timer1 matches that value, CCP1 sets `CCP1IF`.
 
-Use the compare interrupt to drive the servo output LOW. The CPU does not need to wait in a software delay for the falling edge.
+Use the compare interrupt to drive the servo output LOW so the CPU does not need to wait in a software delay for the falling edge and there will be only one interrupt at the end of the pulse.
 
-Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, and `PIE1.CCP1IE` from the PIC16F883 data sheet.
+Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, `PIE1.CCP1IE`,and any other required SFRs from the PIC16F883 data sheet.
 
-### Worked mapping example
+### Worked 6-bit ADC result to 16-bit CCP1 compare value mapping example:
 
 **What:** reduce the ADC result to 6 bits and convert that index into an absolute Timer1 compare value.
 
-**Why:** the lookup table stores the deadline at which CCP should end the pulse.
+**Why:** the lookup table stores the deadline at which CCP will end the pulse.
 
-For ADC result 512, a left-justified result places ADC bits 9:2 in `ADRESH`:
+For ADC result 512, a **left-justified** result places ADC bits 9:2 in `ADRESH`. Only using the high byte the 10-bit ADC result is already reduced to 8 bits. The resolution is further reduced to 6 bits by right-shifting the stored ADRESH result:
 
 ```text
-ADC = 512          -> 10-bit: 1000000000
-ADRESH             ->        10000000
-ADRESH >> 2        ->        00100000 = 32
+ADC = 512
+ADRESH:ADRESL     -> 10-bit: 1000000000
+adc_h             -> 8-bit:  10000000
+adc_h >> 2        -> 6-bit:  00100000 
+adc_h = 32
 ```
-
 Only two right shifts are required because `ADRESH` already contains the upper eight ADC bits. The resulting six-bit index is ADC bits 9:4.
 
 There are 64 commands and 63 intervals:
@@ -412,9 +364,9 @@ Timer1 starts at `0xB1E0 = 45536` and ticks every $1\,\mu\text{s}$:
 \begin{aligned}
 \text{CCP match} &= 45536+1516 \\
 &= 47052 \\
-&= 0x\mathrm{B7CC}
 \end{aligned}
 ```
+The lookup table stores the absolute compare value for each index. The supplied module returns the 16-bit value in `ccp_next_l:ccp_next_h = 0xB7CC` providing the falling edge timing for the next frame.
 
 ### Supplied lookup module
 
@@ -438,13 +390,62 @@ Call the supplied routine with the 6-bit index in W:
     PAGESEL $
 ```
 
-**The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. It reserves Bank 0 address `0x25`.**
+The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. **It reserves Bank 0 address `0x25`.**
+> **Note:** `PAGESEL` is required because the lookup table may be in a different page in program memory than the main program.
 
+### Required RAM
+
+```text
+pulse-busy flag
+ADC conversion done flag
+6-bit ADC index
+saved 16-bit CCP match for next frame
+ISR context storage for W and STATUS
+Bank 0 address 0x25 reserved by supplied lookup module
+```
+### Required setup
+
+```text
+I/O:
+    RA0/AN0 = potentiometer input
+    RC2 = servo output, software controlled, start LOW
+
+ADC:
+    channel = AN0
+    references = VDD and VSS
+    clock = FOSC/8
+    result = left justified
+    ADC stays enabled between conversions
+
+Timer1:
+    clock = FOSC/4
+    prescaler = 1:1
+    tick = 1 us
+    reload = 0xB1E0
+    overflow = 20 ms frame
+
+CCP1:
+    mode = Compare, interrupt only CCP1 unaffected
+    timebase = Timer1
+
+interrupts:
+    clear Timer1 and CCP1 flags before starting
+    enable Timer1 and CCP1 interrupts
+    enable peripheral
+
+startup:
+    clear busy flag
+    read ADC once
+    set ADC conversion done flag
+    calculate and load first CCP match
+    start Timer1
+    enable global interrupts
+```
 ### Program structure
 
 ```text
 main:
-    only when pulse is not busy and ADC conversion not already donefor the next frame
+    only when pulse is not busy and ADC conversion not already done for the next frame
         acquire ADC once
         reduce to 6 bits and store
         call lookup routine for next frame
@@ -464,7 +465,7 @@ CCP1 compare:
     clear pulse busy
 ```
 
-Prepare one command per frame after the active pulse ends. Do not repeatedly acquire/map during the remaining idle time, and do not change the compare value during an active pulse.
+Prepare **one** command per frame after the active pulse ends. **Do not** repeatedly acquire/map during the remaining idle time. **Do not** change the compare value during an active pulse.
 
 ### Before Lab
 
@@ -491,7 +492,7 @@ Include or reference Timer1/CCP calculations and SFRs, flowcharts, final source,
 
 ### Demonstrate
 
-Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, Timer1 role, and CCP Compare role.
+Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, Timer1 role, and CCP Compare role. Sweep the full range of the servo and explain the mechanical response compared with Part 2.
 
 ### Complete When
 
@@ -512,7 +513,6 @@ Use all 10 ADC bits without a 1024-entry lookup table. Keep the Timer1/CCP frame
 I/O:
     RA0/AN0 = potentiometer input
     RC2 = servo output, software controlled, start LOW
-    AN0 = only analog channel
 
 ADC:
     channel = AN0
@@ -529,10 +529,8 @@ Timer1:
     overflow = 20 ms frame
 
 CCP1:
-    mode = Compare, interrupt only
+    mode = Compare, interrupt only, CCP1 unaffected
     timebase = Timer1
-    compare mode, generate interrupt on match. CCP1 unaffected.
-    load saved absolute compare value at frame start
 
 interrupts:
     clear Timer1 and CCP1 flags before starting
@@ -543,6 +541,7 @@ startup:
     clear busy flag
     read ADC once
     calculate first CCP match
+    set ADC conversion done flag
     start Timer1
     enable interrupts
 ```
