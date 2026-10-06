@@ -318,7 +318,6 @@ For this part, Timer1 reloads to `0xB1E0` at each frame start. The supplied look
 I/O:
     RA0/AN0 = potentiometer input
     RC2 = servo output, software controlled, start LOW
-    AN0 = only analog channel
 
 ADC:
     channel = AN0
@@ -335,10 +334,8 @@ Timer1:
     overflow = 20 ms frame
 
 CCP1:
-    mode = Compare, interrupt only
+    mode = Compare, interrupt only CCP1 unaffected
     timebase = Timer1
-    compare mode, generate interrupt on match. CCP1 unaffected.
-    load saved absolute compare value at frame start
 
 interrupts:
     clear Timer1 and CCP1 flags before starting
@@ -357,6 +354,7 @@ startup:
 
 ```text
 pulse-busy flag
+ADC conversion done flag
 6-bit ADC index
 saved 16-bit CCP match for next frame
 ISR context storage for W and STATUS
@@ -445,22 +443,25 @@ Call the supplied routine with the 6-bit index in W:
 ### Program structure
 
 ```text
+main:
+    only when pulse is not busy and ADC conversion not already donefor the next frame
+        acquire ADC once
+        reduce to 6 bits and store
+        call lookup routine for next frame
+        set ADC conversion done flag
+    Do other work that can be interrupted without issue
+
 Timer1 overflow:
+    start new 20ms frame
     reload Timer1 to 0xB1E0
     servo HIGH
     load saved CCP match
+    clear ADC conversion done flag
     mark pulse busy
 
 CCP1 compare:
     servo LOW
     clear pulse busy
-
-main:
-    wait for the frame pulse to start
-    wait for the pulse to end
-    acquire ADC once
-    reduce to 6 bits
-    call lookup routine for next frame
 ```
 
 Prepare one command per frame after the active pulse ends. Do not repeatedly acquire/map during the remaining idle time, and do not change the compare value during an active pulse.
@@ -469,7 +470,7 @@ Prepare one command per frame after the active pulse ends. Do not repeatedly acq
 
 Prepare or reference:
 
-- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation;
+- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation. Verify the $20\,\text{ms}$ frame time;
 - CCP1 SFR documentation;
 - left-justified `ADRESH` to 6-bit index reduction and one worked lookup calculation;
 - supplied lookup module added to the project;
@@ -482,6 +483,7 @@ Prepare or reference:
 3. Confirm adjacent table entries differ by $31$ or $32\,\mu\text{s}$, averaging approximately $31.75\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 64 commands.
+6. Observe the mechanical response and compare it with Part 2 resolution. Is the servo resolution noticable? is the servo movement smooth?
 
 ### Evidence
 
@@ -493,7 +495,7 @@ Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, T
 
 ### Complete When
 
-Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and the $20\,\text{ms}$ frame remains stable.
+Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apperent servo chatter or jitter.
 
 [Back to top](#top)
 
