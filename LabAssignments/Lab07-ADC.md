@@ -308,7 +308,7 @@ Part 2 is complete when all 21 commands are reachable, measured pulse widths mat
 
 ### Goal
 
-Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
+Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\,\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
 
 For this part, Timer1 reloads to `0xB1E0` for the required $20\,\text{ms}$ timing at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
@@ -318,9 +318,9 @@ Timer1 provides the running 16-bit timebase. `CCPR1H:CCPR1L` stores a 16-bit com
 
 Use the compare interrupt to drive the servo output LOW so the CPU does not need to wait in a software delay for the falling edge and there will be only one interrupt at the end of the pulse.
 
-Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, `PIE1.CCP1IE`,and any other required SFRs from the PIC16F883 data sheet.
+Document `T1CON`, `TMR1H:TMR1L`, `CCP1CON`, `CCPR1H:CCPR1L`, `PIR1.CCP1IF`, `PIE1.CCP1IE`, and any other required SFRs from the PIC16F883 data sheet.
 
-### 6-bit ADC result to 16-bit CCP1 compare value mapping:
+### 6-bit ADC result to 16-bit CCP1 compare value mapping
 
 There are 64 commands and 63 intervals:
 ```math
@@ -335,7 +335,7 @@ There are 64 commands and 63 intervals:
 
 **Why:** the lookup table stores the deadline at which CCP will end the pulse.
 
-For ADC result 512, a **left-justified** result places ADC bits 9:2 in `ADRESH`. Only using the high byte the 10-bit ADC result is already reduced to 8 bits. The resolution is further reduced to 6 bits by right-shifting the stored ADRESH result:
+For ADC result 512, a **left-justified** result places ADC bits 9:2 in `ADRESH`. Using only the high byte reduces the 10-bit result to its upper 8 bits. Reduce it to 6 bits by right-shifting the stored `ADRESH` value:
 
 ```text
 ADC = 512
@@ -368,7 +368,7 @@ Timer1 starts at `0xB1E0 = 45536` and ticks every $1\,\mu\text{s}$:
 &= 47052 \\
 \end{aligned}
 ```
-The lookup table stores the absolute compare value for each index. The supplied module returns the 16-bit value in `ccp_next_l:ccp_next_h = 0xB7CC` providing the falling edge timing for the next frame.
+The lookup table stores the absolute compare value for each index. The supplied module returns the 16-bit value in `ccp_next_h:ccp_next_l = 0xB7CC`, providing the falling-edge timing for the next frame.
 
 ### Supplied lookup module
 
@@ -392,8 +392,8 @@ Call the supplied routine with the 6-bit index in W:
     PAGESEL $
 ```
 
-The routine returns the absolute compare value in `ccp_next_l:ccp_next_h`. **It reserves Bank 0 address `0x25`.**
-> **Note:** `PAGESEL` is required because the lookup table may be in a different page in program memory than the main program.
+The routine returns the absolute compare value in `ccp_next_h:ccp_next_l`. **It reserves Bank 0 address `0x25`.**
+> **Note:** `PAGESEL` is required because the called routine may be linked on a different program-memory page than the main program.
 
 ### Required RAM
 
@@ -427,13 +427,13 @@ Timer1:
     overflow = 20 ms frame
 
 CCP1:
-    mode = Compare, interrupt only CCP1 unaffected
+    mode = Compare, generate software interrupt on match; CCP1 pin unaffected
     timebase = Timer1
 
 interrupts:
     clear Timer1 and CCP1 flags before starting
     enable Timer1 and CCP1 interrupts
-    enable peripheral
+    enable peripheral interrupts
 
 startup:
     clear busy flag
@@ -482,11 +482,11 @@ Prepare or reference:
 ### In the Lab
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
-2. Verify first, center, and last table entries, then several intermediate values.
+2. Verify low, center, and high ADC commands, then several intermediate values.
 3. Confirm adjacent table entries differ by $31$ or $32\,\mu\text{s}$, averaging approximately $31.75\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 64 commands.
-6. Observe the mechanical response and compare it with Part 2 resolution. Is the servo resolution noticable? is the servo movement smooth?
+6. Observe the mechanical response and compare it with Part 2 resolution. Is the servo resolution noticeable? Is the servo movement smooth?
 
 ### Evidence
 
@@ -498,7 +498,7 @@ Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, T
 
 ### Complete When
 
-Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apperent servo chatter or jitter.
+Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
@@ -507,9 +507,9 @@ Part 3 is complete when all 64 commands are reachable, CCP schedules the falling
 
 ### Goal
 
-Using lookup tables to increase servo PW resolution quickly becomes impracticle. Use all 10 ADC bits without two 1024-entry lookup tables by replacing the 6-bit lookup mapping with a full 10-bit mapping calculation. Keep the Timer1/CCP frame and pulse architecture from Part 3, use a right-justified 10-bit ADC result.
+Using lookup tables to increase servo PW resolution quickly becomes impractical. Use all 10 ADC bits without two 1024-entry lookup tables by replacing the 6-bit lookup mapping with a full 10-bit mapping calculation. Keep the Timer1/CCP frame and pulse architecture from Part 3, use a right-justified 10-bit ADC result.
 
-### 10-bit ADC result to 16-bit CCP1 compare value mapping:
+### 10-bit ADC result to 16-bit CCP1 compare value mapping
 
 The ideal linear mapping is:
 
@@ -566,7 +566,7 @@ With Timer1 starting at `0xB1E0 = 45536`:
 The supplied mapping module uses the stored 10-bit ADC result in `adc_h:adc_l = 0x0200` and returns the 16-bit absolute compare value in `ccp_next_h:ccp_next_l = 0xB7BC` providing the falling edge timing for the next frame.
 
 ### Supplied mapping module
-Part 4 is essentially the same as Part 3 except the mapping is calculated instead of looked up. Add the lookup file [`Lab07-Part4-Map.S`](support/Lab07/Lab07-Part4-Map.S). to your MPLAB X project as a **separate source file**. Do not `#include` it. See [Starting a PIC-AS Project](../HowTo/PIC-AS-Project-Setup.md#4-organize-larger-projects-with-include-files-and-source-modules) for the module/linker explanation.
+Part 4 is essentially the same as Part 3 except the mapping is calculated instead of looked up. Add the mapping file [`Lab07-Part4-Map.S`](support/Lab07/Lab07-Part4-Map.S) to your MPLAB X project as a **separate source file**. Do not `#include` it. See [Starting a PIC-AS Project](../HowTo/PIC-AS-Project-Setup.md#4-organize-larger-projects-with-include-files-and-source-modules) for the module/linker explanation.
 
 In `main.S`:
 
@@ -580,7 +580,7 @@ GLOBAL  ccp_next_l, ccp_next_h, adc_l, adc_h
 EXTRN   MapAdcToCcp
 ```
 
-After `ReadAdc` stores the right-justified result in `adc_l:adc_h`:
+After `ReadAdc` stores the right-justified result in `adc_h:adc_l`:
 
 ```assembly
     PAGESEL MapAdcToCcp
@@ -588,13 +588,13 @@ After `ReadAdc` stores the right-justified result in `adc_l:adc_h`:
     PAGESEL $
 ```
 
-The routine writes the next absolute CCP match to `ccp_next_l:ccp_next_h`, uses `adc_l:adc_h` as working registers, and **reserves Bank 0 address `0x25`**.
+The routine writes the next absolute CCP match to `ccp_next_h:ccp_next_l`, uses `adc_h:adc_l` as working registers, and **reserves Bank 0 address `0x25`**.
 ### Required RAM
 
-Same as part 3 but stored 2 byte ADC result instead of 6-bit index:
+Same as Part 3 but with a stored 2-byte ADC result instead of a 6-bit index.
 
 ### Required setup
-Same as part 3 but right-justified ADC result instead of left-justified.
+Same as Part 3 but with a right-justified ADC result instead of left-justified.
 
 ### Program structure
 Keep the same one-update-per-frame sequence from Part 3.
@@ -604,7 +604,7 @@ Keep the same one-update-per-frame sequence from Part 3.
 Prepare or reference:
 
 - Part 3 Timer1/CCP design;
-- Right-justified 10-bit ADC result, integer mapping, and endpoint checks, and one worked example;
+- right-justified 10-bit ADC result, integer mapping, endpoint checks, and one worked example;
 - supplied mapping module added to the project;
 - main/ISR flowcharts and source code.
 
@@ -612,10 +612,10 @@ Prepare or reference:
 
 1. Verify Timer1 frame timing and CCP interrupt operation with the servo disconnected.
 2. Verify first, center, and last table entries, then several intermediate values.
-3. Confirm adjacent table entries differ by $1$ or $2\,\mu\text{s}$, averaging approximately $1.96\,\mu\text{s}$ across the full range.
+3. Confirm adjacent ADC codes change the calculated pulse width by $1$ or $2\,\mu\text{s}$, averaging approximately $1.96\,\mu\text{s}$ across the full range.
 4. Obtain instructor waveform checkoff.
 5. Connect the servo and sweep the 1024 commands.
-6. Observe the mechanical response and compare it with Parts 2 and 3 resolution. Is the servo resolution noticable? is the servo movement smooth? 
+6. Observe the mechanical response and compare it with Parts 2 and 3 resolution. Is the servo resolution noticeable? Is the servo movement smooth?
 
 ### Evidence
 
@@ -627,7 +627,7 @@ Explain how the 10-bit ADC result becomes a CCP deadline, what work happens in m
 
 ### Complete When
 
-Part 4 is complete when all 1024 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apperent servo chatter or jitter.
+Part 4 is complete when all 1024 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
