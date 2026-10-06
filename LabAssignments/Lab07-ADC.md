@@ -638,96 +638,34 @@ Part 5 is optional Mastery. Complete Parts 1 through 4 first.
 
 ### Goal
 
-Control three servos from three independent 10-bit ADC commands while sharing one Timer1 timebase and one CCP Compare module.
+Extend your working Part 4 program to independently control **three servos** from **three potentiometers**.
 
-### Timing model
+Use the same Timer1/CCP timing approach from Part 4. Each servo must use the full 10-bit ADC result and the calculated pulse-width mapping.
 
-At each $20\,\text{ms}$ frame boundary:
+### Requirements
 
-1. drive all three servo outputs HIGH;
-2. load CCP1 with the earliest saved falling-edge deadline;
-3. on each CCP interrupt, drive LOW every servo whose deadline must be serviced now;
-4. load the next remaining deadline;
-5. after all three outputs are LOW, acquire and calculate the next frame's commands.
+- three independent ADC inputs;
+- three independent servo outputs;
+- one $20\,\text{ms}$ frame;
+- pulse widths from approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$ for each servo;
+- each servo responds only to its own potentiometer.
 
-### Closely spaced deadlines
-
-Software cannot necessarily service independent CCP events only $1\,\mu\text{s}$ apart.
-
-Keep the compare value that caused the current interrupt as `current_match`. Define:
-
-```math
-\texttt{service\_limit}
-=
-\texttt{current\_match}
-+
-\texttt{service\_margin}
-```
-
-Any active servo with:
-
-```math
-\texttt{servo\_match}
-\le
-\texttt{service\_limit}
-```
-
-is driven LOW during the current interrupt.
-
-Estimate `service_margin` from interrupt timing, verify it on the oscilloscope, then determine the minimum reliable independently scheduled spacing.
-
-#### Worked example
-
-**What:** decide whether a nearby deadline must be handled during the current interrupt.
-
-**Why:** a second compare event may be too close for another complete interrupt cycle.
-
-For `current_match = 47000` and `service_margin = 20` Timer1 ticks:
-
-```math
-\begin{aligned}
-\texttt{service\_limit} &= 47000+20 \\
-&=47020
-\end{aligned}
-```
-
-A saved deadline of 47012 is handled now because $47012\le47020$. A deadline of 47030 remains scheduled for a later compare event.
-
-### Before Lab
-
-Prepare or reference:
-
-- three-servo schematic and loading analysis;
-- three ADC channels and three output pins;
-- saved 16-bit deadline for each servo;
-- active-servo state representation;
-- earliest-deadline selection algorithm;
-- initial service-margin estimate;
-- main/ISR flowcharts and source code.
+Keep the design as simple as practical.
 
 ### In the Lab
 
-With servos disconnected, verify:
-
-1. three separated deadlines;
-2. two and three equal deadlines;
-3. deadlines inside the service margin;
-4. deadlines just outside the service margin;
-5. independent command changes.
-
-After instructor waveform checkoff, connect the servos using a suitable external supply and common ground.
+1. Verify all three servo waveforms on the oscilloscope before connecting the servos.
+2. Verify minimum, center, and maximum pulse widths for each channel.
+3. Connect the servos using a suitable external supply and common ground.
+4. Demonstrate independent control of all three servos.
 
 ### Evidence
 
-Include or reference the three-servo schematic, loading analysis, state/deadline design, service-margin calculation, final source, scope captures for separated and combined deadlines, and measured minimum independent event spacing.
-
-### Demonstrate
-
-Show three independent servo commands and explain deadline selection, combined close events, and why scheduler resolution is limited by interrupt service time rather than Timer1 resolution alone.
+Include or reference the final source code and representative scope captures showing all three servo signals.
 
 ### Complete When
 
-Mastery is complete when three servos operate independently, one Timer1 and one CCP module schedule all three waveforms, close deadlines follow the measured service-margin policy, and waveform timing is verified before servo connection.
+Mastery is complete when all three servos operate independently with stable $20\,\text{ms}$ frames and correct pulse-width control.
 
 [Back to top](#top)
 
