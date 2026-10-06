@@ -218,7 +218,7 @@ Part 1 is complete when the full 10-bit result is observable, acquisition and co
 
 ### Goal
 
-Use the ADC result to command one servo through 21 discrete pulse widths from $500\,\mu\text{s}$ to $2.5\,\text{ms}$ in $100\,\mu\text{s}$ steps. Maintain a nominal $20\,\text{ms}$ frame.
+Use the ADC result to command one servo through 21 discrete pulse widths from $500\,\mu\text{s}$ to $2.5\text{ms}$ in $100\,\mu\text{s}$ steps. Maintain a nominal $20\text{ms}$ frame.
 
 ![Servo timing reference](images/servo-timing.jpg)
 
@@ -232,9 +232,9 @@ Verify the actual servo supply, control-input, current, and mechanical limits be
 
 ```math
 \begin{aligned}
-\text{span} &= 2.5\,\text{ms}-0.5\,\text{ms} \\
-&= 2.0\,\text{ms} \\
-\text{intervals} &= \frac{2.0\,\text{ms}}{0.1\,\text{ms}} \\
+\text{span} &= 2.5\text{ms}-0.5\text{ms} \\
+&= 2.0\text{ms} \\
+\text{intervals} &= \frac{2.0\text{ms}}{0.1\text{ms}} \\
 &= 20 \\
 \text{positions} &= 20+1 \\
 &= 21
@@ -265,7 +265,7 @@ Prepare or reference:
 - servo wiring and loading analysis;
 - ADC-code ranges for all 21 position indexes;
 - expected pulse width for each index;
-- one hardware timer configured for a nominal $20\,\text{ms}$ frame;
+- one hardware timer configured for a nominal $20\text{ms}$ frame;
 - method for generating the variable HIGH time;
 - timing calculations, flowchart, and source code.
 
@@ -273,9 +273,9 @@ Prepare or reference:
 
 Keep the servo disconnected until instructor waveform checkoff.
 
-1. Verify the $20\,\text{ms}$ frame.
+1. Verify the $20\text{ms}$ frame.
 2. Select each of the 21 indexes with the potentiometer and measure its HIGH pulse width.
-3. Compare each measurement with the expected $500\,\mu\text{s}$ through $2.5\,\text{ms}$ sequence.
+3. Compare each measurement with the expected $500\,\mu\text{s}$ through $2.5\text{ms}$ sequence.
 4. After checkoff, connect the servo with a suitable supply and common ground.
 5. Sweep all 21 commands and record the observed mechanical position. Do not force the servo against a stop.
 
@@ -287,13 +287,13 @@ Use one table for the complete 21-position verification.
 | ---: | --- | ---: | ---: | ---: |
 | 0 |  | $500\,\mu\text{s}$ |  |  |
 | ... | ... | ... | ... | ... |
-| 20 |  | $2.5\,\text{ms}$ |  |  |
+| 20 |  | $2.5\text{ms}$ |  |  |
 
 Also include or reference the timer calculation, flowchart, final source, servo electrical analysis, and representative scope captures.
 
 ### Demonstrate
 
-Before connecting the servo, show a stable $20\,\text{ms}$ frame and correct minimum, center, and maximum pulse widths.
+Before connecting the servo, show a stable $20\text{ms}$ frame and correct minimum, center, and maximum pulse widths.
 
 After checkoff, demonstrate all 21 commanded positions and explain your ADC-to-index mapping and pulse-width generation method.
 
@@ -308,9 +308,9 @@ Part 2 is complete when all 21 commands are reachable, measured pulse widths mat
 
 ### Goal
 
-Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\,\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
+Increase command resolution to 64 values. Use the upper 6 ADC bits as an index, Timer1 as a $1\,\mu\text{s}$ timebase and the $20\text{ms}$ frame, and CCP1 Compare to schedule the servo falling edge.
 
-For this part, Timer1 reloads to `0xB1E0` for the required $20\,\text{ms}$ timing at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
+For this part, Timer1 reloads to `0xB1E0` for the required $20\text{ms}$ timing at each frame start. The supplied lookup module is built for that reload and $1\,\mu\text{s}$ timer tick.
 
 ### CCP Compare quick reference
 
@@ -473,7 +473,7 @@ Prepare **one** command per frame after the active pulse ends. **Do not** repeat
 
 Prepare or reference:
 
-- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation. Verify the $20\,\text{ms}$ frame time;
+- Timer1 $1\,\mu\text{s}$ tick and `0xB1E0` reload calculation. Verify the $20\text{ms}$ frame time;
 - CCP1 SFR documentation;
 - left-justified `ADRESH` to 6-bit index reduction and one worked lookup calculation;
 - supplied lookup module added to the project;
@@ -498,7 +498,7 @@ Show CCP-controlled pulse timing and explain the 6-bit index, lookup deadline, T
 
 ### Complete When
 
-Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
+Part 3 is complete when all 64 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\text{ms}$, and both the PW and $20\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
@@ -627,7 +627,7 @@ Explain how the 10-bit ADC result becomes a CCP deadline, what work happens in m
 
 ### Complete When
 
-Part 4 is complete when all 1024 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\,\text{ms}$, and both the PW and $20\,\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
+Part 4 is complete when all 1024 commands are reachable, CCP schedules the falling edge, the pulse range is approximately $500\,\mu\text{s}$ to $2.5\text{ms}$, and both the PW and $20\text{ms}$ frame remain stable. There should be no apparent servo chatter or jitter.
 
 [Back to top](#top)
 
@@ -642,7 +642,7 @@ Control three servos from three independent 10-bit ADC commands while sharing on
 
 ### Timing model
 
-At each $20\,\text{ms}$ frame boundary:
+At each $20\text{ms}$ frame boundary:
 
 1. drive all three servo outputs HIGH;
 2. load CCP1 with the earliest saved falling-edge deadline;
