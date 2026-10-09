@@ -253,260 +253,7 @@ $           COMMAND     LENGTH      DATA[0] ... DATA[N-1]
 
 Rules:
 
-- `<a id="top"></a>
-
-# RCET 3375 Lab 08 - UART and Serial Device Interface
-
-[RCET3375 course home](../README.md)
-
-PIC16F883 | pic-as | EUSART | RS-232 | Packets | ADC | LM34 | Servo Control
-
-## Contents
-
-- [Purpose](#purpose)
-- [Standards and references](#standards-references)
-- [Equipment and materials](#equipment-materials)
-- [Part 1 - UART TX and RS-232 proof of life](#part-1)
-- [Part 2 - UART RX and byte echo](#part-2)
-- [Part 3 - Structured packets and ADC data](#part-3)
-- [Part 4 - LM34, UART, and servo integration](#part-4)
-- [Part 5 - Mastery: three-servo scheduler](#part-5)
-- [Submission and checkoff](#submission)
-
-<a id="purpose"></a>
-## Purpose
-
-Build a bidirectional serial interface for the PIC16F883, then integrate UART communication with ADC measurement and precise servo timing.
-
-The lab progresses from one repeating byte to byte echo, structured command packets, LM34 temperature measurement, and simultaneous UART/ADC/servo operation.
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="standards-references"></a>
-## Standards and references
-
-- [RCET 3375 Lab Standard](../LAB_STANDARD.md)
-- [RCET PIC-AS Style Guide](../Notes/RCET_PIC-AS_Style_Guide.md)
-- [Starting a PIC-AS Project](../HowTo/PIC-AS-Project-Setup.md)
-- [RCET 3373 UART and Asynchronous Serial Communication](https://github.com/rosstimo/RCET3373/blob/main/Topics/uart-asynchronous-serial.md)
-- [RCET 3373 PIC16F883 ADC and Sensor Conditioning](https://github.com/rosstimo/RCET3373/blob/main/Topics/pic16f883-adc.md)
-- [PIC16F882/883/884/886/887 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
-- [TI MAX232 Data Sheet](https://www.ti.com/lit/ds/symlink/max232.pdf)
-- [TI LM34 Data Sheet](https://www.ti.com/lit/ds/symlink/lm34.pdf)
-
-Use the PIC16F883 data sheet as the device authority for EUSART and ADC behavior. Use the data sheet for the exact MAX232-family device installed in your circuit when selecting charge-pump capacitors and verifying electrical limits.
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="equipment-materials"></a>
-## Equipment and materials
-
-- PIC16F883 circuit with 4 MHz crystal
-- MPLAB X, pic-as, and PICkit 3
-- oscilloscope with serial decode
-- computer serial terminal and host program capable of sending/receiving binary bytes
-- USB-to-RS-232 adapter
-- MAX232 or equivalent RS-232 transceiver and required capacitors
-- potentiometer
-- LM34 temperature sensor
-- one servo for Part 4
-- three servos for optional Mastery
-- suitable servo power supply
-- digital multimeter
-- independent temperature reference
-- breadboard, jumpers, and lab book
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="part-1"></a>
-## Part 1 - UART TX and RS-232 Proof of Life
-
-### Goal
-
-Configure the PIC16F883 EUSART for 9600 baud, 8N1, continuously transmit `$` (`0x24`), and verify both logic-level UART and RS-232 signaling.
-
-### UART frame and timing
-
-Explain `8N1` in your lab book:
-
-- `8` = eight data bits
-- `N` = no parity bit
-- `1` = one stop bit
-
-An asynchronous 8N1 character also has one start bit:
-
-```text
-1 start + 8 data + 0 parity + 1 stop = 10 bit-times
-```
-
-For a target baud rate of 9600 baud:
-
-```math
-\begin{aligned}
-T_{\text{bit}}
-&= \frac{1}{9600} \\
-&= 104.17\,\mu\text{s}
-\end{aligned}
-```
-
-One complete 8N1 byte takes:
-
-```math
-\begin{aligned}
-T_{\text{byte}}
-&= 10T_{\text{bit}} \\
-&= 10(104.17\,\mu\text{s}) \\
-&= 1.0417\,\text{ms}
-\end{aligned}
-```
-
-Use the baud-rate-generator settings you select to calculate the expected actual baud rate. Measure actual bit time on the oscilloscope and calculate measured baud rate:
-
-```math
-\text{baud}_{\text{measured}}
-=
-\frac{1}{T_{\text{bit measured}}}
-```
-
-### Before Lab
-
-Prepare or reference:
-
-- EUSART SFR documentation for `TXSTA`, `RCSTA`, `BAUDCTL`, `SPBRG`, `TXREG`, and relevant `PIR1` flags;
-- baud-generator calculation for 9600 baud at your actual oscillator frequency;
-- explanation of 8N1 and predicted bit/byte time;
-- expected UART bit pattern for `$ = 0x24`, including LSB-first transmission;
-- MAX232/adapter schematic and complete electrical-loading/component verification;
-- actual MAX232-family capacitor values and voltage ratings from its data sheet;
-- expected logic-level UART and RS-232 idle/start/data/stop polarity;
-- program flowchart and source.
-
-Build both TX and RX sides of the level converter even though Part 1 uses TX only.
-
-### In the Lab
-
-1. Configure EUSART asynchronous transmit at 9600 baud, 8N1.
-2. Continuously transmit `$`.
-3. Measure RC6/TX before the level converter.
-4. Capture one complete frame and label idle, start, all eight data bits, and stop.
-5. Measure bit time and complete byte time.
-6. Calculate baud rate from the measured bit time.
-7. Verify that one byte occupies 10 measured bit-times.
-8. Measure the corresponding RS-232 waveform after the MAX232.
-9. Record the logic-level and RS-232 HIGH/LOW voltages and explain the inversion.
-
-### Evidence
-
-Include or reference:
-
-- EUSART SFR documentation;
-- baud-generator, bit-time, and byte-time calculations;
-- MAX232 circuit and loading/component verification;
-- labeled RC6/TX waveform;
-- labeled RS-232 waveform;
-- measured bit time, byte time, and calculated measured baud rate;
-- final Part 1 source.
-
-### Demonstrate
-
-Show continuous `$` transmission at both measurement points.
-
-Explain 8N1, why the byte takes 10 bit-times, LSB-first transmission, measured baud rate, and why the PIC UART signal cannot be connected directly to a traditional RS-232 interface.
-
-### Complete When
-
-Part 1 is complete when `$` is correctly transmitted at both logic and RS-232 levels and the measured timing agrees with the configured baud rate.
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="part-2"></a>
-## Part 2 - UART RX and Byte Echo
-
-### Goal
-
-Receive one byte from the host and immediately transmit the same byte back.
-
-Keep this part byte-oriented. Do not add the packet parser yet.
-
-### Receive service time
-
-The PIC16F883 receiver can hold two complete unread characters. If a third character completes before software services the receive FIFO, `OERR` is set.
-
-Use your measured byte time from Part 1:
-
-```math
-\begin{aligned}
-T_{\text{RX absolute limit}}
-&\approx 2T_{\text{byte}} \\
-&\approx 2(1.0417\,\text{ms}) \\
-&\approx 2.083\,\text{ms}
-\end{aligned}
-```
-
-This is an absolute overrun boundary for continuous back-to-back traffic, not a normal service target. Your foreground loop should normally check RX at least once per character time and preferably much more often.
-
-No software state register is required for Part 2.
-
-### Before Lab
-
-Prepare or reference:
-
-- `RC7/RX` configuration;
-- `RCIF`, `RCREG`, `FERR`, `OERR`, and `CREN` behavior;
-- receive FIFO/service-time calculation using your measured byte time;
-- RX/TX flowchart and source.
-
-### In the Lab
-
-1. Send single bytes from the host and verify exact byte echo.
-2. Send several different binary/ASCII values.
-3. Verify RX and TX with the oscilloscope or serial decoder.
-4. Intentionally delay RX service while the host sends a continuous stream until `OERR` occurs.
-5. Demonstrate recovery by resetting the receiver as specified by the PIC16F883 data sheet.
-6. Remove the artificial delay and verify normal echo again.
-
-Check `FERR` before reading `RCREG` because the framing status belongs to the next unread character.
-
-### Evidence
-
-Include or reference:
-
-- receive-service calculation;
-- RX/TX flowchart and final source;
-- scope/decoder evidence for one echoed byte;
-- observed overrun condition and recovery;
-- explanation of `FERR` versus `OERR`.
-
-### Demonstrate
-
-Echo arbitrary bytes and deliberately create/recover from `OERR`.
-
-Explain how long one byte occupies the wire, how long the receiver can remain completely unserviced under continuous traffic, and why those are different timing questions.
-
-### Complete When
-
-Part 2 is complete when arbitrary bytes echo correctly and you can create, identify, and recover from receive overrun.
-
-[Back to top](#top) · [Course home](../README.md)
-
-<a id="part-3"></a>
-## Part 3 - Structured Packets and ADC Data
-
-### Goal
-
-Replace raw byte echo with a nonblocking packet parser. Use command packets to request device identification and the full 10-bit ADC value from the potentiometer on AN0.
-
-### Packet format
-
-All structured packets use:
-
-```text
-Byte 0      Byte 1      Byte 2      Byte 3 ...
-$           COMMAND     LENGTH      DATA[0] ... DATA[N-1]
-0x24                    N
-```
-
- and command letters are shown as their printable characters.
+- `$` and command letters are shown as their printable characters.
 - `LENGTH` and numeric DATA values are raw byte values, not ASCII digits.
 - `LENGTH` is the number of DATA bytes only.
 - Total packet length is `3 + LENGTH` bytes.
@@ -1051,7 +798,7 @@ For pulse width (PW) and guard interval (G), schedule absolute Timer1 matches fr
 \end{aligned}
 ```
 
-For (PW=1500\,\mu\text{s}) and (G=100\,\mu\text{s}):
+For $PW = 1500\,\mu\text{s}$ and $G = 100\,\mu\text{s}$:
 
 ```math
 \begin{aligned}
@@ -1059,7 +806,7 @@ For (PW=1500\,\mu\text{s}) and (G=100\,\mu\text{s}):
 &=45536+1500-100 \\
 &=46936 \\
 &=0xB758
-end{aligned}
+\end{aligned}
 ```
 
 ```math
@@ -1068,7 +815,7 @@ end{aligned}
 &=45536+1500 \\
 &=47036 \\
 &=0xB7BC
-end{aligned}
+\end{aligned}
 ```
 
 Program structure:
