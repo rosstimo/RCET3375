@@ -207,6 +207,7 @@ Prepare or reference:
 4. Send several ASCII and binary byte values. Confirm that the host receives exactly the values it sent.
 5. Enable serial decoding for both oscilloscope channels at 9600 baud, 8N1. Compare the decoded RX and TX bytes.
 6. Experiment with hexadecimal, ASCII, and binary decoder displays, then try start-bit and data-byte trigger settings.
+7. Make sure you can set upe the oscilloscope to capture and decode for both TTL and RS-232. Document the settings for each.
 
 ### Evidence
 
