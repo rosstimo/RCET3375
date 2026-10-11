@@ -62,14 +62,15 @@ Lab instructions are working documents for students. Optimize for clear executio
 - Link reusable concept material instead of teaching the same concept again in the lab.
 - Use part-specific headings and requirements so students can quickly answer: what am I doing, what must I prepare, what evidence do I need, what must I demonstrate, and when am I done?
 
-### Required setup and program structure
+### Pseudocode structure and wording
 
-For firmware-based parts, provide short `Required setup` and `Program structure` pseudocode blocks when they help students plan the implementation. Place them with the relevant part-specific technical guidance, generally before `Before Lab`.
+For firmware-based parts, use short, natural-language pseudocode sections to describe the required peripheral configuration and program behavior. Place them with the part-specific technical guidance, generally before `Before Lab`.
 
-- **Required setup:** describe the intended pin functions, peripheral modes, clock choices, and operating behavior in natural language. Use terminology close to the device data sheet and family reference manual so students can find the appropriate settings. State the required engineering targets (such as oscillator frequency, baud rate, data framing, or timing), but do not provide register names, bit names, addresses, masks, or the values to write to configuration registers. Students determine those details from their SFR documentation.
-- **Program structure:** describe the sequence, decisions, loops, polling, subroutine behavior, and interrupt responses in readable pseudocode. Explain what the program does rather than giving assembly syntax or translating a reference implementation line by line.
-- Keep peripheral setup separate from runtime behavior. Add a `Required RAM` block when counters, buffers, flags, or other stored state need identifying; describe their purpose without assigning register addresses.
-- Cross-check the requirements against verified instructor source when available. Use the source to confirm correctness without exposing its implementation settings in the student-facing pseudocode.
+- **Required setup:** describe intended pin functions, peripheral modes, clock choices, and operating behavior using terminology close to the device data sheet and family reference manual. State engineering targets (such as oscillator frequency, baud rate, framing, or timing) without supplying register names, bit names, addresses, masks, or configuration values. Students determine those details from their SFR documentation.
+- **Main program:** describe the runtime sequence, decisions, loops, and operations in readable pseudocode rather than assembly syntax.
+- **Other sections:** add headings for interrupts, subroutines, state, RAM, or other program components as the design requires. Describe each section's purpose and behavior without prescribing implementation details. Setup and main are typically present; the remaining sections depend on the part.
+- Keep setup separate from runtime behavior and avoid repeating the same requirements across sections.
+- When verified instructor source exists, use it to check technical correctness without copying its implementation details into the student-facing pseudocode.
 
 ### Mathematics and worked examples
 
