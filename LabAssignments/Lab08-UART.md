@@ -175,45 +175,38 @@ Receive one byte from the host and immediately transmit the same byte back.
 
 ### Receive service time
 
-The PIC16F883 receiver can hold two complete unread characters. If a third character completes before software services the receive FIFO, `OERR` is set.
+The PIC16F883 receiver buffers two unread characters. Calculate the available service time for continuous back-to-back traffic.
 
 Use your measured byte time from Part 1:
 
 ```math
 \begin{aligned}
-T_{\text{RX absolute limit}}
+T_{\text{two-byte window}}
 &\approx 2T_{\text{byte}} \\
 &\approx 2(1.0417\,\text{ms}) \\
 &\approx 2.083\,\text{ms}
 \end{aligned}
 ```
 
-This is an absolute overrun boundary for continuous back-to-back traffic, not a normal service target. Your foreground loop should normally check RX at least once per character time and preferably much more often.
+Two byte-times is the approximate window after the first unread byte is received. Service RX at least once per character time, preferably more often.
 
 ### Before Lab
 
 Prepare or reference:
 
 - `RC7/RX` configuration;
-- `RCIF`, `RCREG`, `FERR`, `OERR`, and `CREN` behavior;
+- `RCSTA.CREN`, `PIR1.RCIF`, `RCREG`, and the TX registers and flags used for echo;
 - receive FIFO/service-time calculation using your measured byte time;
 - RX/TX flowchart and source.
 
 ### In the Lab
 
-1. Send single bytes from the host and verify exact byte echo.
-2. use single sequience to capture both tx and rx with the oscilliscope in normal edge trigger mode. Verify the echoed byte is correct and the timing is as expected.
-3. Send several different binary/ASCII values.
-4. verify that rx data matches tx data on the computer side. 
-5. set serial decoder on the oscilloscope for both Ch1 and Ch2. 
-6. setup decoder display and expiriment with display formats: hex, ascii, binary, etc.
-7. Expiriment with different trigger settings such as start bit and data byte match.
-8. Verify RX and TX with the oscilloscope or serial decoder.
-<!-- I'm not sure how to intentionally cause an overrun condition  or framing error. maybe a delay longer than two bytes while sending 3 or more bytes. framing error maybe intentional Baud mismatch. close but too much error. this may be good with custom baud calculation. this may fit better in part 3. -->
-1. Intentionally delay RX service while the host sends a continuous stream until `OERR` occurs.
-2. Demonstrate recovery by resetting the receiver as specified by the PIC16F883 data sheet.
-
-Check `FERR` before reading `RCREG` because the framing status belongs to the next unread character.
+1. Send a single byte from the host and verify that the PIC echoes it unchanged.
+2. Probe PIC RC7/RX and RC6/TX on separate oscilloscope channels. Use normal edge triggering on the RX start bit and a single acquisition to capture both the received and echoed frames.
+3. Compare the two frames and measure their bit times and the delay between the RX and TX start bits.
+4. Send several ASCII and binary byte values. Confirm that the host receives exactly the values it sent.
+5. Enable serial decoding for both oscilloscope channels at 9600 baud, 8N1. Compare the decoded RX and TX bytes.
+6. Experiment with hexadecimal, ASCII, and binary decoder displays, then try start-bit and data-byte trigger settings.
 
 ### Evidence
 
@@ -221,19 +214,18 @@ Include or reference:
 
 - receive-service calculation;
 - RX/TX flowchart and final source;
-- scope/decoder evidence for one echoed byte;
-- observed overrun condition and recovery;
-- explanation of `FERR` versus `OERR`.
+- one scope capture showing RC7/RX and RC6/TX for an echoed byte, with timing measurements and serial decode;
+- host results showing correct echo for several byte values.
 
 ### Demonstrate
 
-Echo arbitrary bytes and deliberately create/recover from `OERR`.
+Echo different byte values and show the RX/TX waveforms and serial decoding on the oscilloscope.
 
-Explain how long one byte occupies the wire, how long the receiver can remain completely unserviced under continuous traffic, and why those are different timing questions.
+Explain the timing of the received and echoed frames and the time available to service incoming bytes.
 
 ### Complete When
 
-Part 2 is complete when arbitrary bytes echo correctly and you can create, identify, and recover from receive overrun.
+Part 2 is complete when arbitrary bytes echo correctly and the host and oscilloscope measurements agree.
 
 [Back to top](#top) · [Course home](../README.md)
 
@@ -641,8 +633,8 @@ Prepare or reference:
 3. Verify the returned 10-bit value spans approximately 0 through 1023.
 4. Compare selected ADC results with DMM voltage.
 5. Verify that RX remains serviced while responses are transmitted.
-6. Create an overrun and verify the `$ E 2 0x02 0x00` response and parser recovery.
-7. If a framing error is observed during testing, verify the `0x01` error response.
+6. Temporarily delay receive servicing while the host sends at least three bytes back-to-back. Verify the overrun error response `$ E 2 0x02 0x00`. Remove the delay and confirm that a valid command succeeds after recovery.
+7. Test framing-error handling with a baud mismatch. For example, keep the PIC at 9600 baud, set the host to 4800 baud, and send `0x00`. Use the oscilloscope decoder at 9600 baud to check for the PIC's `$ E 2 0x01 DETAIL` response. Restore the host to 9600 baud and confirm that a valid command succeeds.
 
 ### Evidence
 
