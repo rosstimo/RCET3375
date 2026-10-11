@@ -56,6 +56,8 @@ Lab instructions are working documents for students. Optimize for clear executio
 - Keep instructions complete but as short as practical.
 - Prefer brief sentences and compact lists. Too many words or bullets make requirements harder to follow.
 - Remove repetition, background, and commentary that do not change what the student must do.
+- Describe the work required in the current part. Omit statements about what is not needed, what is not being done, or features reserved for later parts.
+- Use an explicit exclusion only when needed for safety, correct implementation, or a necessary transition between parts.
 - Put instructions and required detail at the point of use.
 - Link reusable concept material instead of teaching the same concept again in the lab.
 - Use part-specific headings and requirements so students can quickly answer: what am I doing, what must I prepare, what evidence do I need, what must I demonstrate, and when am I done?
