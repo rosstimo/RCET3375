@@ -27,7 +27,7 @@ The lab progresses from one repeating byte to byte echo, structured command pack
 
 **Repository setup:** Create a Git repository for Lab08 before starting your projects. Open the [student lab `.gitignore` template](../HowTo/Student-Lab-Repository.gitignore), select **Raw**, and save the file as `.gitignore` in the repository root alongside `README.md`. Do this before your first `git add` so generated files are excluded. Keep the PIC firmware and host application in separate directories as shown in the [assignment repository structure](#assignment-repository-structure).
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="standards-references"></a>
 ## Standards and references
@@ -44,7 +44,7 @@ The lab progresses from one repeating byte to byte echo, structured command pack
 
 Use the PIC16F883 data sheet for EUSART and ADC settings. Check the data sheet for your MAX232-family device for charge-pump capacitor requirements, and the LM34 data sheet for pin connections, supply limits, and its 10 mV/°F output.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="equipment-materials"></a>
 ## Equipment and materials
@@ -65,7 +65,7 @@ Use the PIC16F883 data sheet for EUSART and ADC settings. Check the data sheet f
 - breadboard, jumpers, and various components as needed.
 - lab book
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="part-1"></a>
 ## Part 1 - UART TX and RS-232 Proof of Life
@@ -249,7 +249,7 @@ Explain 8N1, LSB-first transmission, each bit's position in the captured frame, 
 
 Part 1 is complete when every converter channel operates correctly, the predicted bit pattern agrees with both measured waveforms, the complete 10-bit frame and baud rate are verified, and the TTL/RS-232 logic levels are explained.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="part-2"></a>
 ## Part 2 - UART RX and Byte Echo
@@ -372,7 +372,7 @@ Explain the RX/TX timing, measured interval between receive-service checks, comp
 
 Part 2 is complete when bytes echo correctly, the receive-service interval is measured and compared with the timing budget, the host results match the scope measurements, and both TTL and RS-232 signals can be captured and decoded.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="part-3"></a>
 ## Part 3 - Structured Packets and ADC Data
@@ -803,7 +803,7 @@ Explain how `LENGTH` controls parsing, why packet duration is different from the
 
 Part 3 is complete when the host can request Device ID and full 10-bit AN0 data using the defined packet protocol and the PIC can recover cleanly from receive errors.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="part-4"></a>
 ## Part 4 - LM34, UART, and Servo Integration
@@ -1056,7 +1056,7 @@ Explain the raw-data packet, host-side temperature calculation, calibration resu
 
 Part 4 is complete when temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Servo Scheduler
@@ -1145,7 +1145,7 @@ Include or reference:
 
 Mastery is complete when all three servos accept independent pulse-width commands through the packet protocol and maintain stable timing while UART and ADC remain active.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
 
 <a id="submission"></a>
 ## Submission and Checkoff
@@ -1184,4 +1184,4 @@ Before final checkoff:
 
 Instructor checkoff includes the required demonstrations and explanations from each completed part.
 
-[Back to top](#top) · [Course home](../README.md)
+[Back to top](#top)
