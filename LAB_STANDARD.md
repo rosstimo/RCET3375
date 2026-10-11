@@ -191,6 +191,13 @@ RCET3375-LabXX-Assignment-Name
 
 Lab numbers may change as the sequence is revised; the descriptive topic name should remain meaningful.
 
+## Initial repository setup
+
+1. Create or clone the assignment's Git repository and add a `README.md` at its root.
+2. Open the [student lab `.gitignore` template](HowTo/Student-Lab-Repository.gitignore), select **Raw**, and save it as `.gitignore` (including the leading dot) alongside `README.md`.
+3. Add the `.gitignore` **before the first `git add` of project files**, so generated build output and computer-specific files are excluded.
+4. Stage and commit `.gitignore` with the assignment files. Use `git status --ignored` to verify which files Git excludes.
+
 ## Example repository structure
 
 Use only the directories that apply to the assignment.
