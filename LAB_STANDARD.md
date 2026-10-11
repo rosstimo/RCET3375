@@ -56,9 +56,74 @@ Lab instructions are working documents for students. Optimize for clear executio
 - Keep instructions complete but as short as practical.
 - Prefer brief sentences and compact lists. Too many words or bullets make requirements harder to follow.
 - Remove repetition, background, and commentary that do not change what the student must do.
+- Describe the work required in the current part. Omit statements about what is not needed, what is not being done, or features reserved for later parts.
+- Use an explicit exclusion only when needed for safety, correct implementation, or a necessary transition between parts.
 - Put instructions and required detail at the point of use.
 - Link reusable concept material instead of teaching the same concept again in the lab.
 - Use part-specific headings and requirements so students can quickly answer: what am I doing, what must I prepare, what evidence do I need, what must I demonstrate, and when am I done?
+
+### Pseudocode structure and wording
+
+Use short, natural-language pseudocode to describe the required configuration and program behavior. Follow the same layout and sequence across lab parts, omitting sections that do not apply.
+
+For a complex program, the standard order is:
+
+1. **Required RAM:** identify counters, flags, buffers, saved context, and other stored state by purpose. Include state definitions here when useful.
+2. **Required setup:** group configuration by the hardware blocks that students must set up for the current part. Include I/O, interrupts, and startup initialization when they require separate action. Include configuration-bit or oscillator setup only when it changes or is specifically part of the assignment; do not repeat established semester-wide settings.
+3. **Program structure:** describe execution in this order:
+   - **Main:** primary loop, decisions, and work scheduling.
+   - **Interrupts:** each interrupt source and its response, using a separate named block per source.
+   - **Subroutines:** named routines and their behavior, in the order they are first used by the program.
+
+Use these headings and this sequence in the assignment. Each heading has its own pseudocode block.
+
+**Required RAM**
+
+```text
+counters, flags, buffers, and stored state
+```
+
+**Required setup**
+
+```text
+Peripherals:
+    required operating modes and timing targets
+
+I/O (when separately configured):
+    intended pin functions
+
+Interrupts:
+    required interrupt sources and enabling
+
+Startup:
+    one-time initialization
+```
+
+**Program structure**
+
+```text
+main:
+    perform normal application work
+    repeat
+
+first interrupt source:
+    respond to the event
+
+second interrupt source:
+    respond to the event
+
+first subroutine:
+    perform its task
+
+second subroutine:
+    perform its task
+```
+
+Use `### Required RAM`, `### Required setup`, and `### Program structure` as the actual headings. Omit unused sections and blocks. When extra material is needed, place data/state descriptions before setup and runtime behavior under program structure. Keep interrupt handlers grouped before subroutines. If enabling a peripheral automatically assigns the required pin functions or directions, leave out a separate I/O setup block and redundant pin-configuration reference.
+
+Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements. Keep circuit assembly and component/channel testing in the bench instructions rather than in firmware pseudocode. Where a device has independent channels, specify independent verification of each applicable channel when that is necessary to establish correct hardware operation.
+
+When instructor verification source exists for a lab part, compare that specific part's instructions with the source before proposing instructional changes. Check peripheral setup, program behavior, timing, data handling, and expected measurements. Explicitly report discrepancies to the instructor, including instructions that require behavior absent from the code and code behavior not represented in the instructions. Distinguish genuine conflicts from intentional simplifications, optional features, and implementation choices. State the source's verification status when known. Use the comparison to recommend the clearest student-facing requirements, but do not silently reconcile differences or assume that the source is authoritative over the lab requirements or device documentation. Keep proposed decisions in the review until the instructor chooses what belongs in the assignment.
 
 ### Mathematics and worked examples
 
@@ -189,6 +254,13 @@ RCET3375-LabXX-Assignment-Name
 
 Lab numbers may change as the sequence is revised; the descriptive topic name should remain meaningful.
 
+## Initial repository setup
+
+1. Create or clone the assignment's Git repository and add a `README.md` at its root.
+2. Open the [student lab `.gitignore` template](HowTo/Student-Lab-Repository.gitignore), select **Raw**, and save it as `.gitignore` (including the leading dot) alongside `README.md`.
+3. Add the `.gitignore` **before the first `git add` of project files**, so generated build output and computer-specific files are excluded.
+4. Stage and commit `.gitignore` with the assignment files. Use `git status --ignored` to verify which files Git excludes.
+
 ## Example repository structure
 
 Use only the directories that apply to the assignment.
@@ -225,6 +297,7 @@ Development projects remain intact inside their normal project directory structu
 - Do not run `git init` inside a repository that already exists.
 - Commit files required to reopen and rebuild the project.
 - Ignore generated build products and private machine-specific IDE state.
+- Start each lab repository with the [student lab `.gitignore` template](HowTo/Student-Lab-Repository.gitignore), copied to the repository root as `.gitignore`.
 - Commit editable KiCad source and a portable schematic export.
 - Make meaningful commits during the work rather than one final bulk commit.
 - Push the assignment repository to GitHub before completion.

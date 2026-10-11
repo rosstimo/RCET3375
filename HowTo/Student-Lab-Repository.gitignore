@@ -1,0 +1,78 @@
+# RCET student lab repository
+# Keep source, build configurations, schematics, measurements, and evidence.
+# Generated outputs and per-computer settings belong outside Git.
+
+# MPLAB X: project files live in *.X directories
+# Keep: Makefile, nbproject/configurations.xml, nbproject/project.xml, *.S, *.c, *.h
+**/*.X/build/
+**/*.X/dist/
+**/*.X/debug/
+**/*.X/disassembly/
+**/*.X/.generated_files/
+**/*.X/nbproject/private/
+**/*.X/nbproject/Makefile-*.mk
+**/*.X/nbproject/Package-*.bash
+**/*.X/nbproject/Makefile-genesis.properties
+
+# C# / .NET
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+.vs/
+*.suo
+*.user
+*.userosscache
+*.rsuser
+*.binlog
+[Tt]est[Rr]esults/
+*.nupkg
+*.snupkg
+
+# Python host utilities (if used)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# KiCad local state and autosave
+# Keep: *.kicad_pro, *.kicad_sch, *.kicad_pcb, libraries, PDF exports
+*.kicad_prl
+*-backups/
+fp-info-cache
+~*.lck
+_autosave-*
+*-save.kicad_pcb
+*-save.kicad_sch
+*.kicad_pcb-bak
+*.kicad_sch-bak
+
+# Editor / IDE local state
+.idea/
+.fleet/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Operating-system clutter
+.DS_Store
+Thumbs.db
+Desktop.ini
+.directory
+
+# Intentionally keep *.hex, *.map, *.log, *.csv, *.png, and *.pdf trackable:
+# those may be required as submitted firmware artifacts or lab evidence.

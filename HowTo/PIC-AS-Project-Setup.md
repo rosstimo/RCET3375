@@ -24,9 +24,11 @@ Official resources:
 
 ## 1. Create the assignment repository
 
-Use one repository for one assignment. Follow the repository structure and Git requirements in the [RCET 3375 Lab Standard](../LAB_STANDARD.md).
+Use one repository for one assignment. Follow the [initial repository setup](../LAB_STANDARD.md#initial-repository-setup) and directory requirements in the RCET 3375 Lab Standard.
 
-Create the repository first, then place the MPLAB X project under:
+Before creating your MPLAB X project, open the [student lab `.gitignore` template](Student-Lab-Repository.gitignore), select **Raw**, and save it as `.gitignore` in the repository root beside `README.md`. Add and commit it with the assignment; have it in place before your first `git add` of project files.
+
+Place the MPLAB X project under:
 
 ```text
 source/pic/
