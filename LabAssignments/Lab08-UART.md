@@ -377,6 +377,8 @@ Part 2 is complete when bytes echo correctly, the receive-service interval is me
 <a id="part-3"></a>
 ## Part 3 - Structured Packets and ADC Data
 
+> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+
 ### Goal
 
 Replace raw byte echo with a nonblocking packet parser. Use command packets to request device identification and the full 10-bit ADC value from the potentiometer on AN0.
@@ -633,6 +635,8 @@ Part 3 is complete when the host can request Device ID and full 10-bit AN0 data 
 <a id="part-4"></a>
 ## Part 4 - LM34, UART, and Servo Integration
 
+> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+
 ### Goal
 
 Replace the potentiometer with an LM34 temperature sensor and integrate UART RX/TX, ADC acquisition, and one CCP-timed servo.
@@ -885,6 +889,8 @@ Part 4 is complete when temperature data is calibrated and reported correctly, v
 
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Servo Scheduler
+
+> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
 
 Part 5 is optional Mastery. Complete Parts 1 through 4 first.
 
