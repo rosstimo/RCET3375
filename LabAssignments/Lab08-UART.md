@@ -38,10 +38,9 @@ The lab progresses from one repeating byte to byte echo, structured command pack
 - [PIC16F882/883/884/886/887 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
 - [TI MAX232 Data Sheet](https://www.ti.com/lit/ds/symlink/max232.pdf)
 - [TI LM34 Data Sheet](https://www.ti.com/lit/ds/symlink/lm34.pdf)
-  
 
-<!-- Add wording for LM34 temp sensor here. don't be too verbose ot AI sounding in this paragraph -->
-Use the PIC16F883 data sheet as the device authority for EUSART and ADC behavior. Use the data sheet for the exact MAX232-family device installed in your circuit when selecting charge-pump capacitors and verifying electrical limits.
+
+Use the PIC16F883 data sheet for EUSART and ADC settings. Check the data sheet for your MAX232-family device for charge-pump capacitor requirements, and the LM34 data sheet for pin connections, supply limits, and its 10 mV/°F output.
 
 [Back to top](#top) · [Course home](../README.md)
 
