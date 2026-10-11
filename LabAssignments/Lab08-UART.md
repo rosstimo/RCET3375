@@ -533,9 +533,9 @@ ParseRxByte:
     GET_COMMAND: save command and advance to GET_LENGTH
     GET_LENGTH:
         save length and clear count
-        if length > 8, reset parser
-        if length = 0, call ProcessPacket
-        otherwise advance to GET_DATA
+        if length > 8, reset parser and return
+        if length = 0, call ProcessPacket and return
+        advance to GET_DATA
     GET_DATA:
         store byte in rx_data[count] and increment count
         if count = length, call ProcessPacket
@@ -569,7 +569,7 @@ BuildIdResponse:
 
 BuildAdcResponse:
     prepare '$ A 3 0x00 ADC_H ADC_L' in TX buffer
-    transmit the complete 10-bit result, high byte first
+    include the full right-justified 10-bit result, high byte first
     initialize TX count and length; clear pending reply
     return
 
