@@ -69,7 +69,7 @@ Use short, natural-language pseudocode to describe the required configuration an
 For a complex program, the standard order is:
 
 1. **Required RAM:** identify counters, flags, buffers, saved context, and other stored state by purpose. Include state definitions here when useful.
-2. **Required setup:** group one-time configuration by I/O, clocks, peripherals, and interrupt configuration. Use descriptive labels for each hardware block. Include startup initialization when needed.
+2. **Required setup:** group configuration by the hardware blocks that students must set up for the current part. Include I/O, interrupts, and startup initialization when they require separate action. Include configuration-bit or oscillator setup only when it changes or is specifically part of the assignment; do not repeat established semester-wide settings.
 3. **Program structure:** describe execution in this order:
    - **Main:** primary loop, decisions, and work scheduling.
    - **Interrupts:** each interrupt source and its response, using a separate named block per source.
@@ -86,11 +86,11 @@ counters, flags, buffers, and stored state
 **Required setup**
 
 ```text
-I/O:
-    intended pin functions
-
 Peripherals:
-    operating modes and timing targets
+    required operating modes and timing targets
+
+I/O (when separately configured):
+    intended pin functions
 
 Interrupts:
     required interrupt sources and enabling
@@ -119,9 +119,9 @@ second subroutine:
     perform its task
 ```
 
-Use `### Required RAM`, `### Required setup`, and `### Program structure` as the actual headings. Omit unused sections and blocks. When extra material is needed, place data/state descriptions before setup and runtime behavior under program structure. Keep interrupt handlers grouped before subroutines.
+Use `### Required RAM`, `### Required setup`, and `### Program structure` as the actual headings. Omit unused sections and blocks. When extra material is needed, place data/state descriptions before setup and runtime behavior under program structure. Keep interrupt handlers grouped before subroutines. If enabling a peripheral automatically assigns the required pin functions or directions, leave out a separate I/O setup block and redundant pin-configuration reference.
 
-Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements.
+Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements. Keep circuit assembly and component/channel testing in the bench instructions rather than in firmware pseudocode. Where a device has independent channels, specify independent verification of each applicable channel when that is necessary to establish correct hardware operation.
 
 When instructor verification source exists for a lab part, compare that specific part's instructions with the source before proposing instructional changes. Check peripheral setup, program behavior, timing, data handling, and expected measurements. Explicitly report discrepancies to the instructor, including instructions that require behavior absent from the code and code behavior not represented in the instructions. Distinguish genuine conflicts from intentional simplifications, optional features, and implementation choices. State the source's verification status when known. Use the comparison to recommend the clearest student-facing requirements, but do not silently reconcile differences or assume that the source is authoritative over the lab requirements or device documentation. Keep proposed decisions in the review until the instructor chooses what belongs in the assignment.
 
