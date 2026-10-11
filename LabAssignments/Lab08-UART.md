@@ -1007,6 +1007,30 @@ Mastery is complete when all three servos accept independent pulse-width command
 <a id="submission"></a>
 ## Submission and Checkoff
 
+### Assignment repository structure
+
+Keep the PIC firmware and host application in the same Git repository, with each project in its own directory. For a C# host application:
+
+```text
+RCET3375-Lab08-UART/
+├── README.md
+├── .gitignore
+├── source/
+│   ├── pic/
+│   │   └── Lab08-UART.X/             # MPLAB X project and .S files
+│   └── csharp/
+│       └── Lab08Host/               # .csproj and .cs files
+├── schematics/                       # editable schematic and export
+├── documentation/                    # calculations and calibration records
+├── evidence/
+│   ├── oscilloscope/                 # captures and measurements
+│   └── host/                         # terminal output and test results
+└── lab-book/
+    └── Lab08-Lab-Book.pdf
+```
+
+Preserve each project's normal structure and include the files needed to rebuild both programs. See the [Lab Standard](../LAB_STANDARD.md#assignment-repository-standard) for repository rules.
+
 Before final checkoff:
 
 1. complete Parts 1 through 4 and any attempted Mastery work;
