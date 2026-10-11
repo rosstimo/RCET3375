@@ -47,26 +47,21 @@ Use the PIC16F883 data sheet for EUSART and ADC settings. Check the data sheet f
 <a id="equipment-materials"></a>
 ## Equipment and materials
 
-### Equipment and tools
-
-- computer with MPLAB X, pic-as, a serial terminal, and a host program capable of sending/receiving binary bytes
-- PICkit 3
 - oscilloscope with serial decode
 - frequency counter
 - digital multimeter
+- suitable servo power supply (independent/isolated preffered)
 - independent temperature reference
+- PICkit 3 or equivalent programmer/debugger
+- computer with MPLAB X, pic-as, a serial terminal, and a host program capable of sending/receiving binary bytes
 - USB-to-RS-232 adapter
-- lab book
-
-### Components and supplies
-
 - PIC16F883 circuit with 4 MHz crystal
 - MAX232 or equivalent RS-232 transceiver and required capacitors
 - potentiometer
 - LM34 temperature sensor
 - one servo for Part 4; three servos total for optional Mastery
-- suitable servo power supply
-- breadboard and jumpers
+- breadboard, jumpers, and various components as needed.
+- lab book
 
 [Back to top](#top) · [Course home](../README.md)
 
