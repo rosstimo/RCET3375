@@ -109,7 +109,7 @@ T_{\text{byte}}
 \end{aligned}
 ```
 
-Use the baud-rate-generator settings you select to calculate the expected actual baud rate. Measure actual bit time on the oscilloscope and calculate measured baud rate:
+Use the baud-rate-generator settings you select to calculate the expected actual baud rate and its error. Measure actual bit time on the oscilloscope and calculate measured baud rate:
 
 ```math
 \text{baud}_{\text{measured}}
@@ -117,54 +117,300 @@ Use the baud-rate-generator settings you select to calculate the expected actual
 \frac{1}{T_{\text{bit measured}}}
 ```
 
+#### Worked example: baud-rate generator and error at 9600 baud
+
+**What:** calculate the baud-rate generator value, actual baud rate, and percentage error.
+
+**Why:** the baud-rate generator uses an integer setting, so its actual output may differ from the target rate.
+
+For a 4 MHz oscillator with the 8-bit, high-speed asynchronous baud-rate generator, the data sheet gives a divisor of 16. Let \(n\) be the generator setting:
+
+```math
+\begin{aligned}
+n &= \frac{F_{OSC}}{16B_{\text{target}}}-1 \\
+  &= \frac{4{,}000{,}000}{16(9600)}-1 \\
+  &= 25.0417 \\
+  &\rightarrow 25
+\end{aligned}
+```
+
+The calculated baud rate is:
+
+```math
+\begin{aligned}
+B_{\text{actual}} &= \frac{F_{OSC}}{16(n+1)} \\
+ &= \frac{4{,}000{,}000}{16(25+1)} \\
+ &= 9615.38\ \text{baud}
+\end{aligned}
+```
+
+Calculate the error relative to the target:
+
+```math
+\begin{aligned}
+\text{Error} &= \frac{B_{\text{actual}}-B_{\text{target}}}{B_{\text{target}}}\times100\% \\
+ &= \frac{9615.38-9600}{9600}\times100\% \\
+ &= +0.16\%
+\end{aligned}
+```
+
+#### Worked example: a custom target baud rate
+
+**What:** calculate a baud-rate generator setting for a chosen rate of 12,000 baud.
+
+**Why:** the same process lets you evaluate other rates and their resulting error.
+
+Using the same oscillator and generator mode:
+
+```math
+\begin{aligned}
+n &= \frac{4{,}000{,}000}{16(12{,}000)}-1 \\
+ &= 19.8333 \\
+ &\rightarrow 20 \\
+B_{\text{actual}} &= \frac{4{,}000{,}000}{16(20+1)} \\
+ &= 11{,}904.76\ \text{baud} \\
+\text{Error} &= \frac{11{,}904.76-12{,}000}{12{,}000}\times100\% \\
+ &= -0.79\%
+\end{aligned}
+```
+
+Use the mode and resulting settings you select for the required 9600-baud transmission. The 12,000-baud example illustrates the calculation for a different target.
+
 At RC6/TX, UART idle and stop levels are HIGH, and the start bit is LOW. The MAX232 inverts these levels: RS-232 idle and stop are negative voltages, while the start bit is positive. Data bits are sent least significant bit first. With continuous transmission, the stop bit returns the line to its idle level, but there may be no additional idle gap.
+
+### Required setup
+
+Pin configuration reference: PIC16F882/883/884/886/887 data sheet, Section 12.1.1.1 *Enabling the Transmitter* (page 150) and Section 12.1.2.1 *Enabling the Receiver* (page 153). The EUSART controls the serial pin directions when the serial port is enabled.
+
+```text
+I/O:
+    configure the EUSART transmit and receive pins for serial port operation
+
+Baud rate generator:
+    use the 8-bit baud rate generator
+    choose the asynchronous baud-rate generation mode
+        that achieves 9600 baud with acceptable error at 4 MHz
+
+EUSART transmitter:
+    configure asynchronous serial operation
+    select 8-bit character transmission
+    enable the serial port
+    enable the transmitter
+```
+
+### Program structure
+
+```text
+main:
+    wait until the transmit buffer is available
+    transmit the selected byte
+    optionally delay between transmissions
+    repeat
+```
 
 ### Before Lab
 
 Prepare or reference:
 
 - EUSART SFR documentation for `TXSTA`, `RCSTA`, `BAUDCTL`, `SPBRG`, `TXREG`, and relevant `PIR1` flags;
-- baud-generator calculation for 9600 baud at your actual oscillator frequency;
+- baud-generator setting, expected actual baud rate, and percentage error for 9600 baud at your actual oscillator frequency;
 - explanation of 8N1 and predicted bit/byte time;
 - predicted start, D0-D7 (LSB first), and stop levels for `$ = 0x24` and contrasting test bytes;
 - expected idle/start polarity and voltages on both TTL and RS-232;
 - MAX232/adapter schematic, electrical-loading/component verification, and required capacitor values and voltage ratings;
+- a plan to verify each TTL-to-RS-232 driver channel and each RS-232-to-TTL receiver channel independently;
 - program flowchart and source.
-
-Build and test both TX and RX sides of the level converter even though Part 1 uses TX only. Be sure to test all channels of the TTL/RS-232 converter to verify device functionality.
 
 ### In the Lab
 
-1. Configure EUSART asynchronous transmit at 9600 baud, 8N1, and continuously send `$` (`0x24`).
-2. Display RC6/TX (TTL) and the corresponding MAX232 RS-232 output on separate oscilloscope channels at the same time.
-3. Identify the start bit, D0 through D7, and stop bit directly from the waveforms. Compare the observed sequence with your prediction.
-4. Try other repeated bytes such as `0xFF`, `0x00`, `0x55`, `0xAA`, `0xF7`, `0x08`, or any other that makes bit and frame timing easy to measure. Record the predicted and observed bit sequences for the patterns tested.
-5. Choose the clearest pattern for a scope capture. Adjust the timebase so **one complete 10-bit frame fills as much of the screen as possible**, with both traces visible and the start/stop boundaries intact.
-6. On that capture, identify **start, D0-D7, and stop** for both TTL and RS-232. Mark the bit time clearly.
-7. Measure bit time and complete frame time. Calculate measured baud rate and verify that the frame occupies 10 bit-times.
-8. Measure and record the TTL and RS-232 voltages for idle, start, and data levels. Explain the polarity change between the two signals.
-9. You may choose to add a delay between sending bytes roughly quivilent to one byte time.
+1. Build the MAX232 level-converter circuit with the required power and charge-pump capacitors. Verify the connections and component ratings.
+2. Test every TTL-to-RS-232 driver channel and every RS-232-to-TTL receiver channel independently. Apply suitable test signals, compare input/output polarity and voltage levels, and record the result for each channel.
+3. Configure EUSART asynchronous transmission at 9600 baud, 8N1, and repeatedly transmit a selected byte, starting with `<a id="part-1"></a>
+## Part 1 - UART TX and RS-232 Proof of Life
+
+### Goal
+
+Configure the PIC16F883 EUSART for 9600 baud, 8N1, and continuously transmit a selected byte. Predict and measure its bit pattern, timing, and voltage levels on both the PIC UART and RS-232 signals.
+
+### UART frame and timing
+
+Explain `8N1` in your lab book:
+
+- `8` = eight data bits
+- `N` = no parity bit
+- `1` = one stop bit
+
+An asynchronous 8N1 character also has one start bit:
+
+```text
+1 start + 8 data + 0 parity + 1 stop = 10 bit-times
+```
+
+For a target baud rate of 9600 baud:
+
+```math
+\begin{aligned}
+T_{\text{bit}}
+&= \frac{1}{9600} \\
+&= 104.17\,\mu\text{s}
+\end{aligned}
+```
+
+One complete 8N1 byte takes:
+
+```math
+\begin{aligned}
+T_{\text{byte}}
+&= 10T_{\text{bit}} \\
+&= 10(104.17\,\mu\text{s}) \\
+&= 1.0417\,\text{ms}
+\end{aligned}
+```
+
+Use the baud-rate-generator settings you select to calculate the expected actual baud rate and its error. Measure actual bit time on the oscilloscope and calculate measured baud rate:
+
+```math
+\text{baud}_{\text{measured}}
+=
+\frac{1}{T_{\text{bit measured}}}
+```
+
+#### Worked example: baud-rate generator and error at 9600 baud
+
+**What:** calculate the baud-rate generator value, actual baud rate, and percentage error.
+
+**Why:** the baud-rate generator uses an integer setting, so its actual output may differ from the target rate.
+
+For a 4 MHz oscillator with the 8-bit, high-speed asynchronous baud-rate generator, the data sheet gives a divisor of 16. Let \(n\) be the generator setting:
+
+```math
+\begin{aligned}
+n &= \frac{F_{OSC}}{16B_{\text{target}}}-1 \\
+  &= \frac{4{,}000{,}000}{16(9600)}-1 \\
+  &= 25.0417 \\
+  &\rightarrow 25
+\end{aligned}
+```
+
+The calculated baud rate is:
+
+```math
+\begin{aligned}
+B_{\text{actual}} &= \frac{F_{OSC}}{16(n+1)} \\
+ &= \frac{4{,}000{,}000}{16(25+1)} \\
+ &= 9615.38\ \text{baud}
+\end{aligned}
+```
+
+Calculate the error relative to the target:
+
+```math
+\begin{aligned}
+\text{Error} &= \frac{B_{\text{actual}}-B_{\text{target}}}{B_{\text{target}}}\times100\% \\
+ &= \frac{9615.38-9600}{9600}\times100\% \\
+ &= +0.16\%
+\end{aligned}
+```
+
+#### Worked example: a custom target baud rate
+
+**What:** calculate a baud-rate generator setting for a chosen rate of 12,000 baud.
+
+**Why:** the same process lets you evaluate other rates and their resulting error.
+
+Using the same oscillator and generator mode:
+
+```math
+\begin{aligned}
+n &= \frac{4{,}000{,}000}{16(12{,}000)}-1 \\
+ &= 19.8333 \\
+ &\rightarrow 20 \\
+B_{\text{actual}} &= \frac{4{,}000{,}000}{16(20+1)} \\
+ &= 11{,}904.76\ \text{baud} \\
+\text{Error} &= \frac{11{,}904.76-12{,}000}{12{,}000}\times100\% \\
+ &= -0.79\%
+\end{aligned}
+```
+
+Use the mode and resulting settings you select for the required 9600-baud transmission. The 12,000-baud example illustrates the calculation for a different target.
+
+At RC6/TX, UART idle and stop levels are HIGH, and the start bit is LOW. The MAX232 inverts these levels: RS-232 idle and stop are negative voltages, while the start bit is positive. Data bits are sent least significant bit first. With continuous transmission, the stop bit returns the line to its idle level, but there may be no additional idle gap.
+
+### Required setup
+
+Pin configuration reference: PIC16F882/883/884/886/887 data sheet, Section 12.1.1.1 *Enabling the Transmitter* (page 150) and Section 12.1.2.1 *Enabling the Receiver* (page 153). The EUSART controls the serial pin directions when the serial port is enabled.
+
+```text
+I/O:
+    configure the EUSART transmit and receive pins for serial port operation
+
+Baud rate generator:
+    use the 8-bit baud rate generator
+    choose the asynchronous baud-rate generation mode
+        that achieves 9600 baud with acceptable error at 4 MHz
+
+EUSART transmitter:
+    configure asynchronous serial operation
+    select 8-bit character transmission
+    enable the serial port
+    enable the transmitter
+```
+
+### Program structure
+
+```text
+main:
+    wait until the transmit buffer is available
+    transmit the selected byte
+    optionally delay between transmissions
+    repeat
+```
+
+### Before Lab
+
+Prepare or reference:
+
+- EUSART SFR documentation for `TXSTA`, `RCSTA`, `BAUDCTL`, `SPBRG`, `TXREG`, and relevant `PIR1` flags;
+- baud-generator setting, expected actual baud rate, and percentage error for 9600 baud at your actual oscillator frequency;
+- explanation of 8N1 and predicted bit/byte time;
+- predicted start, D0-D7 (LSB first), and stop levels for `$ = 0x24` and contrasting test bytes;
+- expected idle/start polarity and voltages on both TTL and RS-232;
+- MAX232/adapter schematic, electrical-loading/component verification, and required capacitor values and voltage ratings;
+- a plan to verify each TTL-to-RS-232 driver channel and each RS-232-to-TTL receiver channel independently;
+- program flowchart and source.
+
+### In the Lab
+
+ (`0x24`).
+4. Display RC6/TX (TTL) and the corresponding MAX232 RS-232 output on separate oscilloscope channels at the same time.
+11. Identify the start bit, D0 through D7, and stop bit directly from the waveforms. Compare the observed sequence with your prediction.
+10. Try other repeated bytes such as `0xFF`, `0x00`, `0x55`, `0xAA`, `0xF7`, `0x08`, or any other that makes bit and frame timing easy to measure. Record the predicted and observed bit sequences for the patterns tested.
+11. Choose the clearest pattern for a scope capture. Adjust the timebase so **one complete 10-bit frame fills as much of the screen as possible**, with both traces visible and the start/stop boundaries intact.
+10. On that capture, identify **start, D0-D7, and stop** for both TTL and RS-232. Mark the bit time clearly.
+11. Measure bit time and complete frame time. Calculate measured baud rate and verify that the frame occupies 10 bit-times.
+10. Measure and record the TTL and RS-232 voltages for idle, start, and data levels. Explain the polarity change between the two signals.
+11. You may add a delay of approximately one byte time between transmissions. The duration is not critical; the pause can make oscilloscope triggering and frame capture easier.
 
 ### Evidence
 
 Include or reference:
 
-- EUSART SFR documentation and MAX232 circuit/component verification;
+- EUSART SFR documentation, MAX232 circuit/component verification, and independent test results for every driver and receiver channel;
 - predicted and observed bit patterns for the bytes tested, including LSB-first order;
-- baud-generator, bit-time, frame-time, and measured-baud calculations;
+- baud-generator setting, calculated baud rate and percentage error, bit-time, frame-time, and measured-baud calculations;
 - **at least one scope capture showing TTL and RS-232 simultaneously**, scaled around one complete byte and labeled with start, D0-D7, stop, and bit time;
-- measured and labled idle/start/data voltages and an explanation of TTL versus RS-232 polarity;
+- measured and labeled idle/start/data voltages and an explanation of TTL versus RS-232 polarity;
 - final Part 1 source.
 
 ### Demonstrate
 
-Show repeated byte transmission at both measurement points.
+Show repeated byte transmission at both measurement points and verify the independent test results for each MAX232 driver and receiver channel.
 
 Explain 8N1, LSB-first transmission, each bit's position in the captured frame, the measured baud rate, and the idle/start/stop logic levels and voltage polarities for both TTL and RS-232.
 
 ### Complete When
 
-Part 1 is complete when the predicted bit pattern agrees with both measured waveforms, the complete 10-bit frame and baud rate are verified, and the TTL/RS-232 logic levels are explained.
+Part 1 is complete when every MAX232 channel is verified, the predicted bit pattern agrees with both measured waveforms, the complete 10-bit frame and baud rate are verified, and the TTL/RS-232 logic levels are explained.
 
 [Back to top](#top) · [Course home](../README.md)
 
