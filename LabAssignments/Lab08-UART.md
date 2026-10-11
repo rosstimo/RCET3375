@@ -275,14 +275,70 @@ T_{\text{two-byte window}}
 
 Two byte-times is the approximate window after the first unread byte is received. Service RX at least once per character time, preferably more often.
 
+### Required RAM
+
+```text
+rx_byte:        most recently received byte
+rx_ready:       flag indicating a byte is ready for processing
+tx_byte:        byte waiting for transmission
+tx_pending:     flag indicating a byte is waiting to be sent
+```
+
+### Required setup
+
+```text
+EUSART receiver:
+    use the Part 1 9600 baud, 8N1 configuration
+    enable continuous reception of 8-bit data
+
+Diagnostic output:
+    configure an unused pin as a digital output
+
+Startup:
+    clear rx_ready and tx_pending
+    start with the diagnostic output LOW
+```
+
+### Program structure
+
+```text
+main:
+    call ServiceRx
+    call ProcessEcho
+    call ServiceTx
+    repeat
+
+ServiceRx:
+    set the diagnostic output HIGH, then LOW
+    if rx_ready is set, return
+    if no byte has arrived, return
+    read the received byte into rx_byte
+    set rx_ready
+
+ProcessEcho:
+    if rx_ready is clear, return
+    if tx_pending is set, return
+    copy rx_byte into tx_byte
+    clear rx_ready
+    set tx_pending
+
+ServiceTx:
+    if tx_pending is clear, return
+    if the transmit buffer is not available, return
+    transmit tx_byte
+    clear tx_pending
+```
+
+The short pulse at the beginning of `ServiceRx` marks each receive-service check. Measure the time between consecutive pulse edges while the host sends back-to-back bytes. Compare the longest observed interval with your measured byte time and the two-byte receive window above.
+
 ### Before Lab
 
 Prepare or reference:
 
-- `RC7/RX` configuration;
 - `RCSTA.CREN`, `PIR1.RCIF`, `RCREG`, and the TX registers and flags used for echo;
 - receive FIFO/service-time calculation using your measured byte time;
-- RX/TX flowchart and source.
+- diagnostic output pin selection and scope connection;
+- RX, echo-processing, and TX flowchart and source.
 
 ### In the Lab
 
@@ -290,16 +346,18 @@ Prepare or reference:
 2. Probe PIC RC7/RX and RC6/TX on separate oscilloscope channels. Trigger on the RX start bit and capture both the received and echoed frames in a single acquisition.
 3. Compare the two frames and measure their bit times and the delay between the RX and TX start bits.
 4. Send several ASCII and binary byte values. Confirm that the host receives exactly the values it sent.
-5. Enable serial decoding for both oscilloscope channels at 9600 baud, 8N1. Compare the decoded RX and TX bytes.
-6. Experiment with hexadecimal, ASCII, and binary decoder displays, then try start-bit and data-byte trigger settings.
-7. Configure the oscilloscope to capture and decode RX and TX at both the TTL and RS-232 interfaces. Record the probe locations, trigger settings, decoder settings, and signal polarity for each interface.
+5. Probe the diagnostic output while sending back-to-back bytes. Measure the longest interval between consecutive `ServiceRx` pulses and compare it with your measured byte time and two-byte receive window.
+6. Enable serial decoding for both oscilloscope channels at 9600 baud, 8N1. Compare the decoded RX and TX bytes.
+7. Experiment with hexadecimal, ASCII, and binary decoder displays, then try start-bit and data-byte trigger settings.
+8. Configure the oscilloscope to capture and decode RX and TX at both the TTL and RS-232 interfaces. Record the probe locations, trigger settings, decoder settings, and signal polarity for each interface.
 
 ### Evidence
 
 Include or reference:
 
 - receive-service calculation;
-- RX/TX flowchart and final source;
+- RX, echo-processing, and TX flowchart and final source;
+- diagnostic-output capture showing the measured `ServiceRx` check interval compared with byte time and the receive window;
 - a scope capture of an echoed byte on RC7/RX and RC6/TX, with timing measurements and serial decode;
 - scope captures showing successful decoding at TTL and RS-232 levels, with probe locations, trigger settings, decoder settings, and signal polarity for each;
 - host terminal output or log showing the bytes sent and received for several ASCII and binary values, with matching values clearly identified.
@@ -308,11 +366,11 @@ Include or reference:
 
 Use the host program to send several ASCII and binary byte values and show that every echoed byte matches the transmitted byte. Demonstrate RX/TX capture and serial decoding at both TTL and RS-232 levels.
 
-Explain the RX/TX timing, receive service time, and oscilloscope trigger, decoder, and polarity settings used for each interface.
+Explain the RX/TX timing, measured interval between receive-service checks, comparison with the receive-service time budget, and oscilloscope trigger, decoder, and polarity settings used for each interface.
 
 ### Complete When
 
-Part 2 is complete when bytes echo correctly, the host results match the scope measurements, and both TTL and RS-232 signals can be captured and decoded.
+Part 2 is complete when bytes echo correctly, the receive-service interval is measured and compared with the timing budget, the host results match the scope measurements, and both TTL and RS-232 signals can be captured and decoded.
 
 [Back to top](#top) · [Course home](../README.md)
 
