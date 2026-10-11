@@ -227,6 +227,7 @@ Development projects remain intact inside their normal project directory structu
 - Do not run `git init` inside a repository that already exists.
 - Commit files required to reopen and rebuild the project.
 - Ignore generated build products and private machine-specific IDE state.
+- Start each lab repository with the [student lab `.gitignore` template](HowTo/Student-Lab-Repository.gitignore), copied to the repository root as `.gitignore`.
 - Commit editable KiCad source and a portable schematic export.
 - Make meaningful commits during the work rather than one final bulk commit.
 - Push the assignment repository to GitHub before completion.
