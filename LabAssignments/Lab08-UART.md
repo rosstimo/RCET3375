@@ -173,8 +173,6 @@ Part 1 is complete when the predicted bit pattern agrees with both measured wave
 
 Receive one byte from the host and immediately transmit the same byte back.
 
-Keep this part byte-oriented. Do not add the packet parser yet.
-
 ### Receive service time
 
 The PIC16F883 receiver can hold two complete unread characters. If a third character completes before software services the receive FIFO, `OERR` is set.
@@ -192,8 +190,6 @@ T_{\text{RX absolute limit}}
 
 This is an absolute overrun boundary for continuous back-to-back traffic, not a normal service target. Your foreground loop should normally check RX at least once per character time and preferably much more often.
 
-No software state register is required for Part 2.
-
 ### Before Lab
 
 Prepare or reference:
@@ -206,11 +202,16 @@ Prepare or reference:
 ### In the Lab
 
 1. Send single bytes from the host and verify exact byte echo.
-2. Send several different binary/ASCII values.
-3. Verify RX and TX with the oscilloscope or serial decoder.
-4. Intentionally delay RX service while the host sends a continuous stream until `OERR` occurs.
-5. Demonstrate recovery by resetting the receiver as specified by the PIC16F883 data sheet.
-6. Remove the artificial delay and verify normal echo again.
+2. use single sequience to capture both tx and rx with the oscilliscope in normal edge trigger mode. Verify the echoed byte is correct and the timing is as expected.
+3. Send several different binary/ASCII values.
+4. verify that rx data matches tx data on the computer side. 
+5. set serial decoder on the oscilloscope for both Ch1 and Ch2. 
+6. setup decoder display and expiriment with display formats: hex, ascii, binary, etc.
+7. Expiriment with different trigger settings such as start bit and data byte match.
+8. Verify RX and TX with the oscilloscope or serial decoder.
+<!-- I'm not sure how to intentionally cause an overrun condition  or framing error. maybe a delay longer than two bytes while sending 3 or more bytes. framing error maybe intentional Baud mismatch. close but too much error. this may be good with custom baud calculation. this may fit better in part 3. -->
+1. Intentionally delay RX service while the host sends a continuous stream until `OERR` occurs.
+2. Demonstrate recovery by resetting the receiver as specified by the PIC16F883 data sheet.
 
 Check `FERR` before reading `RCREG` because the framing status belongs to the next unread character.
 
