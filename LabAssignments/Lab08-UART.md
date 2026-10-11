@@ -38,7 +38,9 @@ The lab progresses from one repeating byte to byte echo, structured command pack
 - [PIC16F882/883/884/886/887 Data Sheet](https://ww1.microchip.com/downloads/aemDocuments/documents/OTH/ProductDocuments/DataSheets/40001291H.pdf)
 - [TI MAX232 Data Sheet](https://www.ti.com/lit/ds/symlink/max232.pdf)
 - [TI LM34 Data Sheet](https://www.ti.com/lit/ds/symlink/lm34.pdf)
+  
 
+<!-- Add wording for LM34 temp sensor here. don't be too verbose ot AI sounding in this paragraph -->
 Use the PIC16F883 data sheet as the device authority for EUSART and ADC behavior. Use the data sheet for the exact MAX232-family device installed in your circuit when selecting charge-pump capacitors and verifying electrical limits.
 
 [Back to top](#top) · [Course home](../README.md)
@@ -49,15 +51,16 @@ Use the PIC16F883 data sheet as the device authority for EUSART and ADC behavior
 - PIC16F883 circuit with 4 MHz crystal
 - MPLAB X, pic-as, and PICkit 3
 - oscilloscope with serial decode
+- three servos for optional Mastery
+- suitable servo power supply
+- frequency counter
+- digital multimeter
 - computer serial terminal and host program capable of sending/receiving binary bytes
 - USB-to-RS-232 adapter
 - MAX232 or equivalent RS-232 transceiver and required capacitors
 - potentiometer
 - LM34 temperature sensor
 - one servo for Part 4
-- three servos for optional Mastery
-- suitable servo power supply
-- digital multimeter
 - independent temperature reference
 - breadboard, jumpers, and lab book
 
@@ -126,7 +129,7 @@ Prepare or reference:
 - expected logic-level UART and RS-232 idle/start/data/stop polarity;
 - program flowchart and source.
 
-Build both TX and RX sides of the level converter even though Part 1 uses TX only.
+Build and test both TX and RX sides of the level converter even though Part 1 uses TX only.
 
 ### In the Lab
 
