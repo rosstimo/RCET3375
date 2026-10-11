@@ -446,7 +446,7 @@ $ I 2 0x33 0x75
 $ A 1 CHANNEL
 ```
 
-For Parts 3 and 4, use AN0:
+Use AN0:
 
 ```text
 CHANNEL = 0x00
@@ -466,85 +466,123 @@ $ A 3 CHANNEL ADC_H ADC_L
 $ E 2 ERROR_CODE DETAIL
 ```
 
-Error codes used in this lab:
+Part 3 error codes:
 
 ```text
 0x01 = framing error
 0x02 = receive overrun
-0x03 = servo pulse width out of range
 ```
-
-Part 3 must implement `0x01` and `0x02`. Part 4 adds `0x03`.
 
 For framing error, `DETAIL` may contain the affected received byte. For overrun, use `DETAIL = 0x00`.
 
 After a framing or overrun error, discard the current partial packet and return the parser to waiting for `$`. The host may resend its last complete command packet.
 
-### Required parser state
-
-Use one software state register:
+### Required RAM
 
 ```text
-rx_state:
-    0 = WAIT_START
-    1 = GET_COMMAND
-    2 = GET_LENGTH
-    3 = GET_DATA
+rx_byte:         last received byte
+rx_state:        WAIT_START, GET_COMMAND, GET_LENGTH, GET_DATA
+rx_command:      requested command
+rx_length:       expected payload bytes
+rx_count:        payload bytes collected
+rx_data[0..7]:   indexed received payload
+tx_length:       complete response size
+tx_count:        response bytes sent to TX hardware
+tx_data[0..10]:  indexed response packet
+reply_pending:   none, ID, or ADC
+error_code:      pending error, or none
+error_detail:    detail for pending error
 ```
 
-Supporting data is not additional parser state:
+### Required setup
 
 ```text
-rx_command
-rx_length
-rx_count
-rx_data[0..7]
+EUSART:
+    continue Part 2 operation at 9600 baud, asynchronous 8N1
 
-tx_length
-tx_count
-tx_data[0..10]
+ADC:
+    configure AN0 for analog input
+    select AN0, VDD/VSS references, right-justified result
+    select FOSC/32 conversion clock and enable ADC
+
+Startup:
+    reset parser, counters, replies, and error information
+    prepare indexed access to both packet buffers
 ```
 
-A separate `tx_state` register is not required. If `tx_count < tx_length`, a response is still being transmitted.
-
-### Packet parser flow
+### Program structure
 
 ```text
-WAIT_START:
-    '$' -> GET_COMMAND
+main:
+    call ServiceRx
+    call ServiceReply
+    call ServiceTx
+    repeat
 
-GET_COMMAND:
-    save command
-    -> GET_LENGTH
+ServiceRx:
+    if no byte is available, return
+    if overrun, recover receiver and queue overrun error; return
+    if framing error, discard byte and queue framing error; return
+    read one received byte
+    if an error is queued, discard byte and return
+    call ParseRxByte
+    return
 
-GET_LENGTH:
-    save length
-    count = 0
-    length = 0 -> ProcessPacket
-    length 1..8 -> GET_DATA
-    length > 8 -> WAIT_START
+ParseRxByte:
+    WAIT_START: recognize '$' and advance to GET_COMMAND
+    GET_COMMAND: save command and advance to GET_LENGTH
+    GET_LENGTH:
+        save length and clear count
+        if length > 8, reset parser
+        if length = 0, call ProcessPacket
+        otherwise advance to GET_DATA
+    GET_DATA:
+        store byte in rx_data[count] and increment count
+        if count = length, call ProcessPacket
+    return
 
-GET_DATA:
-    save DATA[count]
-    count++
-    count = length -> ProcessPacket
+ProcessPacket:
+    reset parser to WAIT_START
+    if a reply is pending, return
+    if ID request has length 0, queue ID reply
+    if ADC request has length 1 and channel AN0:
+        start conversion and queue ADC reply
+    return
+
+QueueError:
+    discard partial packet and pending normal reply
+    store error code and detail
+    return
+
+ServiceReply:
+    if TX packet still has queued bytes, return
+    if error pending, call BuildErrorResponse
+    else if ID reply pending, call BuildIdResponse
+    else if ADC reply pending and conversion finished:
+        call BuildAdcResponse
+    return
+
+BuildIdResponse:
+    prepare '$ I 2 0x33 0x75' in TX buffer
+    initialize TX count and length; clear pending reply
+    return
+
+BuildAdcResponse:
+    prepare '$ A 3 0x00 ADC_H ADC_L' in TX buffer
+    transmit the complete 10-bit result, high byte first
+    initialize TX count and length; clear pending reply
+    return
+
+BuildErrorResponse:
+    prepare '$ E 2 ERROR_CODE DETAIL' in TX buffer
+    initialize TX count and length; clear pending error
+    return
+
+ServiceTx:
+    if no TX bytes remain or hardware is busy, return
+    send next buffered byte and increment TX count
+    return
 ```
-
-After `ProcessPacket`, return to `WAIT_START`.
-
-### ADC request behavior
-
-For `$ A 1 0x00`:
-
-1. validate the packet and channel;
-2. start one AN0 conversion;
-3. set a small reply-pending flag;
-4. return to the main loop;
-5. continue servicing UART while the ADC converts;
-6. when `GO/DONE` clears, build `$ A 3 0x00 ADC_H ADC_L`;
-7. clear the pending flag.
-
-Do not wait in a loop for the conversion to finish.
 
 ### Before Lab
 
