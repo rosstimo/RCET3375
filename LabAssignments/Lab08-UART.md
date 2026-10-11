@@ -70,7 +70,7 @@ Use the PIC16F883 data sheet for EUSART and ADC settings. Check the data sheet f
 
 ### Goal
 
-Configure the PIC16F883 EUSART for 9600 baud, 8N1, continuously transmit `$` (`0x24`), and verify both logic-level UART and RS-232 signaling.
+Configure the PIC16F883 EUSART for 9600 baud, 8N1, and continuously transmit a selected byte. Predict and measure its bit pattern, timing, and voltage levels on both the PIC UART and RS-232 signals.
 
 ### UART frame and timing
 
@@ -115,6 +115,8 @@ Use the baud-rate-generator settings you select to calculate the expected actual
 \frac{1}{T_{\text{bit measured}}}
 ```
 
+At RC6/TX, UART idle and stop levels are HIGH, and the start bit is LOW. The MAX232 inverts these levels: RS-232 idle and stop are negative voltages, while the start bit is positive. Data bits are sent least significant bit first. With continuous transmission, the stop bit returns the line to its idle level, but there may be no additional idle gap.
+
 ### Before Lab
 
 Prepare or reference:
@@ -122,47 +124,44 @@ Prepare or reference:
 - EUSART SFR documentation for `TXSTA`, `RCSTA`, `BAUDCTL`, `SPBRG`, `TXREG`, and relevant `PIR1` flags;
 - baud-generator calculation for 9600 baud at your actual oscillator frequency;
 - explanation of 8N1 and predicted bit/byte time;
-- expected UART bit pattern for `$ = 0x24`, including LSB-first transmission;
-- MAX232/adapter schematic and complete electrical-loading/component verification;
-- actual MAX232-family capacitor values and voltage ratings from its data sheet;
-- expected logic-level UART and RS-232 idle/start/data/stop polarity;
+- predicted start, D0-D7 (LSB first), and stop levels for `$ = 0x24` and contrasting test bytes;
+- expected idle/start polarity and voltages on both TTL and RS-232;
+- MAX232/adapter schematic, electrical-loading/component verification, and required capacitor values and voltage ratings;
 - program flowchart and source.
 
 Build and test both TX and RX sides of the level converter even though Part 1 uses TX only.
 
 ### In the Lab
 
-1. Configure EUSART asynchronous transmit at 9600 baud, 8N1.
-2. Continuously transmit `$`.
-3. Measure RC6/TX before the level converter.
-4. Capture one complete frame and label idle, start, all eight data bits, and stop.
-5. Measure bit time and complete byte time.
-6. Calculate baud rate from the measured bit time.
-7. Verify that one byte occupies 10 measured bit-times.
-8. Measure the corresponding RS-232 waveform after the MAX232.
-9. Record the logic-level and RS-232 HIGH/LOW voltages and explain the inversion.
+1. Configure EUSART asynchronous transmit at 9600 baud, 8N1, and continuously send `$` (`0x24`).
+2. Display RC6/TX (TTL) and the corresponding MAX232 RS-232 output on separate oscilloscope channels at the same time.
+3. Identify the start bit, D0 through D7, and stop bit directly from the waveforms. Compare the observed sequence with your prediction.
+4. Try other repeated bytes such as `0xFF`, `0x00`, `0x55`, `0xAA`, `0xF7`, and `0x08`. Include an alternating pattern and an asymmetric pattern to make bit timing and transmission order easier to identify. Record the predicted and observed bit sequences for the patterns tested.
+5. Choose the clearest pattern for a scope capture. Adjust the timebase so **one complete 10-bit frame fills as much of the screen as possible**, with both traces visible and the start/stop boundaries intact.
+6. On that capture, identify **start, D0-D7, and stop** for both TTL and RS-232. Mark the bit time clearly.
+7. Measure bit time and complete frame time. Calculate measured baud rate and verify that the frame occupies 10 bit-times.
+8. Measure and record the TTL and RS-232 voltages for idle, start, and data levels. Explain the polarity change between the two signals.
 
 ### Evidence
 
 Include or reference:
 
-- EUSART SFR documentation;
-- baud-generator, bit-time, and byte-time calculations;
-- MAX232 circuit and loading/component verification;
-- labeled RC6/TX waveform;
-- labeled RS-232 waveform;
-- measured bit time, byte time, and calculated measured baud rate;
+- EUSART SFR documentation and MAX232 circuit/component verification;
+- predicted and observed bit patterns for the bytes tested, including LSB-first order;
+- baud-generator, bit-time, frame-time, and measured-baud calculations;
+- **at least one scope capture showing TTL and RS-232 simultaneously**, scaled around one complete byte and labeled with start, D0-D7, stop, and bit time;
+- measured idle/start/data voltages and an explanation of TTL versus RS-232 polarity;
 - final Part 1 source.
 
 ### Demonstrate
 
-Show continuous `$` transmission at both measurement points.
+Show repeated byte transmission at both measurement points, including a contrasting test pattern.
 
-Explain 8N1, why the byte takes 10 bit-times, LSB-first transmission, measured baud rate, and why the PIC UART signal cannot be connected directly to a traditional RS-232 interface.
+Explain 8N1, LSB-first transmission, each bit's position in the captured frame, the measured baud rate, and the idle/start/stop logic levels and voltage polarities for both TTL and RS-232.
 
 ### Complete When
 
-Part 1 is complete when `$` is correctly transmitted at both logic and RS-232 levels and the measured timing agrees with the configured baud rate.
+Part 1 is complete when the predicted bit pattern agrees with both measured waveforms, the complete 10-bit frame and baud rate are verified, and the TTL/RS-232 logic levels are explained.
 
 [Back to top](#top) · [Course home](../README.md)
 
