@@ -25,7 +25,7 @@ Build a bidirectional serial interface for the PIC16F883, then integrate UART co
 
 The lab progresses from one repeating byte to byte echo, structured command packets, LM34 temperature measurement, and simultaneous UART/ADC/servo operation.
 
-**Repository setup:** Create one Git repository for Lab08 with separate directories for PIC firmware and the host application. Copy the [student lab `.gitignore` template](../HowTo/Student-Lab-Repository.gitignore) to the repository root as `.gitignore` and follow the [assignment repository structure](#assignment-repository-structure).
+**Repository setup:** Create a Git repository for Lab08 before starting your projects. Open the [student lab `.gitignore` template](../HowTo/Student-Lab-Repository.gitignore), select **Raw**, and save the file as `.gitignore` in the repository root alongside `README.md`. Do this before your first `git add` so generated files are excluded. Keep the PIC firmware and host application in separate directories as shown in the [assignment repository structure](#assignment-repository-structure).
 
 [Back to top](#top) · [Course home](../README.md)
 
