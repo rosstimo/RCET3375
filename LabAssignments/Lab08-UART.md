@@ -202,12 +202,12 @@ Prepare or reference:
 ### In the Lab
 
 1. Send a single byte from the host and verify that the PIC echoes it unchanged.
-2. Probe PIC RC7/RX and RC6/TX on separate oscilloscope channels. Use normal edge triggering on the RX start bit and a single acquisition to capture both the received and echoed frames.
+2. Probe PIC RC7/RX and RC6/TX on separate oscilloscope channels. Trigger on the RX start bit and capture both the received and echoed frames in a single acquisition.
 3. Compare the two frames and measure their bit times and the delay between the RX and TX start bits.
 4. Send several ASCII and binary byte values. Confirm that the host receives exactly the values it sent.
 5. Enable serial decoding for both oscilloscope channels at 9600 baud, 8N1. Compare the decoded RX and TX bytes.
 6. Experiment with hexadecimal, ASCII, and binary decoder displays, then try start-bit and data-byte trigger settings.
-7. Make sure you can set upe the oscilloscope to capture and decode for both TTL and RS-232. Document the settings for each.
+7. Configure the oscilloscope to capture and decode RX and TX at both the TTL and RS-232 interfaces. Record the probe locations, trigger settings, decoder settings, and signal polarity for each interface.
 
 ### Evidence
 
@@ -215,18 +215,19 @@ Include or reference:
 
 - receive-service calculation;
 - RX/TX flowchart and final source;
-- one scope capture showing RC7/RX and RC6/TX for an echoed byte, with timing measurements and serial decode;
+- a scope capture of an echoed byte on RC7/RX and RC6/TX, with timing measurements and serial decode;
+- scope captures showing successful decoding at TTL and RS-232 levels, with probe locations, trigger settings, decoder settings, and signal polarity for each;
 - host results showing correct echo for several byte values.
 
 ### Demonstrate
 
-Echo different byte values and show the RX/TX waveforms and serial decoding on the oscilloscope.
+Echo different byte values and demonstrate RX/TX capture and serial decoding at both TTL and RS-232 levels.
 
-Explain the timing of the received and echoed frames and the time available to service incoming bytes.
+Explain the RX/TX timing, receive service time, and oscilloscope trigger, decoder, and polarity settings used for each interface.
 
 ### Complete When
 
-Part 2 is complete when arbitrary bytes echo correctly and the host and oscilloscope measurements agree.
+Part 2 is complete when bytes echo correctly, the host results match the scope measurements, and both TTL and RS-232 signals can be captured and decoded.
 
 [Back to top](#top) · [Course home](../README.md)
 
