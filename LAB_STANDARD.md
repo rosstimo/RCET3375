@@ -64,13 +64,56 @@ Lab instructions are working documents for students. Optimize for clear executio
 
 ### Pseudocode structure and wording
 
-For firmware-based parts, use short, natural-language pseudocode sections to describe the required peripheral configuration and program behavior. Place them with the part-specific technical guidance, generally before `Before Lab`.
+Use short, natural-language pseudocode to describe the required configuration and program behavior. Follow the same layout and sequence across lab parts, omitting sections that do not apply.
 
-- **Required setup:** describe intended pin functions, peripheral modes, clock choices, and operating behavior using terminology close to the device data sheet and family reference manual. State engineering targets (such as oscillator frequency, baud rate, framing, or timing) without supplying register names, bit names, addresses, masks, or configuration values. Students determine those details from their SFR documentation.
-- **Main program:** describe the runtime sequence, decisions, loops, and operations in readable pseudocode rather than assembly syntax.
-- **Other sections:** add headings for interrupts, subroutines, state, RAM, or other program components as the design requires. Describe each section's purpose and behavior without prescribing implementation details. Setup and main are typically present; the remaining sections depend on the part.
-- Keep setup separate from runtime behavior and avoid repeating the same requirements across sections.
-- When verified instructor source exists, use it to check technical correctness without copying its implementation details into the student-facing pseudocode.
+For a complex program, the standard order is:
+
+1. **Required RAM:** identify counters, flags, buffers, saved context, and other stored state by purpose. Include state definitions here when useful.
+2. **Required setup:** group one-time configuration by I/O, clocks, peripherals, and interrupt configuration. Use descriptive labels for each hardware block. Include startup initialization when needed.
+3. **Program structure:** describe execution in this order:
+   - **Main:** primary loop, decisions, and work scheduling.
+   - **Interrupts:** each interrupt source and its response, using a separate named block per source.
+   - **Subroutines:** named routines and their behavior, in the order they are first used by the program.
+
+Use one `text` code block per top-level section, following the Lab07 layout. A complete outline might look like:
+
+```text
+Required RAM:
+    counters, flags, buffers, and stored state
+
+Required setup:
+    I/O:
+        intended pin functions
+    peripherals:
+        operating modes and timing targets
+    interrupts:
+        required interrupt sources and enabling
+    startup:
+        initialize application data and begin operation
+
+Program structure:
+    main:
+        perform normal application work
+        repeat
+
+    interrupt - first source:
+        respond to the event
+
+    interrupt - second source:
+        respond to the event
+
+    subroutine - first routine:
+        perform its task
+
+    subroutine - second routine:
+        perform its task
+```
+
+In the actual assignment, use `### Required RAM`, `### Required setup`, and `### Program structure` as headings and place the corresponding pseudocode beneath each heading. The labels inside `Program structure` follow the order above. Add other sections where the design requires them, positioning data/state descriptions before setup and runtime behavior within the program structure. Omit unused headings and blocks.
+
+Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements.
+
+When verified instructor source exists, use it to check technical correctness without copying its implementation details into student-facing pseudocode.
 
 ### Mathematics and worked examples
 
