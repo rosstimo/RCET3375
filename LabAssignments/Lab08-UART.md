@@ -25,6 +25,8 @@ Build a bidirectional serial interface for the PIC16F883, then integrate UART co
 
 The lab progresses from one repeating byte to byte echo, structured command packets, LM34 temperature measurement, and simultaneous UART/ADC/servo operation.
 
+**Repository setup:** Before starting, create one Git repository for Lab08 with separate directories for PIC firmware and the host application. See the [assignment repository structure](#assignment-repository-structure).
+
 [Back to top](#top) · [Course home](../README.md)
 
 <a id="standards-references"></a>
