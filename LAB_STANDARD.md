@@ -123,7 +123,7 @@ Use `### Required RAM`, `### Required setup`, and `### Program structure` as the
 
 Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements.
 
-When verified instructor source exists, use it to check technical correctness without copying its implementation details into student-facing pseudocode.
+When instructor verification source exists for a lab part, compare that specific part's instructions with the source before proposing instructional changes. Check peripheral setup, program behavior, timing, data handling, and expected measurements. Explicitly report discrepancies to the instructor, including instructions that require behavior absent from the code and code behavior not represented in the instructions. Distinguish genuine conflicts from intentional simplifications, optional features, and implementation choices. State the source's verification status when known. Use the comparison to recommend the clearest student-facing requirements, but do not silently reconcile differences or assume that the source is authoritative over the lab requirements or device documentation. Keep proposed decisions in the review until the instructor chooses what belongs in the assignment.
 
 ### Mathematics and worked examples
 
