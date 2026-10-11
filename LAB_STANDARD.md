@@ -75,41 +75,51 @@ For a complex program, the standard order is:
    - **Interrupts:** each interrupt source and its response, using a separate named block per source.
    - **Subroutines:** named routines and their behavior, in the order they are first used by the program.
 
-Use one `text` code block per top-level section, following the Lab07 layout. A complete outline might look like:
+Use these headings and this sequence in the assignment. Each heading has its own pseudocode block.
+
+**Required RAM**
 
 ```text
-Required RAM:
-    counters, flags, buffers, and stored state
-
-Required setup:
-    I/O:
-        intended pin functions
-    peripherals:
-        operating modes and timing targets
-    interrupts:
-        required interrupt sources and enabling
-    startup:
-        initialize application data and begin operation
-
-Program structure:
-    main:
-        perform normal application work
-        repeat
-
-    interrupt - first source:
-        respond to the event
-
-    interrupt - second source:
-        respond to the event
-
-    subroutine - first routine:
-        perform its task
-
-    subroutine - second routine:
-        perform its task
+counters, flags, buffers, and stored state
 ```
 
-In the actual assignment, use `### Required RAM`, `### Required setup`, and `### Program structure` as headings and place the corresponding pseudocode beneath each heading. The labels inside `Program structure` follow the order above. Add other sections where the design requires them, positioning data/state descriptions before setup and runtime behavior within the program structure. Omit unused headings and blocks.
+**Required setup**
+
+```text
+I/O:
+    intended pin functions
+
+Peripherals:
+    operating modes and timing targets
+
+Interrupts:
+    required interrupt sources and enabling
+
+Startup:
+    one-time initialization
+```
+
+**Program structure**
+
+```text
+main:
+    perform normal application work
+    repeat
+
+first interrupt source:
+    respond to the event
+
+second interrupt source:
+    respond to the event
+
+first subroutine:
+    perform its task
+
+second subroutine:
+    perform its task
+```
+
+Use `### Required RAM`, `### Required setup`, and `### Program structure` as the actual headings. Omit unused sections and blocks. When extra material is needed, place data/state descriptions before setup and runtime behavior under program structure. Keep interrupt handlers grouped before subroutines.
 
 Describe desired peripheral behavior and operating modes in language close to the device data sheet and family reference manual. State required engineering targets, such as oscillator frequency, baud rate, framing, or timing, but leave register names, bit names, addresses, masks, and configuration values for students to determine from their SFR documentation. Program-flow pseudocode should describe actions and decisions rather than assembly instructions. Keep setup and runtime behavior distinct, and avoid repeated requirements.
 
