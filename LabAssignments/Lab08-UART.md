@@ -217,11 +217,11 @@ Include or reference:
 - RX/TX flowchart and final source;
 - a scope capture of an echoed byte on RC7/RX and RC6/TX, with timing measurements and serial decode;
 - scope captures showing successful decoding at TTL and RS-232 levels, with probe locations, trigger settings, decoder settings, and signal polarity for each;
-- host results showing correct echo for several byte values.
+- host terminal output or log showing the bytes sent and received for several ASCII and binary values, with matching values clearly identified.
 
 ### Demonstrate
 
-Echo different byte values and demonstrate RX/TX capture and serial decoding at both TTL and RS-232 levels.
+Use the host program to send several ASCII and binary byte values and show that every echoed byte matches the transmitted byte. Demonstrate RX/TX capture and serial decoding at both TTL and RS-232 levels.
 
 Explain the RX/TX timing, receive service time, and oscilloscope trigger, decoder, and polarity settings used for each interface.
 
