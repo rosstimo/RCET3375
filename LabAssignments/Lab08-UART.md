@@ -129,18 +129,19 @@ Prepare or reference:
 - MAX232/adapter schematic, electrical-loading/component verification, and required capacitor values and voltage ratings;
 - program flowchart and source.
 
-Build and test both TX and RX sides of the level converter even though Part 1 uses TX only.
+Build and test both TX and RX sides of the level converter even though Part 1 uses TX only. Be sure to test all channels of the TTL/RS-232 converter to verify device functionality.
 
 ### In the Lab
 
 1. Configure EUSART asynchronous transmit at 9600 baud, 8N1, and continuously send `$` (`0x24`).
 2. Display RC6/TX (TTL) and the corresponding MAX232 RS-232 output on separate oscilloscope channels at the same time.
 3. Identify the start bit, D0 through D7, and stop bit directly from the waveforms. Compare the observed sequence with your prediction.
-4. Try other repeated bytes such as `0xFF`, `0x00`, `0x55`, `0xAA`, `0xF7`, and `0x08`. Include an alternating pattern and an asymmetric pattern to make bit timing and transmission order easier to identify. Record the predicted and observed bit sequences for the patterns tested.
+4. Try other repeated bytes such as `0xFF`, `0x00`, `0x55`, `0xAA`, `0xF7`, `0x08`, or any other that makes bit and frame timing easy to measure. Record the predicted and observed bit sequences for the patterns tested.
 5. Choose the clearest pattern for a scope capture. Adjust the timebase so **one complete 10-bit frame fills as much of the screen as possible**, with both traces visible and the start/stop boundaries intact.
 6. On that capture, identify **start, D0-D7, and stop** for both TTL and RS-232. Mark the bit time clearly.
 7. Measure bit time and complete frame time. Calculate measured baud rate and verify that the frame occupies 10 bit-times.
 8. Measure and record the TTL and RS-232 voltages for idle, start, and data levels. Explain the polarity change between the two signals.
+9. You may choose to add a delay between sending bytes roughly quivilent to one byte time.
 
 ### Evidence
 
@@ -150,12 +151,12 @@ Include or reference:
 - predicted and observed bit patterns for the bytes tested, including LSB-first order;
 - baud-generator, bit-time, frame-time, and measured-baud calculations;
 - **at least one scope capture showing TTL and RS-232 simultaneously**, scaled around one complete byte and labeled with start, D0-D7, stop, and bit time;
-- measured idle/start/data voltages and an explanation of TTL versus RS-232 polarity;
+- measured and labled idle/start/data voltages and an explanation of TTL versus RS-232 polarity;
 - final Part 1 source.
 
 ### Demonstrate
 
-Show repeated byte transmission at both measurement points, including a contrasting test pattern.
+Show repeated byte transmission at both measurement points.
 
 Explain 8N1, LSB-first transmission, each bit's position in the captured frame, the measured baud rate, and the idle/start/stop logic levels and voltage polarities for both TTL and RS-232.
 
