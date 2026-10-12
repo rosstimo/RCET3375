@@ -279,8 +279,8 @@ Two byte-times is the approximate window after the first unread byte is received
 
 ```text
 rx_byte:        most recently received byte
-rx_ready:       flag indicating a byte is ready for processing
 tx_byte:        byte waiting for transmission
+rx_ready:       flag indicating a byte is ready for processing
 tx_pending:     flag indicating a byte is waiting to be sent
 ```
 
