@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Circular UART RX Buffer | RCET3375 Lab08</title>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light dark;
+      --surface: #fff;
+      --canvas: #f5f7f9;
+      --ink: #202832;
+      --muted: #566574;
+      --line: #ced6df;
+      --occupied: #d1ebe7;
+      --receive: #176e71;
+      --process: #805cbb;
+      --warning: #ab4b16;
+      --button: #176e71;
+      --button-text: white;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface: #19242d;
+        --canvas: #111a22;
+        --ink: #e9edf1;
+        --muted: #aab6c1;
+        --line: #415363;
+        --occupied: #183f3f;
+        --receive: #65d0ca;
+        --process: #c9a6ff;
+        --warning: #ffc28f;
+        --button: #277f80;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); line-height: 1.45; }
+    main { max-width: 970px; padding: 1.5rem 1rem 3rem; margin: auto; }
+    h1 { line-height: 1.15; font-size: clamp(1.55rem,3vw,2.3rem); margin: .4rem 0; }
+    h2 { font-size: 1.1rem; margin: 0 0 .7rem; }
+    p { margin: .45rem 0 1rem; }
+    .eyebrow { text-transform: uppercase; font-size: .75rem; font-weight: 750; letter-spacing: .09em; color: var(--muted); }
+    .subheading { color: var(--muted); max-width: 70ch; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: clamp(1rem,3vw,1.4rem); margin-top: 1.2rem; }
+    .stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .65rem; }
+    .stat { background: var(--canvas); padding: .7rem .8rem; border-radius: 8px; border: 1px solid var(--line); }
+    .stat dt { font-size: .78rem; color: var(--muted); margin: 0 0 .15rem; }
+    .stat dd { margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 650; }
+    .grid { display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); gap: .55rem; margin: 1rem 0; }
+    .slot { min-width: 0; min-height: 98px; border-radius: 9px; border: 2px solid var(--line); background: var(--canvas); padding: .45rem .25rem; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
+    .slot.filled { background: var(--occupied); }
+    .slot.read { border-color: var(--process); }
+    .slot.write { outline: 2px dashed var(--receive); outline-offset: 2px; }
+    .slot .index { font-size: .75rem; color: var(--muted); }
+    .slot .value { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .slot .pointers { min-height: 1.05rem; font-size: .68rem; font-weight: 750; display: flex; gap: .35rem; }
+    .write-label { color: var(--receive); }
+    .read-label { color: var(--process); }
+    .legend { display: flex; flex-wrap: wrap; gap: .5rem 1.3rem; font-size: .88rem; color: var(--muted); }
+    .legend b { color: var(--ink); }
+    .controls { display: flex; flex-wrap: wrap; gap: .65rem; align-items: flex-end; }
+    label { display: block; font-size: .88rem; font-weight: 600; }
+    input { border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); padding: .6rem .7rem; font: inherit; width: 6rem; }
+    button { border: 1px solid var(--line); border-radius: 7px; background: var(--canvas); color: var(--ink); font: inherit; font-weight: 650; cursor: pointer; min-height: 42px; padding: .58rem .85rem; }
+    button.primary { background: var(--button); color: var(--button-text); border-color: var(--button); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--process); outline-offset: 2px; }
+    .status { border-left: 3px solid var(--receive); padding: .55rem .8rem; margin-top: 1rem; background: var(--canvas); min-height: 2.8rem; }
+    .status.alert { border-color: var(--warning); }
+    .log { margin: .65rem 0 0; padding-left: 1.5rem; font-size: .86rem; color: var(--muted); max-height: 10rem; overflow: auto; }
+    .note { font-size: .88rem; color: var(--muted); }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    @media (max-width: 620px) {
+      .grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+      .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .slot { min-height: 85px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">RCET3375 · Lab08 · Interactive reference</div>
+  <h1>16-byte circular RX buffer</h1>
+  <p class="subheading">The UART receive routine <strong>writes</strong> bytes into a queue. The foreground packet parser <strong>reads</strong> them later. Step through each operation to see how the two indices move independently.</p>
+
+  <section class="panel" aria-labelledby="buffer-heading">
+    <h2 id="buffer-heading">Buffer positions</h2>
+    <dl class="stats">
+      <div class="stat"><dt>Write index</dt><dd id="write-value">0</dd></div>
+      <div class="stat"><dt>Read index</dt><dd id="read-value">0</dd></div>
+      <div class="stat"><dt>Unread bytes</dt><dd id="count-value">0</dd></div>
+      <div class="stat"><dt>Free capacity</dt><dd id="free-value">15</dd></div>
+    </dl>
+    <div id="buffer" class="grid" role="list" aria-label="16 positions in the circular receive queue"></div>
+    <div class="legend">
+      <span><b class="write-label">W</b> next location to write</span>
+      <span><b class="read-label">R</b> next location to read</span>
+      <span>Shaded slot = unread byte</span>
+      <span><b>W + R</b> together means queue empty (or both indices at same position)</span>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="controls-heading">
+    <h2 id="controls-heading">Step through the queue</h2>
+    <div class="controls">
+      <form id="receive-form" class="controls">
+        <label for="byte-value">Next byte (hex)
+          <input id="byte-value" value="24" maxlength="4" autocomplete="off" spellcheck="false" aria-describedby="input-help">
+        </label>
+        <button class="primary" id="receive" type="submit">Receive byte</button>
+      </form>
+      <button id="process" type="button">Process byte</button>
+      <button id="sample" type="button">Receive ADC request</button>
+      <button id="fill" type="button">Fill queue</button>
+      <button id="reset" type="button">Reset</button>
+    </div>
+    <p class="note" id="input-help">Enter one hexadecimal byte, 00 through FF. “Receive ADC request” queues <code>24 41 01 00</code>; it does not parse the packet.</p>
+    <div id="status" class="status" role="status" aria-live="polite">The queue is empty. Receive a byte to begin.</div>
+    <ol id="log" class="log" aria-label="Recent queue actions"></ol>
+  </section>
+
+  <section class="panel" aria-labelledby="rules-heading">
+    <h2 id="rules-heading">How to interpret the indices</h2>
+    <p>The write index identifies the next free location. The read index identifies the oldest unread byte. Neither index is the position within a command packet; packet parsing has its own state and payload count.</p>
+    <p><strong>Empty:</strong> <code>read_index == write_index</code>. <strong>Full:</strong> <code>((write_index + 1) &amp; 0x0F) == read_index</code>. One of the 16 locations remains unused, so the queue capacity is <strong>15 bytes</strong>. Both indices wrap from 15 to 0 using <code>(index + 1) &amp; 0x0F</code>.</p>
+    <p class="note">This demonstration models a software queue, not the PIC16F883's two-character EUSART hardware FIFO. Firmware must still service the hardware receiver often enough to avoid overrun. A full software queue rejects the next byte in this example; real firmware must also choose a recovery policy.</p>
+  </section>
+</main>
+<script>
+"use strict";
+(() => {
+  const SIZE = 16;
+  const MASK = SIZE - 1;
+  const sample = [0x24, 0x41, 0x01, 0x00];
+  const bytes = Array(SIZE).fill(null);
+  let writeIndex = 0;
+  let readIndex = 0;
+  let rejected = 0;
+  let received = 0;
+  let consumed = 0;
+  let status = "The queue is empty. Receive a byte to begin.";
+  let alert = false;
+  const logEntries = [];
+  const el = id => document.getElementById(id);
+  const hex = n => n.toString(16).toUpperCase().padStart(2, "0");
+  const count = () => (writeIndex - readIndex + SIZE) & MASK;
+  const full = () => ((writeIndex + 1) & MASK) === readIndex;
+  const empty = () => writeIndex === readIndex;
+
+  function note(message, warning = false) {
+    status = message;
+    alert = warning;
+    logEntries.unshift(message);
+    if (logEntries.length > 7) logEntries.pop();
+  }
+  function render() {
+    const grid = el("buffer");
+    grid.replaceChildren();
+    for (let i = 0; i < SIZE; i++) {
+      const slot = document.createElement("div");
+      slot.className = "slot";
+      slot.setAttribute("role", "listitem");
+      const occupied = ((i - readIndex + SIZE) & MASK) < count();
+      if (occupied) slot.classList.add("filled");
+      if (i === readIndex) slot.classList.add("read");
+      if (i === writeIndex) slot.classList.add("write");
+      const index = document.createElement("span");
+      index.className = "index";
+      index.textContent = "Index " + i;
+      const value = document.createElement("span");
+      value.className = "value";
+      value.textContent = bytes[i] === null ? "··" : hex(bytes[i]);
+      const pointers = document.createElement("span");
+      pointers.className = "pointers";
+      if (i === writeIndex) {
+        const w = document.createElement("span");
+        w.className = "write-label";
+        w.textContent = "W";
+        pointers.append(w);
+      }
+      if (i === readIndex) {
+        const r = document.createElement("span");
+        r.className = "read-label";
+        r.textContent = "R";
+        pointers.append(r);
+      }
+      slot.setAttribute("aria-label", "Index " + i +
+        (occupied ? ", unread byte " + hex(bytes[i]) : ", empty") +
+        (i === writeIndex ? ", write pointer" : "") +
+        (i === readIndex ? ", read pointer" : ""));
+      slot.append(index, value, pointers);
+      grid.append(slot);
+    }
+    el("write-value").textContent = writeIndex;
+    el("read-value").textContent = readIndex;
+    el("count-value").textContent = count();
+    el("free-value").textContent = SIZE - 1 - count();
+    el("process").disabled = empty();
+    el("receive").disabled = full();
+    el("sample").disabled = full();
+    el("fill").disabled = full();
+    el("status").textContent = status;
+    el("status").classList.toggle("alert", alert);
+    el("log").replaceChildren();
+    for (const entry of logEntries) {
+      const item = document.createElement("li");
+      item.textContent = entry;
+      el("log").append(item);
+    }
+  }
+  function enqueue(byte) {
+    if (full()) {
+      rejected++;
+      note("Queue full: rejected 0x" + hex(byte) +
+        " (rejected total " + rejected + "). Read a byte to make room.", true);
+      render();
+      return false;
+    }
+    const previous = writeIndex;
+    bytes[writeIndex] = byte;
+    writeIndex = (writeIndex + 1) & MASK;
+    received++;
+    note("Received 0x" + hex(byte) + " at index " + previous +
+      "; next write index " + writeIndex + ".");
+    render();
+    return true;
+  }
+  function dequeue() {
+    if (empty()) {
+      note("Queue empty: no byte to process.", true);
+      render();
+      return;
+    }
+    const previous = readIndex;
+    const byte = bytes[readIndex];
+    bytes[readIndex] = null;
+    readIndex = (readIndex + 1) & MASK;
+    consumed++;
+    note("Processed 0x" + hex(byte) + " from index " + previous +
+      "; next read index " + readIndex + ".");
+    render();
+  }
+  function reset() {
+    bytes.fill(null);
+    writeIndex = 0;
+    readIndex = 0;
+    rejected = 0;
+    received = 0;
+    consumed = 0;
+    logEntries.length = 0;
+    note("Reset: read and write indices are both 0; queue is empty.");
+    render();
+  }
+  el("receive-form").addEventListener("submit", event => {
+    event.preventDefault();
+    const value = el("byte-value").value.trim().replace(/^0x/i, "");
+    if (!/^[0-9a-f]{1,2}$/i.test(value)) {
+      note("Enter exactly one hex byte, from 00 to FF.", true);
+      render();
+      el("byte-value").focus();
+      return;
+    }
+    enqueue(parseInt(value, 16));
+  });
+  el("process").addEventListener("click", dequeue);
+  el("sample").addEventListener("click", () => {
+    let n = 0;
+    for (const b of sample) {
+      if (!enqueue(b)) break;
+      n++;
+    }
+    note("ADC request: queued " + n + " of 4 bytes (24 41 01 00)." +
+      (n < 4 ? " Buffer filled before all bytes arrived." : ""));
+    render();
+  });
+  el("fill").addEventListener("click", () => {
+    let n = 0;
+    while (!full()) {
+      const b = (received + n) & 0xFF;
+      enqueue(b);
+      n++;
+    }
+    note("Filled " + n + " additional position(s). One slot remains unused, so capacity is 15.");
+    render();
+  });
+  el("reset").addEventListener("click", reset);
+  render();
+})();
+</script>
+</body>
+</html>
