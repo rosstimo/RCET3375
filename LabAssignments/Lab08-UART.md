@@ -25,6 +25,8 @@ Build a bidirectional serial interface for the PIC16F883, then integrate UART co
 
 The lab progresses from one repeating byte to byte echo, structured command packets, LM34 temperature measurement, and simultaneous UART/ADC/servo operation.
 
+Reuse your working Lab07 ADC configuration, acquisition, and result-reading code when integrating ADC in Parts 3-5. Reuse your Lab07 Timer1/CCP servo code for Parts 4-5, adapting it to work alongside UART.
+
 **Repository setup:** Create a Git repository for Lab08 before starting your projects. Open the [student lab `.gitignore` template](../HowTo/Student-Lab-Repository.gitignore), select **Raw**, and save the file as `.gitignore` in the repository root alongside `README.md`. Do this before your first `git add` so generated files are excluded. Keep the PIC firmware and host application in separate directories as shown in the [assignment repository structure](#assignment-repository-structure).
 
 [Back to top](#top)
@@ -497,9 +499,10 @@ EUSART:
     continue Part 2 operation at 9600 baud, asynchronous 8N1
 
 ADC:
-    configure AN0 for analog input
-    select AN0, VDD/VSS references, right-justified result
-    select FOSC/32 conversion clock and enable ADC
+    reuse and adapt the working Lab 07 ADC setup and routines
+    use AN0, VDD/VSS references, right-justified 10-bit result
+    use the Lab 07 FOSC/8 conversion clock at 4 MHz
+    preserve the required acquisition time before each conversion
 
 Diagnostic output:
     retain the Part 2 receive-service diagnostic output
@@ -593,7 +596,7 @@ Prepare or reference:
 - packet-time calculations for each packet used in Part 3;
 - parser RAM map, including the eight-byte RX buffer and TX buffer;
 - `FSR/INDF` use for indexed buffer access;
-- working Lab 07 ADC source/material for AN0 acquisition and the full right-justified 10-bit result;
+- working Lab 07 ADC setup, acquisition, and result-reading routines for AN0 and the full right-justified 10-bit result;
 - host program capable of sending the defined binary packets and displaying responses;
 - source implementing Device ID, Analog Channel, framing error, and overrun error packets.
 
@@ -837,8 +840,8 @@ Prepare or reference:
 - LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
 - LM34 temperature-conversion worked calculation;
 - temperature-calibration procedure;
-- Part 3 packet parser and host program;
-- Timer1/CCP SFR documentation and 1 us/20 ms timing calculations from Lab 07;
+- Part 3 packet parser, host program, and reused Lab 07 ADC routines;
+- working Lab 07 Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
 - `servo_state` scheduler flowchart;
 - 16-bit servo range-check logic;
 - source that keeps UART, ADC, and servo timing nonblocking.
