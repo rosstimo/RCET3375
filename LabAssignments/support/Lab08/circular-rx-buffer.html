@@ -198,7 +198,7 @@
     el("count-value").textContent = count();
     el("free-value").textContent = SIZE - 1 - count();
     el("process").disabled = empty();
-    el("receive").disabled = full();
+    el("receive").disabled = false; // Keep active to demonstrate overflow rejection.
     el("sample").disabled = full();
     el("fill").disabled = full();
     el("status").textContent = status;
@@ -278,7 +278,7 @@
   el("fill").addEventListener("click", () => {
     let n = 0;
     while (!full()) {
-      const b = (received + n) & 0xFF;
+      const b = received & 0xFF;
       enqueue(b);
       n++;
     }
