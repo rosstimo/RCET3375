@@ -523,45 +523,61 @@ main:
 ServiceRx:
     pulse the receive-service diagnostic output HIGH, then LOW
     if no byte is available, return
-    if overrun, recover receiver and queue overrun error; return
-    if framing error, discard byte and queue framing error; return
-    read one received byte
-    if an error is queued, discard byte and return
+    if receive overrun:
+        reset the receiver
+        call QueueError with overrun code and detail 0x00
+        return
+    if framing error:
+        read and discard the affected byte
+        call QueueError with framing code and affected byte
+        return
+    read one byte into rx_byte
+    if an error is queued, discard this byte and return
     call ParseRxByte
     return
 
+QueueError:
+    reset parser to WAIT_START
+    cancel the pending normal reply
+    save the error code and detail
+    return
+
 ParseRxByte:
-    WAIT_START: recognize '$' and advance to GET_COMMAND
-    GET_COMMAND: save command and advance to GET_LENGTH
+    WAIT_START:
+        if rx_byte is '$', advance to GET_COMMAND
+    GET_COMMAND:
+        save command and advance to GET_LENGTH
     GET_LENGTH:
-        save length and clear count
+        save length and clear payload count
         if length > 8, reset parser and return
         if length = 0, call ProcessPacket and return
         advance to GET_DATA
     GET_DATA:
-        store byte in rx_data[count] and increment count
+        store rx_byte in rx_data[count] and increment count
         if count = length, call ProcessPacket
     return
 
 ProcessPacket:
     reset parser to WAIT_START
-    if a reply is pending, return
-    if ID request has length 0, queue ID reply
+    if a normal reply is pending, return
+    if ID request has length 0, mark ID reply pending
     if ADC request has length 1 and channel AN0:
-        start conversion and queue ADC reply
-    return
-
-QueueError:
-    discard partial packet and pending normal reply
-    store error code and detail
+        start conversion using the working Lab 07 ADC routine
+        mark ADC reply pending
     return
 
 ServiceReply:
-    if TX packet still has queued bytes, return
-    if error pending, call BuildErrorResponse
-    else if ID reply pending, call BuildIdResponse
-    else if ADC reply pending and conversion finished:
+    if unsent bytes remain in TX buffer, return
+    if error pending, call BuildErrorResponse and return
+    if ID reply pending, call BuildIdResponse and return
+    if ADC reply pending:
+        if conversion is still running, return
         call BuildAdcResponse
+    return
+
+BuildErrorResponse:
+    prepare '$ E 2 ERROR_CODE DETAIL' in TX buffer
+    initialize TX count and length; clear pending error
     return
 
 BuildIdResponse:
@@ -570,14 +586,9 @@ BuildIdResponse:
     return
 
 BuildAdcResponse:
+    read the full right-justified 10-bit result using Lab 07 routines
     prepare '$ A 3 0x00 ADC_H ADC_L' in TX buffer
-    include the full right-justified 10-bit result, high byte first
     initialize TX count and length; clear pending reply
-    return
-
-BuildErrorResponse:
-    prepare '$ E 2 ERROR_CODE DETAIL' in TX buffer
-    initialize TX count and length; clear pending error
     return
 
 ServiceTx:
