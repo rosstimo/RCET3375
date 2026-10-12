@@ -430,6 +430,8 @@ T_{\text{packet}}
 
 A packet can therefore take several milliseconds to arrive even though RX still needs to be serviced roughly once per byte.
 
+Explore separate UART reception and packet processing with the [interactive circular RX buffer](support/Lab08/circular-rx-buffer.html). On GitHub, select **Download raw file**, then open the HTML file in your browser. Try receiving bytes, processing bytes, and filling the queue to observe the two indices and wraparound.
+
 ### Defined Part 3 packets
 
 Each example shows the labeled fields and the actual hexadecimal bytes. `HH`, `LL`, and `DD` represent variable data bytes.
