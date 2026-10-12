@@ -406,6 +406,8 @@ Rules:
 - If `LENGTH > 8`, discard the partial packet and return to waiting for `$`.
 - The host sends one request at a time and waits for its response before sending another request.
 
+Some invalid requests may receive no response. Consider how a host program could recognize a missing response rather than waiting indefinitely.
+
 At 9600 baud, 8N1:
 
 ```math
@@ -428,54 +430,46 @@ A packet can therefore take several milliseconds to arrive even though RX still 
 
 ### Defined Part 3 packets
 
-#### Device ID request
+Each example shows the labeled fields and the actual hexadecimal bytes. `HH`, `LL`, and `DD` represent variable data bytes.
+
+#### Device identification
 
 ```text
-$ I 0
+Request fields:   $ I 0
+Request hex:      24 49 00
+
+Response fields:  $ I 2 0x33 0x75
+Response hex:     24 49 02 33 75
 ```
 
 The required device ID for this lab is `0x3375`.
 
-#### Device ID response
+#### AN0 analog channel
 
 ```text
-$ I 2 0x33 0x75
+Request fields:   $ A 1 CHANNEL
+Request hex:      24 41 01 00
+
+Response fields:  $ A 3 CHANNEL ADC_H ADC_L
+Response hex:     24 41 03 00 HH LL
+
+Example response for ADC = 0x02AB:
+                   24 41 03 00 02 AB
 ```
 
-#### Analog Channel request
+`CHANNEL = 0x00` selects AN0. `ADC_H:ADC_L` carries the complete right-justified 10-bit ADC result, high byte first.
+
+#### Receive error
 
 ```text
-$ A 1 CHANNEL
+Response fields:  $ E 2 ERROR_CODE DETAIL
+Response hex:     24 45 02 EE DD
+
+Framing example:  24 45 02 01 00
+Overrun response: 24 45 02 02 00
 ```
 
-Use AN0:
-
-```text
-CHANNEL = 0x00
-```
-
-#### Analog Channel Data response
-
-```text
-$ A 3 CHANNEL ADC_H ADC_L
-```
-
-`ADC_H:ADC_L` carries the complete right-justified 10-bit ADC result.
-
-#### Error response
-
-```text
-$ E 2 ERROR_CODE DETAIL
-```
-
-Part 3 error codes:
-
-```text
-0x01 = framing error
-0x02 = receive overrun
-```
-
-For framing error, `DETAIL` may contain the affected received byte. For overrun, use `DETAIL = 0x00`.
+`ERROR_CODE = 0x01` indicates a framing error; `0x02` indicates receive overrun. The framing example shows a received byte of `0x00` as its detail. For a framing error, `DETAIL` may contain the affected received byte; for overrun, `DETAIL = 0x00`.
 
 After a framing or overrun error, discard the current partial packet and return the parser to waiting for `$`. The host may resend its last complete command packet.
 
@@ -507,9 +501,13 @@ ADC:
     select AN0, VDD/VSS references, right-justified result
     select FOSC/32 conversion clock and enable ADC
 
+Diagnostic output:
+    retain the Part 2 receive-service diagnostic output
+
 Startup:
     reset parser, counters, replies, and error information
     prepare indexed access to both packet buffers
+    start with the receive-service diagnostic output LOW
 ```
 
 ### Program structure
@@ -522,6 +520,7 @@ main:
     repeat
 
 ServiceRx:
+    pulse the receive-service diagnostic output HIGH, then LOW
     if no byte is available, return
     if overrun, recover receiver and queue overrun error; return
     if framing error, discard byte and queue framing error; return
@@ -594,7 +593,7 @@ Prepare or reference:
 - packet-time calculations for each packet used in Part 3;
 - parser RAM map, including the eight-byte RX buffer and TX buffer;
 - `FSR/INDF` use for indexed buffer access;
-- right-justified AN0 ADC configuration;
+- working Lab 07 ADC source/material for AN0 acquisition and the full right-justified 10-bit result;
 - host program capable of sending the defined binary packets and displaying responses;
 - source implementing Device ID, Analog Channel, framing error, and overrun error packets.
 
@@ -603,8 +602,8 @@ Prepare or reference:
 1. Verify the Device ID request returns `0x3375`.
 2. Turn the potentiometer and request AN0 repeatedly.
 3. Verify the returned 10-bit value spans approximately 0 through 1023.
-4. Compare selected ADC results with DMM voltage.
-5. Verify that RX remains serviced while responses are transmitted.
+4. At several potentiometer settings, compare the returned ADC values with the voltage measured at AN0 using the verification method from Lab 07.
+5. Use the Part 2 diagnostic output to measure the longest interval between `ServiceRx` checks while requesting AN0 data and transmitting replies. Compare it with the measured byte time and two-byte receive window from Part 2.
 6. Temporarily delay receive servicing while the host sends at least three bytes back-to-back. Verify the overrun error response `$ E 2 0x02 0x00`. Remove the delay and confirm that a valid command succeeds after recovery.
 7. Test framing-error handling with a baud mismatch. For example, keep the PIC at 9600 baud, set the host to 4800 baud, and send `0x00`. Use the oscilloscope decoder at 9600 baud to check for the PIC's `$ E 2 0x01 DETAIL` response. Restore the host to 9600 baud and confirm that a valid command succeeds.
 
@@ -616,19 +615,20 @@ Include or reference:
 - parser flowchart and RAM map;
 - final PIC source and host source;
 - Device ID request/response capture;
-- several Analog Channel request/responses;
-- ADC value versus DMM voltage comparison;
+- several Analog Channel requests and responses, including the actual hex bytes;
+- ADC value versus DMM voltage comparison using the Lab 07 method;
+- receive-service diagnostic capture and measured longest check interval compared with the Part 2 timing budget;
 - receive-error/recovery evidence.
 
 ### Demonstrate
 
 Request the Device ID and live AN0 data from the host.
 
-Explain how `LENGTH` controls parsing, why packet duration is different from the RX service deadline, how `rx_state` advances one byte at a time, and how the ADC response remains nonblocking.
+Show the receive-service diagnostic output while packets are processed and replies transmitted. Explain how `LENGTH` controls parsing, why packet duration is different from the RX service deadline, how `rx_state` advances one byte at a time, and how the ADC response remains nonblocking.
 
 ### Complete When
 
-Part 3 is complete when the host can request Device ID and full 10-bit AN0 data using the defined packet protocol and the PIC can recover cleanly from receive errors.
+Part 3 is complete when the host can request Device ID and full 10-bit AN0 data using the defined packet protocol, receive-service timing is verified, and the PIC can recover cleanly from receive errors.
 
 [Back to top](#top)
 
