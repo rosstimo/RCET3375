@@ -500,9 +500,7 @@ EUSART:
 
 ADC:
     reuse and adapt the working Lab 07 ADC setup and routines
-    use AN0, VDD/VSS references, right-justified 10-bit result
-    use the Lab 07 FOSC/8 conversion clock at 4 MHz
-    preserve the required acquisition time before each conversion
+    use AN0
 
 Diagnostic output:
     retain the Part 2 receive-service diagnostic output
