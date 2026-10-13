@@ -383,270 +383,202 @@ Part 2 is complete when bytes echo correctly, the receive-service interval is me
 
 ### Goal
 
-Replace raw byte echo with a nonblocking packet parser. Use command packets to request device identification and the full 10-bit ADC value from the potentiometer on AN0.
+Replace byte echo with a nonblocking packet parser. The host will request the PIC's device ID or the full 10-bit ADC reading from the potentiometer on AN0.
 
 ### Packet format
 
-All structured packets use:
+Each packet contains:
 
 ```text
-Byte 0      Byte 1      Byte 2      Byte 3 ...
-$           COMMAND     LENGTH      DATA[0] ... DATA[N-1]
-0x24                    N
+$  COMMAND  LENGTH  DATA...
+24                   (hex start byte)
 ```
 
-Rules:
+- `$` is the start byte (`0x24`).
+- `LENGTH` is the number of data bytes, excluding the first three packet bytes.
+- Numeric fields are binary bytes, not printable ASCII digits.
+- Multi-byte values are sent high byte first.
+- The receiver processes one byte per call and remembers its parser state between bytes. Requests may arrive with pauses between bytes.
+- The host sends one request and waits for its response before sending another.
+- Unknown commands, incorrect lengths, and channels other than AN0 are ignored. The host should handle a missing response with a timeout.
 
-- `$` and command letters are shown as their printable characters.
-- `LENGTH` and numeric DATA values are raw byte values, not ASCII digits.
-- `LENGTH` is the number of DATA bytes only.
-- Total packet length is `3 + LENGTH` bytes.
-- Maximum payload length is 8 bytes.
-- Multi-byte values are transmitted high byte first.
-- The parser handles one received byte at a time and returns to the main loop.
-- A zero-length packet is complete immediately after `LENGTH`.
-- If `LENGTH > 8`, discard the partial packet and return to waiting for `$`.
-- The host sends one request at a time and waits for its response before sending another request.
-
-Some invalid requests may receive no response. Consider how a host program could recognize a missing response rather than waiting indefinitely.
-
-At 9600 baud, 8N1:
-
-```math
-T_{\text{packet}}
-=
-(3+\text{LENGTH})T_{\text{byte}}
-```
-
-For the three-byte Device ID request:
+At 9600 baud, 8N1, a three-byte ID request takes:
 
 ```math
 \begin{aligned}
-T_{\text{packet}}
+T_{\text{packet}} &= (3+\text{LENGTH})T_{\text{byte}} \\
 &=3(1.0417\,\text{ms}) \\
 &=3.125\,\text{ms}
 \end{aligned}
 ```
 
-A packet can therefore take several milliseconds to arrive even though RX still needs to be serviced roughly once per byte.
-
-Explore separate UART reception and packet processing with the [interactive circular RX buffer](support/Lab08/circular-rx-buffer.html). On GitHub, select **Download raw file**, then open the HTML file in your browser. Try receiving bytes, processing bytes, and filling the queue to observe the two indices and wraparound.
+The time needed to receive a whole packet differs from the time available to service each received byte.
 
 ### Defined Part 3 packets
 
-Each example shows the labeled fields and the actual hexadecimal bytes. `HH`, `LL`, and `DD` represent variable data bytes.
+The field and hexadecimal forms below describe the same bytes. `HH` and `LL` are the two bytes of the right-justified ADC result.
 
-#### Device identification
-
-```text
-Request fields:   $ I 0
-Request hex:      24 49 00
-
-Response fields:  $ I 2 0x33 0x75
-Response hex:     24 49 02 33 75
-```
-
-The required device ID for this lab is `0x3375`.
-
-#### AN0 analog channel
+**Device ID (fixed at `0x3375`)**
 
 ```text
-Request fields:   $ A 1 CHANNEL
-Request hex:      24 41 01 00
-
-Response fields:  $ A 3 CHANNEL ADC_H ADC_L
-Response hex:     24 41 03 00 HH LL
-
-Example response for ADC = 0x02AB:
-                   24 41 03 00 02 AB
+Request:   $ I 0                  24 49 00
+Response:  $ I 2 0x33 0x75        24 49 02 33 75
 ```
 
-`CHANNEL = 0x00` selects AN0. `ADC_H:ADC_L` carries the complete right-justified 10-bit ADC result, high byte first.
-
-#### Receive error
+**AN0 ADC reading (channel `0x00`)**
 
 ```text
-Response fields:  $ E 2 ERROR_CODE DETAIL
-Response hex:     24 45 02 EE DD
+Request:   $ A 1 0x00             24 41 01 00
+Response:  $ A 3 0x00 HH LL       24 41 03 00 HH LL
 
-Framing example:  24 45 02 01 00
-Overrun response: 24 45 02 02 00
+Example for ADC = 0x02AB:         24 41 03 00 02 AB
 ```
 
-`ERROR_CODE = 0x01` indicates a framing error; `0x02` indicates receive overrun. The framing example shows a received byte of `0x00` as its detail. For a framing error, `DETAIL` may contain the affected received byte; for overrun, `DETAIL = 0x00`.
+**UART receive errors**
 
-After a framing or overrun error, discard the current partial packet and return the parser to waiting for `$`. The host may resend its last complete command packet.
+```text
+Framing:   $ E 2 0x01 0x00        24 45 02 01 00
+Overrun:   $ E 2 0x02 0x00        24 45 02 02 00
+```
+
+A receive error discards the current partial request and resets the parser to wait for `$`. The host can resend the request. Both error packets use a zero detail byte.
 
 ### Required RAM
 
 ```text
-rx_byte:         last received byte
-rx_state:        WAIT_START, GET_COMMAND, GET_LENGTH, GET_DATA
-rx_command:      requested command
-rx_length:       expected payload bytes
-rx_count:        payload bytes collected
-rx_data[0..7]:   indexed received payload
-tx_length:       complete response size
-tx_count:        response bytes sent to TX hardware
-tx_data[0..10]:  indexed response packet
-reply_pending:   none, ID, or ADC
-error_code:      pending error, or none
-error_detail:    detail for pending error
+rx_byte:         latest received byte
+rx_state:        WAIT_START / GET_COMMAND / GET_LENGTH / GET_CHANNEL
+rx_command:      'I' or 'A'
+reply_pending:   none / ID / ADC / framing error / overrun error
+adc_state:       IDLE / BUSY / READY
+adc_high:        high byte of the saved 10-bit ADC result
+adc_low:         low byte of the saved 10-bit ADC result
+tx_data[0..5]:   next complete response packet
+tx_length:       response packet length
+tx_count:        bytes queued to the UART so far
 ```
 
 ### Required setup
 
 ```text
 EUSART:
-    continue Part 2 operation at 9600 baud, asynchronous 8N1
+    reuse Part 2 operation at 9600 baud, asynchronous 8N1
 
 ADC:
-    reuse and adapt the working Lab 07 ADC setup and routines
-    use AN0
+    reuse working Lab07 AN0 configuration and routines
+    use VDD/VSS references, FOSC/8, and a right-justified 10-bit result
 
 Diagnostic output:
-    retain the Part 2 receive-service diagnostic output
+    retain the receive-service timing output from Part 2
 
 Startup:
-    reset parser, counters, replies, and error information
-    prepare indexed access to both packet buffers
-    start with the receive-service diagnostic output LOW
+    clear parser, reply, ADC, and TX state
+    start with the diagnostic output LOW
 ```
 
 ### Program structure
 
+Use the following as a suggested organization. Each service routine returns promptly so the main loop can continue checking RX.
+
 ```text
 main:
+    pulse the diagnostic output to mark each receive-service check
     call ServiceRx
     call ServiceReply
     call ServiceTx
     repeat
 
 ServiceRx:
-    pulse the receive-service diagnostic output HIGH, then LOW
-    if no byte is available, return
-    if receive overrun:
-        reset the receiver
-        call QueueError with overrun code and detail 0x00
-        return
-    if framing error:
-        read and discard the affected byte
-        call QueueError with framing code and affected byte
-        return
+    if no received byte is waiting, return
+    if overrun, reset receiver; queue overrun error; reset parser; return
+    if framing error, discard bad byte; queue framing error; reset parser; return
     read one byte into rx_byte
-    if an error is queued, discard this byte and return
+    if a receive-error reply is pending, discard the byte; return
     call ParseRxByte
     return
 
-QueueError:
-    reset parser to WAIT_START
-    cancel the pending normal reply
-    save the error code and detail
-    return
-
 ParseRxByte:
-    WAIT_START:
-        if rx_byte is '$', advance to GET_COMMAND
+    WAIT_START: if byte is '$', advance to GET_COMMAND
     GET_COMMAND:
-        save command and advance to GET_LENGTH
+        if byte is 'I' or 'A', save command and advance to GET_LENGTH
+        otherwise reset parser
     GET_LENGTH:
-        save length and clear payload count
-        if length > 8, reset parser and return
-        if length = 0, call ProcessPacket and return
-        advance to GET_DATA
-    GET_DATA:
-        store rx_byte in rx_data[count] and increment count
-        if count = length, call ProcessPacket
-    return
-
-ProcessPacket:
-    reset parser to WAIT_START
-    if a normal reply is pending, return
-    if ID request has length 0, mark ID reply pending
-    if ADC request has length 1 and channel AN0:
-        start conversion using the working Lab 07 ADC routine
-        mark ADC reply pending
+        if command is 'I' and length is 0:
+            reset parser; queue ID reply if none is pending
+        else if command is 'A' and length is 1:
+            advance to GET_CHANNEL
+        otherwise reset parser
+    GET_CHANNEL:
+        reset parser
+        if channel is AN0 and no reply is pending:
+            queue ADC reply; set adc_state to IDLE
     return
 
 ServiceReply:
-    if unsent bytes remain in TX buffer, return
-    if error pending, call BuildErrorResponse and return
-    if ID reply pending, call BuildIdResponse and return
-    if ADC reply pending:
-        if conversion is still running, return
-        call BuildAdcResponse
+    if TX packet has unsent bytes or no reply is pending, return
+    if receive error is pending, build the error response; return
+    if ID reply is pending, build the ID response; return
+    call ServiceAdc
+    if ADC result is not READY, return
+    build the ADC response using adc_high and adc_low
     return
 
-BuildErrorResponse:
-    prepare '$ E 2 ERROR_CODE DETAIL' in TX buffer
-    initialize TX count and length; clear pending error
-    return
-
-BuildIdResponse:
-    prepare '$ I 2 0x33 0x75' in TX buffer
-    initialize TX count and length; clear pending reply
-    return
-
-BuildAdcResponse:
-    read the full right-justified 10-bit result using Lab 07 routines
-    prepare '$ A 3 0x00 ADC_H ADC_L' in TX buffer
-    initialize TX count and length; clear pending reply
+ServiceAdc:
+    if IDLE, start AN0 conversion and mark BUSY; return
+    if BUSY and conversion is finished:
+        save both ADC result bytes; mark READY
     return
 
 ServiceTx:
-    if no TX bytes remain or hardware is busy, return
-    send next buffered byte and increment TX count
+    if no unsent bytes or TX hardware is busy, return
+    send the next byte from tx_data and advance tx_count
     return
 ```
+
+Each reply builder fills `tx_data`, sets `tx_length`, resets `tx_count`, and clears the pending reply. An ADC conversion must not hold up UART servicing while it runs.
 
 ### Before Lab
 
 Prepare or reference:
 
-- packet definitions and parser flowchart;
-- packet-time calculations for each packet used in Part 3;
-- parser RAM map, including the eight-byte RX buffer and TX buffer;
-- `FSR/INDF` use for indexed buffer access;
-- working Lab 07 ADC setup, acquisition, and result-reading routines for AN0 and the full right-justified 10-bit result;
-- host program capable of sending the defined binary packets and displaying responses;
-- source implementing Device ID, Analog Channel, framing error, and overrun error packets.
+- packet definitions, packet-time calculations, and parser flowchart;
+- RAM map and a method for indexing the six-byte TX buffer;
+- working Lab07 AN0 ADC code and full 10-bit result handling;
+- PIC source and host software to send binary requests and display hexadecimal replies.
 
 ### In the Lab
 
-1. Verify the Device ID request returns `0x3375`.
-2. Turn the potentiometer and request AN0 repeatedly.
-3. Verify the returned 10-bit value spans approximately 0 through 1023.
-4. At several potentiometer settings, compare the returned ADC values with the voltage measured at AN0 using the verification method from Lab 07.
-5. Use the Part 2 diagnostic output to measure the longest interval between `ServiceRx` checks while requesting AN0 data and transmitting replies. Compare it with the measured byte time and two-byte receive window from Part 2.
-6. Temporarily delay receive servicing while the host sends at least three bytes back-to-back. Verify the overrun error response `$ E 2 0x02 0x00`. Remove the delay and confirm that a valid command succeeds after recovery.
-7. Test framing-error handling with a baud mismatch. For example, keep the PIC at 9600 baud, set the host to 4800 baud, and send `0x00`. Use the oscilloscope decoder at 9600 baud to check for the PIC's `$ E 2 0x01 DETAIL` response. Restore the host to 9600 baud and confirm that a valid command succeeds.
+1. Request the Device ID and verify `0x3375` is returned.
+2. Request AN0 repeatedly while turning the potentiometer. Verify readings approach 0 and 1023 near the ends of travel.
+3. Compare several returned ADC values with the AN0 voltage measured using the Lab07 method.
+4. Send an unknown command, an incorrect length, and a request for channel `0x01`. Verify that the PIC ignores them and accepts the next valid request.
+5. Measure the longest interval between receive-service diagnostic pulses while requests and replies are processed. Compare it with the byte time and two-byte receive window from Part 2.
+6. Temporarily delay RX servicing while the host sends at least three bytes back-to-back. Verify the overrun packet (`24 45 02 02 00`), restore normal servicing, and confirm recovery with a valid request.
+7. Cause a framing error by using a baud mismatch (for example, PIC at 9600 baud and host at 4800 baud sending `0x00`). Check for the framing packet (`24 45 02 01 00`), then restore 9600 baud and confirm recovery.
 
 ### Evidence
 
 Include or reference:
 
-- packet table and packet-time calculations;
-- parser flowchart and RAM map;
-- final PIC source and host source;
-- Device ID request/response capture;
-- several Analog Channel requests and responses, including the actual hex bytes;
-- ADC value versus DMM voltage comparison using the Lab 07 method;
-- receive-service diagnostic capture and measured longest check interval compared with the Part 2 timing budget;
-- receive-error/recovery evidence.
+- packet definitions and timing calculations;
+- parser flowchart, RAM map, PIC source, and host source;
+- hexadecimal ID and AN0 request/response captures;
+- ADC readings compared with DMM measurements;
+- receive-service timing capture and comparison with the Part 2 timing budget;
+- invalid-request and receive-error/recovery test results.
 
 ### Demonstrate
 
-Request the Device ID and live AN0 data from the host.
-
-Show the receive-service diagnostic output while packets are processed and replies transmitted. Explain how `LENGTH` controls parsing, why packet duration is different from the RX service deadline, how `rx_state` advances one byte at a time, and how the ADC response remains nonblocking.
+Request the ID and live AN0 data from the host. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, how packet length differs from the RX service deadline, and how ADC conversion avoids blocking the main loop.
 
 ### Complete When
 
-Part 3 is complete when the host can request Device ID and full 10-bit AN0 data using the defined packet protocol, receive-service timing is verified, and the PIC can recover cleanly from receive errors.
+Part 3 is complete when the defined requests and replies work, the full 10-bit ADC value is verified, receive-service timing is measured, and the PIC recovers from framing and overrun errors.
 
 [Back to top](#top)
 
 <a id="part-4"></a>
+
 ## Part 4 - LM34, UART, and Servo Integration
 
 > **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
