@@ -490,10 +490,21 @@ main:
 
 ServiceRx:
     if no received byte is waiting, return
-    if overrun, reset receiver; queue overrun error; reset rx_state; return
-    if framing error, discard bad byte; queue framing error; reset rx_state; return
+
+    if receive overrun:
+        reset receiver
+        queue overrun error
+        reset rx_state
+        return
+
+    if framing error:
+        read and discard affected byte
+        queue framing error
+        reset rx_state
+        return
+
     read one byte into rx_byte
-    if a receive-error reply is pending, discard the byte; return
+    if a receive-error reply is pending, return
     call ParseRxByte
     return
 
@@ -510,9 +521,9 @@ ParseRxByte:
         return
 
     GET_LENGTH:
-        if command is 'I' and length is 0:
+        if command is 'I' and received length byte is 0:
             reset rx_state; queue ID reply if none is pending
-        else if command is 'A' and length is 1:
+        else if command is 'A' and received length byte is 1:
             advance to GET_CHANNEL
         otherwise:
             reset rx_state
@@ -520,7 +531,7 @@ ParseRxByte:
 
     GET_CHANNEL:
         reset rx_state
-        if channel is AN0 and no reply is pending:
+        if received channel byte is 0 (AN0) and no reply is pending:
             queue ADC reply; set adc_state to IDLE
         return
 
@@ -548,14 +559,24 @@ ServiceReply:
     return
 
 ServiceAdc:
-    if IDLE, start AN0 conversion and mark BUSY; return
-    if BUSY and conversion is finished:
-        save both ADC result bytes; mark READY
+    if adc_state is IDLE:
+        start AN0 conversion
+        set adc_state to BUSY
+        return
+
+    if adc_state is BUSY:
+        if conversion is still running, return
+        save both ADC result bytes
+        set adc_state to READY
+
     return
 
 ServiceTx:
-    if no unsent bytes or TX hardware is busy, return
-    send the next byte from tx_data and advance tx_count
+    if tx_count = tx_length, return
+    if TXREG cannot accept another byte, return
+
+    write tx_data[tx_count] to TXREG
+    increment tx_count
     return
 ```
 
