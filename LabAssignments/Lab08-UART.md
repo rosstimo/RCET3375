@@ -517,22 +517,22 @@ ParseRxByte:
         if byte is 'I' or 'A':
             save command; advance rx_state to GET_LENGTH
         otherwise:
-            rx_state = WAIT_START
+            reset rx_state to WAIT_START
         return
 
     GET_LENGTH:
         if command is 'I' and received length byte is 0:
-            rx_state = WAIT_START
+            reset rx_state to WAIT_START
             if no reply is pending:
                 reply_pending = ID
         else if command is 'A' and received length byte is 1:
             advance rx_state to GET_CHANNEL
         otherwise:
-            rx_state = WAIT_START
+            reset rx_state to WAIT_START
         return
 
     GET_CHANNEL:
-        rx_state = WAIT_START
+        reset rx_state to WAIT_START
         if received channel byte is 0 (AN0) and no reply is pending:
             reply_pending = ADC
             set adc_state to IDLE
