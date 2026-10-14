@@ -649,9 +649,11 @@ Part 3 is complete when the graphical host application sends and decodes the def
 
 ### Goal
 
-Replace the potentiometer with an LM34 temperature sensor and integrate UART RX/TX, ADC acquisition, and one CCP-timed servo.
+Start with your **completed Part 3 PIC firmware and graphical host application**. Extend both projects to measure temperature with an LM34 and command one CCP-timed servo while UART RX/TX and ADC acquisition continue.
 
-The UART packet structure remains unchanged. The PIC returns raw ADC data. Temperature conversion and calibration are performed on the host.
+Preserve the Part 3 packet parser, nonblocking RX/ADC/TX services, device-ID and ADC replies, receive-error handling, diagnostic output, and graphical host transaction history. Adapt your working Lab 07 Timer1/CCP servo routines and replace the potentiometer with the LM34.
+
+Keep the existing packet format and raw 10-bit ADC reply. Perform temperature conversion and calibration in the host application.
 
 ### LM34 conversion
 
@@ -714,13 +716,17 @@ Use your measured reference voltage and calibration results.
 
 ### Servo command packet
 
-Command one servo with the desired HIGH time directly in microseconds:
+Extend your Part 3 packet parser to recognize the `S` command and receive its two payload bytes. Command one servo with the desired HIGH time directly in microseconds:
 
 ```text
 $ S 2 PW_H PW_L
+
+1500 us command:  24 53 02 05 DC
+2600 us command:  24 53 02 0A 28   (invalid)
+Error response:   24 45 02 03 01   (servo 1 out of range)
 ```
 
-`PW_H:PW_L` is a 16-bit unsigned pulse width in microseconds.
+`PW_H:PW_L` is a 16-bit unsigned pulse width in microseconds. Valid servo commands do not generate a reply. The host records the transmitted command, and the actual pulse width is verified on the oscilloscope. Requests for ID and ADC data continue to use their Part 3 replies.
 
 Accept:
 
@@ -766,8 +772,6 @@ servo_state:
     2 = remainder of frame
 ```
 
-A separate `servo_busy` flag is not required.
-
 For pulse width (PW) and guard interval (G), schedule absolute Timer1 matches from the frame reload:
 
 ```math
@@ -797,33 +801,51 @@ For $PW = 1500\,\mu\text{s}$ and $G = 100\,\mu\text{s}$:
 \end{aligned}
 ```
 
-Program structure:
+Extend the Part 3 structure rather than replacing it:
 
 ```text
+main:
+    if servo_state is outside the protected window:
+        run the existing Part 3 RX, reply/ADC, and TX services
+    repeat
+
+on a complete S packet:
+    validate length and the requested 16-bit pulse width
+    if invalid, queue the servo error and retain the active width
+    if valid, calculate and stage both next-frame CCP deadlines
+    mark the staged update ready only after both are complete
+    return promptly
+
 Timer1 overflow:
-    reload Timer1 for 20 ms
-    copy next pulse width to active pulse width
-    servo HIGH
-    servo_state = 0
-    schedule CCP at active_PW - G
+    adopt the complete staged update, if one is ready
+    reload Timer1 for the 20 ms frame
+    drive servo HIGH, set servo_state = 0
+    schedule the absolute pre-edge CCP match
 
 CCP, state 0:
-    servo_state = 1
-    schedule CCP at active_PW
+    set servo_state = 1
+    schedule the absolute falling-edge CCP match
 
 CCP, state 1:
-    servo LOW
-    servo_state = 2
-
-main:
-    service RX
-    service TX
-    service ADC/reply
-    when servo_state != 1
-        perform other foreground work
+    drive servo LOW
+    set servo_state = 2
 ```
 
-Use absolute Timer1 compare deadlines. Do not change the active pulse-width value after the pulse starts.
+Reuse the working Part 3 service routines. Keep each call short and interruptible so UART bytes are serviced in time. Adopt a new two-byte servo setting only at a frame boundary; an incomplete update must never affect the active pulse. Use absolute Timer1 compare deadlines.
+
+Measure the receive-service diagnostic pulse interval again with the servo active, including the protected window, and compare it with the Part 2 byte-time and receive-buffer budgets.
+
+### Extend the graphical host application
+
+Build on your Part 3 GUI and retain its serial connection controls, ID/ADC commands, custom hex packets, decoded errors/timeouts, and TX/RX transaction history.
+
+Add:
+
+- **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured reference voltage and any justified calibration correction.
+- **Servo control:** enter or select a pulse width in microseconds and send the `S` packet as actual binary bytes.
+- **Error indication:** decode and display servo range errors (`03 01`) alongside the existing framing and overrun errors. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
+
+Keep the GUI responsive during temperature requests and servo commands.
 
 ### Required LM34 calibration
 
@@ -847,36 +869,38 @@ Prepare or reference:
 - LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
 - LM34 temperature-conversion worked calculation;
 - temperature-calibration procedure;
-- Part 3 packet parser, host program, and reused Lab 07 ADC routines;
-- working Lab 07 Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
-- `servo_state` scheduler flowchart;
-- 16-bit servo range-check logic;
-- source that keeps UART, ADC, and servo timing nonblocking.
+- completed Part 3 PIC firmware and graphical host application, with a plan for the new `S` command and temperature/servo controls;
+- reused Lab 07 ADC routines and working Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
+- updated packet-parser and `servo_state` scheduler flowcharts showing how the new work fits the Part 3 main loop;
+- 16-bit servo range-check logic and safe staging of next-frame pulse widths;
+- source and timing plan that keep RX, ADC, TX, and servo operation nonblocking.
 
 ### In the Lab
 
 Keep the servo disconnected until waveform checkoff.
 
-1. Replace the potentiometer with the LM34 on AN0.
-2. Request raw ADC data and verify host temperature conversion.
-3. Perform the planned temperature calibration.
-4. Verify the servo command at 500, 1500, and 2500 us on the oscilloscope.
-5. Send an out-of-range servo command and verify it is rejected with `0x03` while the previous valid command remains active.
-6. Obtain instructor waveform checkoff.
-7. Connect the servo using a suitable supply and common ground.
-8. Repeatedly request temperature and change servo pulse width while the servo is active.
-9. Verify UART/ADC activity does not visibly shift the servo falling edge or disturb the 20 ms frame.
+1. Continue from your working Part 3 firmware and GUI. Confirm that device-ID requests, raw ADC requests, RX error handling, and the transaction history still work.
+2. Extend the PIC parser to accept `S` packets; integrate the Lab 07 Timer1/CCP servo scheduler without disrupting the existing Part 3 service routines.
+3. Add host GUI controls to send servo pulse widths and display servo errors. Confirm the packet bytes in the GUI history.
+4. Replace the potentiometer with the LM34 on AN0. Add host-side voltage and temperature display using the raw ADC reply.
+5. Perform the planned temperature calibration and compare against an independent reference.
+6. With the servo disconnected, command 500, 1500, and 2500 us. Measure each output pulse and the 20 ms frame on the oscilloscope.
+7. Send an out-of-range servo command. Verify error packet `24 45 02 03 01` and confirm the last valid pulse width remains active.
+8. Obtain instructor waveform checkoff, then connect the servo using a suitable supply and common ground.
+9. Repeatedly request temperature while changing the servo width using your GUI. Show the live temperature, servo commands, errors, and TX/RX history.
+10. Capture the receive-service diagnostic signal and servo pulse while UART and ADC are active. Compare the longest RX service interval with the Part 2 timing budget and verify the servo pulse width and frame remain stable.
+11. Capture a GUI screenshot showing multiple transactions, live temperature, servo commands, and an error indication.
 
 ### Evidence
 
 Include or reference:
 
-- LM34 loading/component analysis;
-- calibration procedure and measurement table;
+- LM34 loading/component analysis, calibration procedure, and measurement table;
 - raw ADC, calculated voltage, calculated temperature, reference temperature, and error;
-- final PIC and host source;
-- valid and invalid servo command captures;
-- servo timing under sustained UART/ADC activity.
+- updated packet-parser and servo-scheduler flowcharts, plus final PIC and graphical host source showing the Part 3 extensions;
+- GUI screenshot with decoded temperature, servo commands, an error indication, and hexadecimal TX/RX transaction history;
+- valid and invalid servo command captures, including preservation of the last valid pulse width after rejection;
+- receive-service diagnostic timing compared with the Part 2 budget, and servo pulse/frame timing under sustained UART/ADC activity.
 
 Suggested calibration table:
 
@@ -887,13 +911,13 @@ Suggested calibration table:
 
 ### Demonstrate
 
-Show live temperature requests while independently changing servo pulse width.
+Use your extended Part 3 graphical host application to show live temperature requests while independently commanding the servo. Display the packet history and a rejected out-of-range command, then show stable servo timing and receive-service diagnostic pulses while UART/ADC work continues.
 
-Explain the raw-data packet, host-side temperature calculation, calibration result, 16-bit pulse-width validation, protected-edge state, and why an invalid command is rejected rather than clamped.
+Explain the raw-data packet, host-side temperature calculation, calibration result, packet-parser changes, 16-bit pulse-width validation, safe next-frame update, and protected-edge state.
 
 ### Complete When
 
-Part 4 is complete when temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
+Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error behavior, temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
 
 [Back to top](#top)
 
