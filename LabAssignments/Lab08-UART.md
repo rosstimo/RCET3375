@@ -494,13 +494,13 @@ ServiceRx:
     if receive overrun:
         reset receiver
         reply_pending = overrun error
-        reset rx_state
+        rx_state = WAIT_START
         return
 
     if framing error:
         read and discard affected byte
         reply_pending = framing error
-        reset rx_state
+        rx_state = WAIT_START
         return
 
     read one byte into rx_byte
@@ -517,22 +517,25 @@ ParseRxByte:
         if byte is 'I' or 'A':
             save command; advance rx_state to GET_LENGTH
         otherwise:
-            reset rx_state
+            rx_state = WAIT_START
         return
 
     GET_LENGTH:
         if command is 'I' and received length byte is 0:
-            reset rx_state; queue ID reply if none is pending
+            rx_state = WAIT_START
+            if no reply is pending:
+                reply_pending = ID
         else if command is 'A' and received length byte is 1:
             advance rx_state to GET_CHANNEL
         otherwise:
-            reset rx_state
+            rx_state = WAIT_START
         return
 
     GET_CHANNEL:
-        reset rx_state
+        rx_state = WAIT_START
         if received channel byte is 0 (AN0) and no reply is pending:
-            queue ADC reply; set adc_state to IDLE
+            reply_pending = ADC
+            set adc_state to IDLE
         return
 
 ServiceReply:
