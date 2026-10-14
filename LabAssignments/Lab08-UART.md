@@ -493,13 +493,13 @@ ServiceRx:
 
     if receive overrun:
         reset receiver
-        queue overrun error
+        reply_pending = overrun error
         reset rx_state
         return
 
     if framing error:
         read and discard affected byte
-        queue framing error
+        reply_pending = framing error
         reset rx_state
         return
 
