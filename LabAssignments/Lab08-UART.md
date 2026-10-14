@@ -443,6 +443,12 @@ Overrun:   $ E 2 0x02 0x00        24 45 02 02 00
 
 A receive error discards the current partial request and resets the parser to wait for `$`. The host can resend the request. Both error packets use a zero detail byte.
 
+### Nonblocking operation and indexed buffers
+
+**Nonblocking:** Each service routine checks whether work can be done now and returns promptly rather than waiting for another RX byte, an ADC conversion, or an available TX register. The diagnostic pulse at the start of each main-loop pass marks successive opportunities to service RX. Measure the longest interval between pulses while packets are being received, ADC conversions are running, and replies are transmitted. Compare that interval with the receive-service timing budget from Part 2; a long gap can reveal blocking code.
+
+**Buffer, index, and pointer:** `tx_data[0..5]` is a six-byte **buffer** in consecutive RAM locations. `tx_count` is the **index** of the next byte to transmit. The PIC16F883's **FSR** (File Select Register) can hold the address of `tx_data[tx_count]`, acting as a **pointer**. Accessing **INDF** then reads or writes the RAM byte at that address; this is **indirect addressing**. For example, when `tx_count = 2`, pointing FSR to `tx_data[2]` makes an INDF read access the third packet byte. See the [PIC16F883 datasheet, Section 2.4, “Indirect Addressing, INDF and FSR Registers” (page 38)](https://ww1.microchip.com/downloads/en/devicedoc/40001291H.pdf#page=38).
+
 ### Required RAM
 
 ```text
@@ -588,7 +594,7 @@ ServiceTx:
 Prepare or reference:
 
 - packet definitions, packet-time calculations, and parser flowchart;
-- RAM map and a method for indexing the six-byte TX buffer;
+- RAM map and a method for indexing the six-byte TX buffer, including an example of how FSR/INDF can access an indexed byte;
 - working Lab07 AN0 ADC code and full 10-bit result handling;
 - PIC source and host software to send binary requests and display hexadecimal replies.
 
@@ -598,7 +604,7 @@ Prepare or reference:
 2. Request AN0 repeatedly while turning the potentiometer. Verify readings approach 0 and 1023 near the ends of travel.
 3. Compare several returned ADC values with the AN0 voltage measured using the Lab07 method.
 4. Send an unknown command, an incorrect length, and a request for channel `0x01`. Verify that the PIC ignores them and accepts the next valid request.
-5. Measure the longest interval between receive-service diagnostic pulses while requests and replies are processed. Compare it with the byte time and two-byte receive window from Part 2.
+5. Measure the longest interval between receive-service diagnostic pulses while receiving requests, performing ADC conversions, and transmitting replies. Compare it with the byte time and two-byte receive window from Part 2.
 6. Temporarily delay RX servicing while the host sends at least three bytes back-to-back. Verify the overrun packet (`24 45 02 02 00`), restore normal servicing, and confirm recovery with a valid request.
 7. Cause a framing error by using a baud mismatch (for example, PIC at 9600 baud and host at 4800 baud sending `0x00`). Check for the framing packet (`24 45 02 01 00`), then restore 9600 baud and confirm recovery.
 
@@ -610,12 +616,13 @@ Include or reference:
 - parser flowchart, RAM map, PIC source, and host source;
 - hexadecimal ID and AN0 request/response captures;
 - ADC readings compared with DMM measurements;
-- receive-service timing capture and comparison with the Part 2 timing budget;
+- a brief explanation of nonblocking operation, with a receive-service diagnostic timing capture, the longest measured interval, and comparison with the Part 2 timing budget;
+- an annotated TX buffer example showing the roles of `tx_count`, FSR as a pointer, and INDF in accessing one indexed byte;
 - invalid-request and receive-error/recovery test results.
 
 ### Demonstrate
 
-Request the ID and live AN0 data from the host. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, how packet length differs from the RX service deadline, and how ADC conversion avoids blocking the main loop.
+Request the ID and live AN0 data from the host. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, what nonblocking operation means, and how the diagnostic pulse spacing checks RX service timing while ADC and TX work continues. Explain the difference between packet length and the RX service deadline, and how FSR/INDF can index the TX buffer.
 
 ### Complete When
 
