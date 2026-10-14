@@ -510,12 +510,12 @@ ServiceRx:
 
 ParseRxByte:
     WAIT_START:
-        if byte is '$', advance to GET_COMMAND
+        if byte is '$', advance rx_state to GET_COMMAND
         return
 
     GET_COMMAND:
         if byte is 'I' or 'A':
-            save command; advance to GET_LENGTH
+            save command; advance rx_state to GET_LENGTH
         otherwise:
             reset rx_state
         return
@@ -524,7 +524,7 @@ ParseRxByte:
         if command is 'I' and received length byte is 0:
             reset rx_state; queue ID reply if none is pending
         else if command is 'A' and received length byte is 1:
-            advance to GET_CHANNEL
+            advance rx_state to GET_CHANNEL
         otherwise:
             reset rx_state
         return
