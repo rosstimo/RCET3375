@@ -377,8 +377,6 @@ Part 2 is complete when bytes echo correctly, the receive-service interval is me
 <a id="part-3"></a>
 ## Part 3 - Structured Packets and ADC Data
 
-> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
-
 ### Goal
 
 Replace byte echo with a nonblocking packet parser. The host will request the PIC's device ID or the full 10-bit ADC reading from the potentiometer on AN0.
@@ -589,7 +587,7 @@ ServiceTx:
 
 ### Graphical host application
 
-Develop a graphical host application to communicate with the PIC. The programming language and GUI framework are your choice. The interface must provide:
+Develop a graphical host application to communicate with the PIC. The interface must provide:
 
 - **Connection controls:** select the serial port, connect/disconnect at 9600 baud (8N1), and show connection status.
 - **Packet controls:** send the defined Device ID and AN0 requests, and enter/send a custom sequence of hexadecimal bytes for protocol testing. Transmit actual byte values, not ASCII representations of hexadecimal digits.
