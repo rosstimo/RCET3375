@@ -527,11 +527,24 @@ ParseRxByte:
 ServiceReply:
     if no reply is pending, return
     if TX packet has unsent bytes, return
-    if receive error is pending, build the error response; return
-    if ID reply is pending, build the ID response; return
-    call ServiceAdc
-    if ADC result is not READY, return
-    build the ADC response using adc_high and adc_low
+
+    if receive error is pending:
+        fill tx_data with error response    # 24 45 02 EE 00
+        set tx_length to 5
+
+    else if ID reply is pending:
+        fill tx_data with ID response       # 24 49 02 33 75
+        set tx_length to 5
+
+    else if ADC reply is pending:
+        call ServiceAdc
+        if ADC result is not READY, return
+        fill tx_data with ADC response      # 24 41 03 00 HH LL
+        set tx_length to 6
+        reset adc_state
+
+    reset tx_count
+    clear reply_pending
     return
 
 ServiceAdc:
@@ -545,8 +558,6 @@ ServiceTx:
     send the next byte from tx_data and advance tx_count
     return
 ```
-
-Each reply builder fills `tx_data`, sets `tx_length`, resets `tx_count`, and clears the pending reply. An ADC conversion must not hold up UART servicing while it runs.
 
 ### Before Lab
 
