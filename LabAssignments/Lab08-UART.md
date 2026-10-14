@@ -490,29 +490,29 @@ main:
 
 ServiceRx:
     if no received byte is waiting, return
-    if overrun, reset receiver; queue overrun error; reset parser; return
-    if framing error, discard bad byte; queue framing error; reset parser; return
+    if overrun, reset receiver; queue overrun error; reset rx_state; return
+    if framing error, discard bad byte; queue framing error; reset rx_state; return
     read one byte into rx_byte
     if a receive-error reply is pending, discard the byte; return
     call ParseRxByte
     return
 
 ParseRxByte:
-    WAIT_START: if byte is '$', advance to GET_COMMAND
+    WAIT_START: if byte is '$', advance to GET_COMMAND; return
     GET_COMMAND:
-        if byte is 'I' or 'A', save command and advance to GET_LENGTH
-        otherwise reset parser
+        if byte is 'I' or 'A', save command and advance to GET_LENGTH; return
+        otherwise reset rx_state; return
     GET_LENGTH:
         if command is 'I' and length is 0:
-            reset parser; queue ID reply if none is pending
+            reset rx_state; queue ID reply if none is pending; return
         else if command is 'A' and length is 1:
-            advance to GET_CHANNEL
-        otherwise reset parser
+            advance to GET_CHANNEL; return
+        otherwise reset rx_state; return
     GET_CHANNEL:
-        reset parser
+        reset rx_state
         if channel is AN0 and no reply is pending:
-            queue ADC reply; set adc_state to IDLE
-    return
+            queue ADC reply; set adc_state to IDLE; return
+        otherwise; return
 
 ServiceReply:
     if TX packet has unsent bytes or no reply is pending, return
