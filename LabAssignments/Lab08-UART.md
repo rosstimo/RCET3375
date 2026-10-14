@@ -525,7 +525,8 @@ ParseRxByte:
         return
 
 ServiceReply:
-    if TX packet has unsent bytes or no reply is pending, return
+    if no reply is pending, return
+    if TX packet has unsent bytes, return
     if receive error is pending, build the error response; return
     if ID reply is pending, build the ID response; return
     call ServiceAdc
