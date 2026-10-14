@@ -498,21 +498,480 @@ ServiceRx:
     return
 
 ParseRxByte:
-    WAIT_START: if byte is '$', advance to GET_COMMAND; return
+    WAIT_START:
+        if byte is '
+ServiceReply:
+    if TX packet has unsent bytes or no reply is pending, return
+    if receive error is pending, build the error response; return
+    if ID reply is pending, build the ID response; return
+    call ServiceAdc
+    if ADC result is not READY, return
+    build the ADC response using adc_high and adc_low
+    return
+
+ServiceAdc:
+    if IDLE, start AN0 conversion and mark BUSY; return
+    if BUSY and conversion is finished:
+        save both ADC result bytes; mark READY
+    return
+
+ServiceTx:
+    if no unsent bytes or TX hardware is busy, return
+    send the next byte from tx_data and advance tx_count
+    return
+```
+
+Each reply builder fills `tx_data`, sets `tx_length`, resets `tx_count`, and clears the pending reply. An ADC conversion must not hold up UART servicing while it runs.
+
+### Before Lab
+
+Prepare or reference:
+
+- packet definitions, packet-time calculations, and parser flowchart;
+- RAM map and a method for indexing the six-byte TX buffer;
+- working Lab07 AN0 ADC code and full 10-bit result handling;
+- PIC source and host software to send binary requests and display hexadecimal replies.
+
+### In the Lab
+
+1. Request the Device ID and verify `0x3375` is returned.
+2. Request AN0 repeatedly while turning the potentiometer. Verify readings approach 0 and 1023 near the ends of travel.
+3. Compare several returned ADC values with the AN0 voltage measured using the Lab07 method.
+4. Send an unknown command, an incorrect length, and a request for channel `0x01`. Verify that the PIC ignores them and accepts the next valid request.
+5. Measure the longest interval between receive-service diagnostic pulses while requests and replies are processed. Compare it with the byte time and two-byte receive window from Part 2.
+6. Temporarily delay RX servicing while the host sends at least three bytes back-to-back. Verify the overrun packet (`24 45 02 02 00`), restore normal servicing, and confirm recovery with a valid request.
+7. Cause a framing error by using a baud mismatch (for example, PIC at 9600 baud and host at 4800 baud sending `0x00`). Check for the framing packet (`24 45 02 01 00`), then restore 9600 baud and confirm recovery.
+
+### Evidence
+
+Include or reference:
+
+- packet definitions and timing calculations;
+- parser flowchart, RAM map, PIC source, and host source;
+- hexadecimal ID and AN0 request/response captures;
+- ADC readings compared with DMM measurements;
+- receive-service timing capture and comparison with the Part 2 timing budget;
+- invalid-request and receive-error/recovery test results.
+
+### Demonstrate
+
+Request the ID and live AN0 data from the host. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, how packet length differs from the RX service deadline, and how ADC conversion avoids blocking the main loop.
+
+### Complete When
+
+Part 3 is complete when the defined requests and replies work, the full 10-bit ADC value is verified, receive-service timing is measured, and the PIC recovers from framing and overrun errors.
+
+[Back to top](#top)
+
+<a id="part-4"></a>
+
+## Part 4 - LM34, UART, and Servo Integration
+
+> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+
+### Goal
+
+Replace the potentiometer with an LM34 temperature sensor and integrate UART RX/TX, ADC acquisition, and one CCP-timed servo.
+
+The UART packet structure remains unchanged. The PIC returns raw ADC data. Temperature conversion and calibration are performed on the host.
+
+### LM34 conversion
+
+The LM34 nominal output scale is:
+
+```math
+10\,\text{mV}/^\circ\text{F}
+```
+
+Using VDD/VSS as ADC references:
+
+```math
+V_{\text{sensor}}
+=
+\text{ADC}
+\left(
+\frac{V_{\text{REF}}}{1024}
+\right)
+```
+
+Then:
+
+```math
+T[^\circ\text{F}]
+=
+\frac{V_{\text{sensor}}}{0.010\,\text{V}/^\circ\text{F}}
+```
+
+#### Worked example
+
+**What:** convert one returned ADC result to temperature.
+
+**Why:** the PIC transmits raw measurement data; the host assigns the engineering units.
+
+For measured `V_{\text{REF}}=5.00\,\text{V}` and ADC code 150:
+
+```math
+\begin{aligned}
+V_{\text{sensor}}
+&=
+150
+\left(
+\frac{5.00\,\text{V}}{1024}
+\right) \\
+&=0.732\,\text{V}
+\end{aligned}
+```
+
+```math
+\begin{aligned}
+T
+&=
+\frac{0.732\,\text{V}}
+{0.010\,\text{V}/^\circ\text{F}} \\
+&=73.2^\circ\text{F}
+\end{aligned}
+```
+
+Use your measured reference voltage and calibration results.
+
+### Servo command packet
+
+Command one servo with the desired HIGH time directly in microseconds:
+
+```text
+$ S 2 PW_H PW_L
+```
+
+`PW_H:PW_L` is a 16-bit unsigned pulse width in microseconds.
+
+Accept:
+
+```text
+500 us through 2500 us
+```
+
+Reject any value outside that range. Do not clamp it in this lab.
+
+For an invalid command:
+
+- leave the previously accepted servo command unchanged;
+- return `$ E 2 0x03 0x01`;
+- do not automatically resend the same invalid command from the host.
+
+A simple 16-bit range check compares the high byte first and only checks the low byte when the high bytes match:
+
+```text
+500  us = 0x01F4
+2500 us = 0x09C4
+
+PW < 0x01F4 -> reject
+PW > 0x09C4 -> reject
+otherwise    -> accept
+```
+
+### One-servo scheduler
+
+Continue using Timer1 as a 1 us timebase and 20 ms frame. At 4 MHz with the Lab 07 setup, reload Timer1 to `0xB1E0` at the frame start.
+
+Use a short protected window before the servo falling edge. Start with:
+
+```text
+G = 100 us
+```
+
+Keep foreground code interruptible. Do not begin longer foreground work while `servo_state = 1`.
+
+```text
+servo_state:
+    0 = pre-edge
+    1 = protected falling-edge window
+    2 = remainder of frame
+```
+
+A separate `servo_busy` flag is not required.
+
+For pulse width (PW) and guard interval (G), schedule absolute Timer1 matches from the frame reload:
+
+```math
+\begin{aligned}
+\text{pre-edge match} &= 0xB1E0 + PW - G \\
+\text{falling-edge match} &= 0xB1E0 + PW
+\end{aligned}
+```
+
+For $PW = 1500\,\mu\text{s}$ and $G = 100\,\mu\text{s}$:
+
+```math
+\begin{aligned}
+\text{pre-edge match}
+&=45536+1500-100 \\
+&=46936 \\
+&=0xB758
+\end{aligned}
+```
+
+```math
+\begin{aligned}
+\text{falling-edge match}
+&=45536+1500 \\
+&=47036 \\
+&=0xB7BC
+\end{aligned}
+```
+
+Program structure:
+
+```text
+Timer1 overflow:
+    reload Timer1 for 20 ms
+    copy next pulse width to active pulse width
+    servo HIGH
+    servo_state = 0
+    schedule CCP at active_PW - G
+
+CCP, state 0:
+    servo_state = 1
+    schedule CCP at active_PW
+
+CCP, state 1:
+    servo LOW
+    servo_state = 2
+
+main:
+    service RX
+    service TX
+    service ADC/reply
+    when servo_state != 1
+        perform other foreground work
+```
+
+Use absolute Timer1 compare deadlines. Do not change the active pulse-width value after the pulse starts.
+
+### Required LM34 calibration
+
+Before lab, write a calibration procedure that:
+
+- uses an independent temperature reference;
+- uses at least two stable temperature points when practical;
+- records raw ADC count and calculated LM34 voltage;
+- calculates temperature using the nominal 10 mV/°F relationship;
+- compares calculated temperature with the independent reference;
+- records error at each point;
+- states whether an offset or other correction is justified;
+- applies any correction on the host side.
+
+The calibration verifies the complete LM34 → ADC → UART → host measurement chain.
+
+### Before Lab
+
+Prepare or reference:
+
+- LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
+- LM34 temperature-conversion worked calculation;
+- temperature-calibration procedure;
+- Part 3 packet parser, host program, and reused Lab 07 ADC routines;
+- working Lab 07 Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
+- `servo_state` scheduler flowchart;
+- 16-bit servo range-check logic;
+- source that keeps UART, ADC, and servo timing nonblocking.
+
+### In the Lab
+
+Keep the servo disconnected until waveform checkoff.
+
+1. Replace the potentiometer with the LM34 on AN0.
+2. Request raw ADC data and verify host temperature conversion.
+3. Perform the planned temperature calibration.
+4. Verify the servo command at 500, 1500, and 2500 us on the oscilloscope.
+5. Send an out-of-range servo command and verify it is rejected with `0x03` while the previous valid command remains active.
+6. Obtain instructor waveform checkoff.
+7. Connect the servo using a suitable supply and common ground.
+8. Repeatedly request temperature and change servo pulse width while the servo is active.
+9. Verify UART/ADC activity does not visibly shift the servo falling edge or disturb the 20 ms frame.
+
+### Evidence
+
+Include or reference:
+
+- LM34 loading/component analysis;
+- calibration procedure and measurement table;
+- raw ADC, calculated voltage, calculated temperature, reference temperature, and error;
+- final PIC and host source;
+- valid and invalid servo command captures;
+- servo timing under sustained UART/ADC activity.
+
+Suggested calibration table:
+
+| Reference °F | ADC code | Calculated voltage | Calculated °F | Error °F | Corrected °F |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+|  |  |  |  |  |  |
+|  |  |  |  |  |  |
+
+### Demonstrate
+
+Show live temperature requests while independently changing servo pulse width.
+
+Explain the raw-data packet, host-side temperature calculation, calibration result, 16-bit pulse-width validation, protected-edge state, and why an invalid command is rejected rather than clamped.
+
+### Complete When
+
+Part 4 is complete when temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
+
+[Back to top](#top)
+
+<a id="part-5"></a>
+## Part 5 - Mastery: Three-Servo Scheduler
+
+> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+
+Part 5 is optional Mastery. Complete Parts 1 through 4 first.
+
+### Goal
+
+Extend Part 4 to independently command three servos while UART RX/TX and ADC acquisition remain active.
+
+### Three-servo command
+
+Use one packet to update all three next pulse widths:
+
+```text
+$ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
+```
+
+Each value is a 16-bit pulse width in microseconds and must be 500 through 2500 us.
+
+Reject the complete command if any of the three values is out of range. Return error `0x03` with `DETAIL` equal to the failing servo number:
+
+```text
+0x01 = Servo 1
+0x02 = Servo 2
+0x03 = Servo 3
+```
+
+Do not partially update the command.
+
+### Scheduler
+
+Use one Timer1 20 ms frame and one CCP Compare event stream.
+
+```text
+0 ms   Servo 1 slot
+5 ms   Servo 2 slot
+10 ms  Servo 3 slot
+15 ms  final idle slot
+20 ms  next frame
+```
+
+Use the same protected-edge idea from Part 4:
+
+```text
+0 = Servo 1 pre-edge
+1 = Servo 1 protected edge
+2 = Servo 1 remainder
+
+3 = Servo 2 pre-edge
+4 = Servo 2 protected edge
+5 = Servo 2 remainder
+
+6 = Servo 3 pre-edge
+7 = Servo 3 protected edge
+8 = Servo 3 remainder
+
+9 = final idle
+```
+
+States 1, 4, and 7 are the only protected states.
+
+Use absolute Timer1 deadlines so ISR execution time does not accumulate frame drift.
+
+### In the Lab
+
+1. Verify all three waveforms before connecting servos.
+2. Verify 500, 1500, and 2500 us for each output.
+3. Verify one 20 ms frame for all three channels.
+4. Connect the servos using a suitable external supply and common ground.
+5. Command all three servos independently from the host.
+6. Run sustained UART requests and ADC acquisition while all three servos operate.
+7. Verify no visible chatter or measurable timing degradation beyond normal ISR timing.
+
+### Evidence
+
+Include or reference:
+
+- final scheduler/parser flowchart;
+- final PIC and host source;
+- three-channel scope capture;
+- representative min/center/max measurements for all three outputs;
+- timing evidence while UART and ADC are active.
+
+### Complete When
+
+Mastery is complete when all three servos accept independent pulse-width commands through the packet protocol and maintain stable timing while UART and ADC remain active.
+
+[Back to top](#top)
+
+<a id="submission"></a>
+## Submission and Checkoff
+
+### Assignment repository structure
+
+Keep the PIC firmware and host application in the same Git repository, with each project in its own directory. For a C# host application:
+
+```text
+RCET3375-Lab08-UART/
+├── README.md
+├── .gitignore
+├── source/
+│   ├── pic/
+│   │   └── Lab08-UART.X/             # MPLAB X project and .S files
+│   └── csharp/
+│       └── Lab08Host/               # .csproj and .cs files
+├── schematics/                       # editable schematic and export
+├── documentation/                    # calculations and calibration records
+├── evidence/
+│   ├── oscilloscope/                 # captures and measurements
+│   └── host/                         # terminal output and test results
+└── lab-book/
+    └── Lab08-Lab-Book.pdf
+```
+
+Preserve each project's normal structure and include the files needed to rebuild both programs. See the [Lab Standard](../LAB_STANDARD.md#assignment-repository-standard) for repository rules.
+
+Before final checkoff:
+
+1. complete Parts 1 through 4 and any attempted Mastery work;
+2. push the complete assignment repository to GitHub;
+3. include the MPLAB X project, host program, editable source, schematics, and required evidence;
+4. scan the relevant lab-book pages into one readable, correctly oriented PDF under `lab-book/`;
+5. verify a fresh clone contains enough information to reopen and rebuild the assignment.
+
+Instructor checkoff includes the required demonstrations and explanations from each completed part.
+
+[Back to top](#top)
+, advance to GET_COMMAND
+        return
+
     GET_COMMAND:
-        if byte is 'I' or 'A', save command and advance to GET_LENGTH; return
-        otherwise reset rx_state; return
+        if byte is 'I' or 'A':
+            save command; advance to GET_LENGTH
+        otherwise:
+            reset rx_state
+        return
+
     GET_LENGTH:
         if command is 'I' and length is 0:
-            reset rx_state; queue ID reply if none is pending; return
+            reset rx_state; queue ID reply if none is pending
         else if command is 'A' and length is 1:
-            advance to GET_CHANNEL; return
-        otherwise reset rx_state; return
+            advance to GET_CHANNEL
+        otherwise:
+            reset rx_state
+        return
+
     GET_CHANNEL:
         reset rx_state
         if channel is AN0 and no reply is pending:
-            queue ADC reply; set adc_state to IDLE; return
-        otherwise; return
+            queue ADC reply; set adc_state to IDLE
+        return
 
 ServiceReply:
     if TX packet has unsent bytes or no reply is pending, return
