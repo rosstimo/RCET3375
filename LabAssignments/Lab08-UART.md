@@ -589,6 +589,17 @@ ServiceTx:
     return
 ```
 
+### Graphical host application
+
+Develop a graphical host application to communicate with the PIC. The programming language and GUI framework are your choice. The interface must provide:
+
+- **Connection controls:** select the serial port, connect/disconnect at 9600 baud (8N1), and show connection status.
+- **Packet controls:** send the defined Device ID and AN0 requests, and enter/send a custom sequence of hexadecimal bytes for protocol testing. Transmit actual byte values, not ASCII representations of hexadecimal digits.
+- **Decoded results:** display the device ID and the latest AN0 ADC reading as a 10-bit integer (0–1023). Identify framing/overrun error replies, invalid or incomplete responses, and request timeouts.
+- **Transaction history:** show sent and received packets in a scrollable list or table with TX/RX direction, hexadecimal bytes, and a decoded description or status. Keep multiple transactions visible for inspection.
+
+Use the packet `LENGTH` field to assemble complete replies even when received bytes arrive separately. Send one request at a time, wait for its response or a timeout, and keep the GUI responsive while waiting. The application should be reusable in Part 4 when temperature conversion and servo commands are added.
+
 ### Before Lab
 
 Prepare or reference:
@@ -596,25 +607,27 @@ Prepare or reference:
 - packet definitions, packet-time calculations, and parser flowchart;
 - RAM map and a method for indexing the six-byte TX buffer, including an example of how FSR/INDF can access an indexed byte;
 - working Lab07 AN0 ADC code and full 10-bit result handling;
-- PIC source and host software to send binary requests and display hexadecimal replies.
+- PIC source and a graphical host-application design showing the connection controls, packet commands, decoded results, and transaction history.
 
 ### In the Lab
 
-1. Request the Device ID and verify `0x3375` is returned.
-2. Request AN0 repeatedly while turning the potentiometer. Verify readings approach 0 and 1023 near the ends of travel.
-3. Compare several returned ADC values with the AN0 voltage measured using the Lab07 method.
-4. Send an unknown command, an incorrect length, and a request for channel `0x01`. Verify that the PIC ignores them and accepts the next valid request.
-5. Measure the longest interval between receive-service diagnostic pulses while receiving requests, performing ADC conversions, and transmitting replies. Compare it with the byte time and two-byte receive window from Part 2.
-6. Temporarily delay RX servicing while the host sends at least three bytes back-to-back. Verify the overrun packet (`24 45 02 02 00`), restore normal servicing, and confirm recovery with a valid request.
-7. Cause a framing error by using a baud mismatch (for example, PIC at 9600 baud and host at 4800 baud sending `0x00`). Check for the framing packet (`24 45 02 01 00`), then restore 9600 baud and confirm recovery.
+1. Build and run the graphical host application. Connect to the PIC and use its controls to send, receive, and inspect packets.
+2. Request the Device ID and verify `0x3375` is returned and decoded correctly.
+3. Request AN0 repeatedly while turning the potentiometer. Verify the displayed ADC reading approaches 0 and 1023 near the ends of travel.
+4. Compare several returned ADC values with the AN0 voltage measured using the Lab07 method.
+5. Use the custom-packet control to send an unknown command, an incorrect length, and a request for channel `0x01`. Verify that the PIC ignores them, the host reports a timeout, and the next valid request succeeds.
+6. Measure the longest interval between receive-service diagnostic pulses while receiving requests, performing ADC conversions, and transmitting replies. Compare it with the byte time and two-byte receive window from Part 2.
+7. Temporarily delay RX servicing while the host sends at least three bytes back-to-back. Verify the overrun packet (`24 45 02 02 00`), restore normal servicing, and confirm recovery with a valid request.
+8. Cause a framing error by using a baud mismatch (for example, PIC at 9600 baud and host at 4800 baud sending `0x00`). Check for the framing packet (`24 45 02 01 00`), then restore 9600 baud and confirm recovery.
+9. Capture a screenshot of the GUI showing several packet transactions, including successful ID and ADC responses and a timeout or error indication.
 
 ### Evidence
 
 Include or reference:
 
 - packet definitions and timing calculations;
-- parser flowchart, RAM map, PIC source, and host source;
-- hexadecimal ID and AN0 request/response captures;
+- parser flowchart, RAM map, PIC source, and the graphical host application's project/source files;
+- at least one screenshot of the GUI showing multiple packet transactions, including an ID response, an ADC response, and an error or timeout indication, with hexadecimal TX/RX history and decoded values visible;
 - ADC readings compared with DMM measurements;
 - a brief explanation of nonblocking operation, with a receive-service diagnostic timing capture, the longest measured interval, and comparison with the Part 2 timing budget;
 - an annotated TX buffer example showing the roles of `tx_count`, FSR as a pointer, and INDF in accessing one indexed byte;
@@ -622,11 +635,11 @@ Include or reference:
 
 ### Demonstrate
 
-Request the ID and live AN0 data from the host. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, what nonblocking operation means, and how the diagnostic pulse spacing checks RX service timing while ADC and TX work continues. Explain the difference between packet length and the RX service deadline, and how FSR/INDF can index the TX buffer.
+Use your graphical host application to request the ID and live AN0 data, send a custom hexadecimal packet, and inspect the transaction history and an error or timeout indication. Show the receive-service timing signal and an error/recovery test. Explain how parser state advances, what nonblocking operation means, and how the diagnostic pulse spacing checks RX service timing while ADC and TX work continues. Explain the difference between packet length and the RX service deadline, and how FSR/INDF can index the TX buffer.
 
 ### Complete When
 
-Part 3 is complete when the defined requests and replies work, the full 10-bit ADC value is verified, receive-service timing is measured, and the PIC recovers from framing and overrun errors.
+Part 3 is complete when the graphical host application sends and decodes the defined packets, displays ADC readings and errors/timeouts, records transactions, and provides the required screenshot; the full 10-bit ADC value is verified, receive-service timing is measured, and the PIC recovers from framing and overrun errors.
 
 [Back to top](#top)
 
@@ -982,7 +995,7 @@ Mastery is complete when all three servos accept independent pulse-width command
 
 ### Assignment repository structure
 
-Keep the PIC firmware and host application in the same Git repository, with each project in its own directory. For a C# host application:
+Keep the PIC firmware and graphical host application in the same Git repository, with each project in its own directory:
 
 ```text
 RCET3375-Lab08-UART/
@@ -991,13 +1004,13 @@ RCET3375-Lab08-UART/
 ├── source/
 │   ├── pic/
 │   │   └── Lab08-UART.X/             # MPLAB X project and .S files
-│   └── csharp/
-│       └── Lab08Host/               # .csproj and .cs files
+│   └── host/
+│       └── Lab08Host/               # GUI application project and source files
 ├── schematics/                       # editable schematic and export
 ├── documentation/                    # calculations and calibration records
 ├── evidence/
 │   ├── oscilloscope/                 # captures and measurements
-│   └── host/                         # terminal output and test results
+│   └── host/                         # GUI screenshots, packet logs, and test results
 └── lab-book/
     └── Lab08-Lab-Book.pdf
 ```
