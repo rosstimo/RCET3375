@@ -754,7 +754,7 @@ The allowed pulse widths are **500 through 2500 µs**, inclusive. Their correspo
 | 1500 µs | `0xB7BC` | `B7` | `BC` |
 | 2500 µs | `0xBBA4` | `BB` | `A4` |
 
-The PIC validates the received 16-bit **compare value**, not a number of microseconds. Compare the high bytes first and the low bytes when necessary. Reject values below `0xB3D4` or above `0xBBA4`, leaving the last accepted servo setting unchanged. Do not clamp. For an invalid value, return `$ E 2 0x03 0x01`. Valid servo commands produce **no reply**. Part 3 ID, ADC, framing-error, and overrun-error packets remain unchanged.
+The PIC validates the received 16-bit **compare value**, not a number of microseconds. Compare the high bytes first and the low bytes when necessary. Reject values below `0xB3D4` or above `0xBBA4`, leaving the last accepted servo setting unchanged. Do not clamp. For an invalid value, return `$ E 2 0x03 0x01`. Valid servo commands produce **no reply**. Part 3 ID, ADC, and receive-error packets remain unchanged.
 
 ### Timer1/CCP servo timing
 
@@ -887,7 +887,7 @@ ValidateServo:
 
 ServiceReply (extend existing Part 3 routine):
     keep existing ID and ADC response builders unchanged
-    keep existing framing and overrun error replies unchanged
+    keep existing Part 3 receive-error replies unchanged
     when servo error is pending:
         build response in tx_data[]           # 24 45 02 03 01
         set tx_length to 5
@@ -930,19 +930,13 @@ Ccp1Interrupt:
 
 The Timer1 and CCP1 interrupts still run while the main loop is waiting on `servo_busy`. Once CCP1 ends the HIGH pulse, the main loop can resume RX, reply/ADC, and TX services. No foreground routine deliberately waits for a UART byte, ADC completion, or an available TX register, but foreground service **is paused by the servo busy gate**.
 
-### UART timing and overrun experiment
+### Receive-service timing observations
 
-At 9600 baud, 8N1, a byte occupies approximately **1.042 ms**. The two-character receiver buffer gives an approximate **2.083 ms** window after the first unread byte is received. Compare that window with the servo HIGH time:
+Observe the receive-service diagnostic output (RA1) and servo output (RC2) on the oscilloscope at 500, 1500, and 2500 µs pulse widths. Measure the longest interval between receive-service checks for each setting and compare the measurements with your Part 2 UART timing calculations.
 
-| Servo HIGH time | Maximum deliberate foreground pause | Compared with two-byte window |
-| ---: | ---: | --- |
-| 500 µs | about 500 µs | shorter |
-| 1500 µs | about 1500 µs | shorter |
-| 2500 µs | about 2500 µs | longer |
+While testing your host application, vary the servo setting and the timing of ID, ADC, and servo requests. **Record the results you actually observe.** For any error, unexpected reply, or timeout, document the servo pulse width, request and packet bytes, approximate timing or request frequency, displayed error (if any), and whether you can reproduce the behavior. Also record what happens when you send a fresh valid request afterward.
 
-At 2500 µs, an incoming burst can exceed the receiver's capacity before `ServiceRx` runs. Depending on when bytes arrive, the host may receive a framing/overrun error packet, get an incomplete response, or time out. **These are expected conditions to investigate, not failures to conceal by rewriting the Lab07 servo behavior.** Keep the Part 3 overrun detection, receiver reset, parser reset, and error packet handling. After a failure, try a fresh request and verify recovery.
-
-Probe the servo output (RC2) and receive-service diagnostic output (RA1) simultaneously. RA1 should normally stop pulsing while RC2 is HIGH and resume during the LOW part of the frame. Measure the largest gap between diagnostic pulses and compare it with the byte time and receive-buffer window from Part 2.
+Do not change the servo timing method to avoid an observed communication problem. Use the measurements and packet history to investigate its cause.
 
 ### Extend the graphical host application
 
@@ -952,7 +946,7 @@ Add:
 
 - **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured ADC reference voltage.
 - **Servo control:** enter or select a pulse width in microseconds; calculate `0xB1E0 + PW` and transmit its high/low compare bytes in the `S` packet. Display the calculated compare value and transmitted bytes.
-- **Error indication:** decode and display servo range errors (`03 01`) alongside the existing framing and overrun errors. Show incomplete packets and request timeouts in the history; allow a fresh request after an error. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
+- **Error indication:** decode and display servo range errors (`03 01`) alongside the existing Part 3 receive errors. Record any unexpected reply or request timeout in the history, and allow a fresh request after an error. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
 
 Keep the GUI responsive during temperature requests and servo commands.
 
@@ -979,7 +973,7 @@ Prepare or reference:
 - reused Lab 07 ADC routines and working Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
 - updated packet-parser and Timer1/CCP interrupt flowcharts showing only the additions to the Part 3 program;
 - 16-bit compare-value range-check logic and safe staging of the next-frame CCP value;
-- program structure showing the `servo_busy` checks before foreground services, and predicted UART receive-service gaps for 500, 1500, and 2500 µs servo pulses.
+- program structure showing the `servo_busy` checks before foreground services, and a plan to measure the receive-service interval at 500, 1500, and 2500 µs servo pulse widths.
 
 ### In the Lab
 
@@ -993,10 +987,10 @@ Keep the servo disconnected until waveform checkoff.
 6. With the servo disconnected, command 500, 1500, and 2500 us. Measure each output pulse and the 20 ms frame on the oscilloscope.
 7. Send an out-of-range servo command. Verify error packet `24 45 02 03 01` and confirm the last valid pulse width remains active.
 8. Obtain instructor waveform checkoff, then connect the servo using a suitable supply and common ground.
-9. Request temperature and send servo commands at 500, 1500, and 2500 µs. Confirm that successful requests still return raw ADC values and that the 20 ms frame and commanded servo pulse widths remain stable. Record any missing replies or timeouts rather than assuming every request succeeds.
-10. Probe RC2 and the RA1 receive-service diagnostic signal together for each of the three pulse widths. Verify that the diagnostic pulses pause during servo HIGH, measure the longest gap between RX service checks, and compare it with the Part 2 timing budget.
-11. At a long servo pulse width, send several back-to-back bytes and observe whether an overrun error (`24 45 02 02 00`), incomplete request, or host timeout occurs. Explain the result using the two-byte receive window. Check that a subsequent valid ID or ADC request can succeed after the receiver recovers; repeat or time a request if necessary.
-12. Capture a GUI screenshot showing multiple transactions, live temperature, servo commands, and an overrun/error or timeout indication.
+9. Request temperature and send servo commands at 500, 1500, and 2500 µs. Verify the returned ADC data and confirm that the 20 ms frame and commanded servo pulse widths remain stable.
+10. Probe RC2 and the RA1 receive-service diagnostic signal together for each of the three pulse widths. Measure the longest gap between RX service checks and compare it with your Part 2 timing calculations.
+11. Test ID, ADC, and servo requests using different servo settings and request timing. Record any errors, unexpected replies, or timeouts. Document the pulse width, packet, timing or request frequency, error information, and whether the behavior repeats. After any unexpected result, send another valid request and record what happens.
+12. Capture a GUI screenshot showing multiple packet transactions, live temperature, servo commands, and the transaction history. Include any observed error information.
 
 ### Evidence
 
@@ -1008,7 +1002,7 @@ Include or reference:
 - GUI screenshot with decoded temperature, servo commands, an error indication, and hexadecimal TX/RX transaction history;
 - valid and invalid servo command captures, including preservation of the last valid pulse width after rejection;
 - a simultaneous RC2/RA1 capture showing the foreground-service pause during servo HIGH, measured service gaps for different pulse widths, and their comparison with the Part 2 timing budget;
-- results of the deliberate receive-overrun/timeout test and a subsequent successful request, including an explanation of why the UART can lose data while servo timing remains stable.
+- a record of any communication errors, unexpected responses, or timeouts observed during testing, including the conditions under which they occurred, repeatability, and results of a subsequent valid request. If none occur, state the conditions tested and that none were observed.
 
 Suggested verification table (no calibration correction):
 
@@ -1018,13 +1012,13 @@ Suggested verification table (no calibration correction):
 
 ### Demonstrate
 
-Use your extended Part 3 graphical host application to request temperature and command the servo. Display the packet history and a rejected out-of-range command. Show stable servo timing, the receive-service diagnostic pause during the HIGH pulse, and an overrun/error or timeout followed by a successful new request.
+Use your extended Part 3 graphical host application to request temperature and command the servo. Display the packet history and a rejected out-of-range servo command. Show the servo pulse/frame timing and receive-service diagnostic measurements at different pulse widths. Discuss any unexpected communication behavior observed and the conditions under which it occurred.
 
-Explain the raw-data packet, host-side temperature calculation and measurement check, the conversion from microseconds to absolute CCP compare bytes, the 16-bit compare-value validation, and the atomic next-frame update in `ValidateServo`. Explain why `servo_busy` prevents new foreground service calls and how that can cause UART overruns.
+Explain the raw-data packet, host-side temperature calculation and measurement check, the conversion from microseconds to absolute CCP compare bytes, the 16-bit compare-value validation, and the atomic next-frame update in `ValidateServo`. Explain how `servo_busy` changes when foreground services run and interpret your timing measurements.
 
 ### Complete When
 
-Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error handling, temperature data is calculated correctly and checked against measured voltage and a reference thermometer, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, the Lab07 servo busy gate preserves pulse timing, and you have measured and explained any UART overrun/timeout behavior and demonstrated recovery.
+Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error handling, temperature data is calculated correctly and checked against measured voltage and a reference thermometer, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, the Lab07 servo busy gate preserves pulse timing, and you have documented the receive-service measurements and any unexpected communication behavior under the conditions tested.
 
 [Back to top](#top)
 
