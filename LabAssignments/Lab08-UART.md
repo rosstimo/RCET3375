@@ -653,7 +653,7 @@ Start with your **completed Part 3 PIC firmware and graphical host application**
 
 Preserve the Part 3 packet parser, nonblocking RX/ADC/TX services, device-ID and ADC replies, receive-error handling, diagnostic output, and graphical host transaction history. Adapt your working Lab 07 Timer1/CCP servo routines and replace the potentiometer with the LM34.
 
-Keep the existing packet format and raw 10-bit ADC reply. Perform temperature conversion and calibration in the host application.
+Keep the existing packet format and raw 10-bit ADC reply. Convert the reading to temperature in the host application. The LM34 is factory calibrated; no sensor calibration is required.
 
 ### LM34 conversion
 
@@ -712,7 +712,7 @@ T
 \end{aligned}
 ```
 
-Use your measured reference voltage and calibration results.
+Use your measured ADC reference voltage. The LM34 is factory calibrated, so do not add a temperature offset or scale correction as a required lab step.
 
 ### Servo command packet
 
@@ -803,69 +803,122 @@ Startup:
 
 ### Program structure
 
-**Keep all of the Part 3 program structure.** The following shows only additions or changes. The existing `ServiceRx`, `ServiceAdc`, and `ServiceTx` routines do not need to be rewritten.
+**Use your existing Part 3 code.** Do not start over or rewrite `ServiceRx`, `ServiceAdc`, `ServiceTx`, or the working ID/ADC/error packet handling. Keep the same nonblocking main loop and diagnostic pulse. Extend only the parser and error builder as shown below, then add the servo service and the working Lab07 Timer1/CCP interrupt routines.
+
+The following pseudocode uses the same routine names and level of detail as Part 3. **"Existing Part 3" means keep that code unchanged**, not replace it with the comment.
 
 ```text
 main:
-    run the existing Part 3 receive, reply/ADC, and transmit services
-    call ServiceServo
+    pulse diagnostic output to mark each receive-service check  (existing Part 3)
+    call ServiceRx       (existing Part 3)
+    call ServiceReply    (existing Part 3, with servo error added)
+    call ServiceTx       (existing Part 3)
+    call ServiceServo    (new Part 4)
     repeat
 
-ParseRxByte (extend existing parser):
+ServiceRx:
+    use existing Part 3 code unchanged
+
+ParseRxByte (extend existing Part 3 routine):
+    WAIT_START:
+        use existing Part 3 handling for '$'
+
     GET_COMMAND:
-        also accept 'S'
+        if byte is 'I', 'A', or 'S':
+            save command; advance rx_state to GET_LENGTH
+        otherwise:
+            reset rx_state to WAIT_START
+        return
 
     GET_LENGTH:
-        if command is 'S' and length = 2:
-            advance to GET_SERVO_H
-        otherwise use existing Part 3 handling
+        if command is 'S':
+            if received length byte is 2:
+                advance rx_state to GET_SERVO_H
+            otherwise:
+                reset rx_state to WAIT_START
+            return
+        use existing Part 3 length handling for 'I' and 'A'
+        return
+
+    GET_CHANNEL:
+        use existing Part 3 ADC channel handling
 
     GET_SERVO_H:
         save received byte in servo_cmd_h
-        advance to GET_SERVO_L
+        advance rx_state to GET_SERVO_L
         return
 
     GET_SERVO_L:
         save received byte in servo_cmd_l
-        reset parser to WAIT_START
+        reset rx_state to WAIT_START
         call ValidateServo
         return
 
 ValidateServo:
-    if compare value is outside 0xB3D4 through 0xBBA4:
-        if no reply is already pending:
-            queue servo error response (03 01)
+    compare servo_cmd_h:servo_cmd_l with 0xB3D4 and 0xBBA4
+    compare high bytes first; compare low bytes when high bytes match
+
+    if compare value is outside the allowed range:
+        if no reply is pending:
+            set reply_pending to servo error
         return
+
     set servo_pending
     return
 
-ServiceReply (extend existing error builder):
-    for servo error, build response 24 45 02 03 01
-    otherwise use existing Part 3 replies
+ServiceReply (extend existing Part 3 routine):
+    keep existing ID and ADC response builders unchanged
+    keep existing framing and overrun error handling
+    when servo error is pending:
+        build servo error response in tx_data[]  # 24 45 02 03 01
+        set tx_length to 5
+        reset tx_count
+        clear reply_pending
+    return through the existing Part 3 logic
+
+ServiceAdc:
+    use existing Part 3 code unchanged
+
+ServiceTx:
+    use existing Part 3 code unchanged
 
 ServiceServo:
     if servo_pending is clear, return
-    briefly disable interrupts
+    temporarily disable global interrupts
     if servo_busy is clear:
-        copy servo_cmd_h:l into ccp_next_h:l
+        copy servo_cmd_h into ccp_next_h
+        copy servo_cmd_l into ccp_next_l
         clear servo_pending
-    re-enable interrupts
+    re-enable global interrupts
     return
 
-Timer1 interrupt:
-    clear the Timer1 and stale CCP1 interrupt flags
-    reload Timer1 to 0xB1E0
-    set RC2 HIGH and set servo_busy
-    copy ccp_next_h:l into CCPR1H:CCPR1L
-    restore context and return from interrupt
+IsrHandler:
+    save W and STATUS using the Lab07 context-save method
+    if Timer1 interrupt is pending: handle Timer1Interrupt
+    otherwise if CCP1 interrupt is pending: handle Ccp1Interrupt
+    restore W and STATUS; return from interrupt
 
-CCP1 interrupt:
+Timer1Interrupt:
+    clear Timer1 interrupt flag
+    clear any stale CCP1 interrupt flag
+    call StartFrame
+    return through the common interrupt exit
+
+StartFrame:
+    reload Timer1 with 0xB1E0 for the 20 ms frame
+    set RC2 HIGH
+    set servo_busy
+    copy ccp_next_h:l into CCPR1H:CCPR1L
+    return
+
+Ccp1Interrupt:
     clear CCP1 interrupt flag
-    set RC2 LOW and clear servo_busy
-    restore context and return from interrupt
+    set RC2 LOW
+    clear servo_busy
+    return through the common interrupt exit
 ```
 
-Use the same ISR context-save/restore pattern as Lab07. Do not wait in a loop for `servo_busy` to clear. Continue measuring the receive-service diagnostic interval from Part 3 while the servo runs, and compare it with the Part 2 receive timing budget.
+As in Lab07, `servo_busy` is set from the rising edge until the CCP falling edge. **Do not wait for it in the main loop.** Continue servicing UART and ADC during the HIGH pulse; only the transfer of a new compare value in `ServiceServo` waits until the LOW part of the frame. Measure the receive-service diagnostic interval while the servo runs and compare it with the Part 2 receive timing budget.
 
 ### Extend the graphical host application
 
@@ -873,26 +926,23 @@ Build on your Part 3 GUI and retain its serial connection controls, ID/ADC comma
 
 Add:
 
-- **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured reference voltage and any justified calibration correction.
+- **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured ADC reference voltage.
 - **Servo control:** enter or select a pulse width in microseconds; calculate `0xB1E0 + PW` and transmit its high/low compare bytes in the `S` packet. Display the calculated compare value and transmitted bytes.
 - **Error indication:** decode and display servo range errors (`03 01`) alongside the existing framing and overrun errors. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
 
 Keep the GUI responsive during temperature requests and servo commands.
 
-### Required LM34 calibration
+### LM34 measurement verification
 
-Before lab, write a calibration procedure that:
+The LM34 is calibrated at manufacture for a nominal output of **10 mV/°F**. The [TI LM34 datasheet](https://www.ti.com/lit/ds/symlink/lm34.pdf) states that external trimming or calibration is unnecessary.
 
-- uses an independent temperature reference;
-- uses at least two stable temperature points when practical;
-- records raw ADC count and calculated LM34 voltage;
-- calculates temperature using the nominal 10 mV/°F relationship;
-- compares calculated temperature with the independent reference;
-- records error at each point;
-- states whether an offset or other correction is justified;
-- applies any correction on the host side.
+Verify the assembled measurement chain rather than calibrating the sensor:
 
-The calibration verifies the complete LM34 → ADC → UART → host measurement chain.
+- Measure the actual ADC reference voltage (`VDD`), because it affects the ADC-to-voltage calculation.
+- At a stable room temperature, measure the LM34 output with a DMM and compare it with the voltage calculated from the returned ADC count.
+- Convert the ADC reading to °F in the graphical host application and compare it with a nearby independent temperature reference. Record the difference as a verification result, not a correction factor.
+
+No two-point calibration, offset adjustment, or temperature scaling correction is required.
 
 ### Before Lab
 
@@ -900,7 +950,7 @@ Prepare or reference:
 
 - LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
 - LM34 temperature-conversion worked calculation;
-- temperature-calibration procedure;
+- plan to measure the ADC reference voltage, LM34 output, and temperature for a one-point functional check;
 - completed Part 3 PIC firmware and graphical host application, with a plan for the new `S` command and temperature/servo controls;
 - reused Lab 07 ADC routines and working Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
 - updated packet-parser and Timer1/CCP interrupt flowcharts showing only the additions to the Part 3 program;
@@ -915,7 +965,7 @@ Keep the servo disconnected until waveform checkoff.
 2. Extend the PIC parser to accept `S` packets containing absolute CCP compare bytes. Integrate the Lab07 Timer1/CCP servo pulse routines without disrupting the existing Part 3 services.
 3. Add GUI controls to enter pulse widths in microseconds, convert them to absolute CCP match values, and send the corresponding binary bytes. Show the match value, packet bytes, and any servo errors in the GUI history.
 4. Replace the potentiometer with the LM34 on AN0. Add host-side voltage and temperature display using the raw ADC reply.
-5. Perform the planned temperature calibration and compare against an independent reference.
+5. Measure the actual ADC reference voltage and LM34 output with a DMM. Compare the ADC-derived voltage with the measured sensor voltage and the calculated temperature with an independent reference.
 6. With the servo disconnected, command 500, 1500, and 2500 us. Measure each output pulse and the 20 ms frame on the oscilloscope.
 7. Send an out-of-range servo command. Verify error packet `24 45 02 03 01` and confirm the last valid pulse width remains active.
 8. Obtain instructor waveform checkoff, then connect the servo using a suitable supply and common ground.
@@ -927,29 +977,28 @@ Keep the servo disconnected until waveform checkoff.
 
 Include or reference:
 
-- LM34 loading/component analysis, calibration procedure, and measurement table;
-- raw ADC, calculated voltage, calculated temperature, reference temperature, and error;
+- LM34 loading/component analysis, measured ADC reference voltage, and one-point measurement verification;
+- raw ADC count, measured and calculated LM34 voltage, calculated temperature, independent reference temperature, and their difference;
 - updated parser and Timer1/CCP interrupt flowcharts, plus final PIC and graphical host source showing the Part 3 extensions;
 - GUI screenshot with decoded temperature, servo commands, an error indication, and hexadecimal TX/RX transaction history;
 - valid and invalid servo command captures, including preservation of the last valid pulse width after rejection;
 - receive-service diagnostic timing compared with the Part 2 budget, and servo pulse/frame timing under sustained UART/ADC activity.
 
-Suggested calibration table:
+Suggested verification table (no calibration correction):
 
-| Reference °F | ADC code | Calculated voltage | Calculated °F | Error °F | Corrected °F |
+| Measured VREF (V) | ADC code | Measured LM34 (V) | Calculated LM34 (V) | Calculated °F | Reference °F |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-|  |  |  |  |  |  |
 |  |  |  |  |  |  |
 
 ### Demonstrate
 
 Use your extended Part 3 graphical host application to show live temperature requests while independently commanding the servo. Display the packet history and a rejected out-of-range command, then show stable servo timing and receive-service diagnostic pulses while UART/ADC work continues.
 
-Explain the raw-data packet, host-side temperature calculation, calibration result, the conversion from microseconds to absolute CCP compare bytes, the 16-bit compare-value validation, and safe next-frame update using `servo_busy`.
+Explain the raw-data packet, host-side temperature calculation and measurement check, the conversion from microseconds to absolute CCP compare bytes, the 16-bit compare-value validation, and safe next-frame update using `servo_busy`.
 
 ### Complete When
 
-Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error behavior, temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
+Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error behavior, temperature data is calculated correctly and checked against measured voltage and a reference thermometer, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
 
 [Back to top](#top)
 
