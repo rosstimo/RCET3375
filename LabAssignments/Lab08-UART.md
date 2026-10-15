@@ -806,7 +806,7 @@ Startup:
 
 **Use your existing Part 3 code.** Do not replace the working `ServiceRx`, `ServiceAdc`, `ServiceTx`, ID/ADC packet handling, or receive-error recovery. Add `servo_busy` checks to the main loop, extend the parser and error builder, and bring in the Lab07 Timer1/CCP interrupt routines. No separate `ServiceServo` routine is used.
 
-The following pseudocode matches the organization of Part 3. Entries labeled "existing Part 3" mean **keep your working code**, not implement an empty routine.
+The following pseudocode matches the organization of Part 3. Entries labeled "existing Part 3" mean **keep your working code**, not implement an empty routine. Each call to `ParseRxByte` processes only **one byte**. To "advance" means to change `rx_state` so the **next received byte** is handled by the named state; it does not process another byte immediately.
 
 ```text
 main:
@@ -838,16 +838,25 @@ ParseRxByte (extend existing Part 3 routine):
         return
 
     GET_LENGTH:
-        if command is 'S':
-            if received length byte is 2:
-                advance rx_state to GET_SERVO_H
-            otherwise:
-                reset rx_state to WAIT_START
-            return
-        use existing Part 3 handling for 'I' and 'A'
+        if saved command is 'I' and received length byte is 0:
+            reset rx_state to WAIT_START
+            if no reply is pending, request ID response
+
+        else if saved command is 'A' and received length byte is 1:
+            advance rx_state to GET_CHANNEL
+
+        else if saved command is 'S' and received length byte is 2:
+            advance rx_state to GET_SERVO_H
+
+        otherwise:
+            reset rx_state to WAIT_START
+        return
 
     GET_CHANNEL:
-        use existing Part 3 ADC channel handling
+        reset rx_state to WAIT_START
+        if received channel byte is 0 (AN0) and no reply is pending:
+            request ADC response
+            reset adc_state to IDLE
         return
 
     GET_SERVO_H:
