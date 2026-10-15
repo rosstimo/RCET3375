@@ -649,11 +649,9 @@ Part 3 is complete when the graphical host application sends and decodes the def
 
 ### Goal
 
-Start with your **completed Part 3 PIC firmware and graphical host application**. Extend both projects to measure temperature with an LM34 and command one CCP-timed servo. Preserve the Lab07 servo timing by allowing foreground UART and ADC work only between servo pulses.
+Begin with your **working Part 3 PIC firmware and graphical host application**. Replace the potentiometer with an LM34 temperature sensor and add one servo controlled by UART commands. Reuse the Lab07 Timer1/CCP timing and `servo_busy` behavior.
 
-Preserve the Part 3 packet parser, RX/ADC/TX services, device-ID and ADC replies, receive-error handling, diagnostic output, and graphical host transaction history. Adapt your working Lab07 Timer1/CCP servo routines and replace the potentiometer with the LM34. Keep the original Part 3 services short, but skip starting them while `servo_busy` is set.
-
-Keep the existing packet format and raw 10-bit ADC reply. Convert the reading to temperature in the host application. The LM34 is factory calibrated; no sensor calibration is required.
+Keep the Part 3 packet parser, ID/ADC replies, receive-error handling, diagnostic signal, and graphical transaction history. The PIC continues sending **raw 10-bit ADC readings**; the host converts them to °F. The LM34 is factory calibrated, so no sensor calibration is required.
 
 ### LM34 conversion
 
@@ -716,7 +714,7 @@ Use your measured ADC reference voltage. The LM34 is factory calibrated, so do n
 
 ### Servo command packet
 
-Extend the Part 3 parser to recognize `S` and collect two payload bytes. The host accepts a pulse width in microseconds, converts it to an **absolute Timer1/CCP1 compare value**, and sends the high and low bytes of that value. The PIC does not calculate a pulse width from the packet. **Receiving the command updates RAM, not the CCP hardware compare registers.**
+Extend the Part 3 parser to recognize `S` and collect two payload bytes. The host accepts a pulse width in microseconds, converts it to an **absolute Timer1/CCP1 compare value**, and sends its high and low bytes. The PIC validates and saves that value in RAM; it does **not** write to the CCP hardware compare registers or calculate a pulse width from the packet.
 
 At 4 MHz with a 1 µs Timer1 tick and the Lab07 reload value `0xB1E0`:
 
@@ -740,9 +738,10 @@ For a 1500 µs command:
 Send the high byte first, followed by the low byte:
 
 ```text
-Packet:                $ S 2 CCP_H CCP_L
+Packet:                $ S 2 MATCH_H MATCH_L
 1500 us request:       24 53 02 B7 BC        (valid; no reply)
-2600 us request:       24 53 02 BC 08        (invalid)
+Below minimum:         24 53 02 B3 D3        (invalid)
+Above maximum:         24 53 02 BB A5        (invalid)
 Invalid servo reply:   24 45 02 03 01        (servo 1 out of range)
 ```
 
@@ -762,16 +761,21 @@ Reuse the working **Lab07 Timer1/CCP1 servo pulse method**, not a new scheduler.
 
 `servo_busy` is set while RC2 is HIGH and cleared by the CCP1 falling-edge interrupt. **The main loop skips starting RX, reply/ADC, and TX service routines while the flag is set**, just as Lab07 waits for the pulse to finish before doing foreground work. Check the flag again between service calls. A routine already running when Timer1 starts a pulse may finish after the interrupt; the checks are made at routine boundaries.
 
-There is **no `ServiceServo` routine or `servo_pending` flag**. The parser first saves the received command bytes in `servo_cmd_h:l` (RAM). After validation, `ValidateServo` briefly disables global interrupts and copies the complete value into `ccp_next_h:l` (RAM), then re-enables interrupts. **It does not write `CCPR1H:CCPR1L`.** At the next Timer1 frame start, `StartFrame` transfers the saved value from `ccp_next_h:l` to `CCPR1H:CCPR1L` for the upcoming compare. This prevents a command from changing the compare value during the current servo pulse.
+Servo command handling has **two distinct stages**:
+
+1. **Foreground, on a valid `S` command:** `ParseRxByte` collects the two bytes in `servo_cmd_h:l`. `ValidateServo` briefly disables interrupts to copy the complete value into `ccp_next_h:l` in RAM. Neither routine writes the CCP hardware registers.
+2. **Timer1 frame-start interrupt:** `StartFrame` copies `ccp_next_h:l` into the hardware registers `CCPR1H:CCPR1L`. CCP1 then uses that value to end the servo pulse.
+
+This keeps a new command from changing the current pulse. Reuse the Lab07 interrupt behavior; **do not add `ServiceServo` or `servo_pending`**.
 
 ### Required RAM
 
 Keep the Part 3 RAM. Add:
 
 ```text
-servo_cmd_h/l:      two compare bytes received from the host
-ccp_next_h/l:       complete compare value for the next frame
-servo_busy:         set during the HIGH portion of the servo pulse
+servo_cmd_h/l:      incoming compare bytes, saved in RAM by the parser
+ccp_next_h/l:       validated compare value, held in RAM for the next frame
+servo_busy:         set while the servo pulse is HIGH
 w_temp/status_temp: ISR context storage as required by Lab07
 ```
 
@@ -880,10 +884,10 @@ ValidateServo:
         return
 
     temporarily disable global interrupts
-    copy servo_cmd_h to ccp_next_h   (RAM)
-    copy servo_cmd_l to ccp_next_l   (RAM)
+    copy servo_cmd_h to ccp_next_h   (RAM only)
+    copy servo_cmd_l to ccp_next_l   (RAM only)
     re-enable global interrupts
-    do not modify CCPR1H:CCPR1L here
+    do not write to CCPR1H:CCPR1L here
     return
 
 ServiceReply (extend existing Part 3 routine):
@@ -919,7 +923,7 @@ StartFrame:
     reload Timer1 with 0xB1E0 for the 20 ms frame
     set RC2 HIGH
     set servo_busy
-    load CCPR1H:CCPR1L from ccp_next_h:l (saved RAM value)
+    load CCPR1H:CCPR1L from ccp_next_h:l (RAM)
     return
 
 Ccp1Interrupt:
@@ -946,7 +950,7 @@ Build on your Part 3 GUI and retain its serial connection controls, ID/ADC comma
 Add:
 
 - **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured ADC reference voltage.
-- **Servo control:** enter or select a pulse width in microseconds; calculate `0xB1E0 + PW` and transmit its high/low compare bytes in the `S` packet. Display the calculated compare value and transmitted bytes.
+- **Servo control:** enter or select a pulse width in microseconds; calculate `0xB1E0 + PW` and send its high/low bytes in the `S` packet. Display both the requested width and the calculated match/packet bytes. A transmitted command is not confirmation of the measured servo pulse.
 - **Error indication:** decode and display servo range errors (`03 01`) alongside the existing Part 3 receive errors. Record any unexpected reply or request timeout in the history, and allow a fresh request after an error. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
 
 Keep the GUI responsive during temperature requests and servo commands.
@@ -973,7 +977,7 @@ Prepare or reference:
 - completed Part 3 PIC firmware and graphical host application, with a plan for the new `S` command and temperature/servo controls;
 - reused Lab 07 ADC routines and working Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
 - updated packet-parser and Timer1/CCP interrupt flowcharts showing only the additions to the Part 3 program;
-- 16-bit compare-value range-check logic and safe staging of the next-frame CCP value;
+- 16-bit compare-value range-check logic and the two-stage update: saved RAM value first, CCP hardware registers at Timer1 frame start;
 - program structure showing the `servo_busy` checks before foreground services, and a plan to measure the receive-service interval at 500, 1500, and 2500 µs servo pulse widths.
 
 ### In the Lab
@@ -981,12 +985,12 @@ Prepare or reference:
 Keep the servo disconnected until waveform checkoff.
 
 1. Continue from your working Part 3 firmware and GUI. Confirm that device-ID requests, raw ADC requests, RX error handling, and the transaction history still work.
-2. Extend the PIC parser to accept `S` packets containing absolute CCP compare bytes. Reuse the Lab07 Timer1/CCP servo pulse routines. Gate the existing Part 3 foreground service calls with `servo_busy`. Have `ValidateServo` update only the saved compare value in RAM (`ccp_next_h:l`); the Timer1 frame-start interrupt loads that value into `CCPR1H:CCPR1L`. Do not add `ServiceServo`.
+2. Extend the Part 3 parser for `S` packets. Reuse the Lab07 Timer1/CCP interrupts and gate foreground services with `servo_busy`. After a valid packet, store the next match in `ccp_next_h:l` (RAM); load the hardware compare registers only in `StartFrame`. Do not add `ServiceServo`.
 3. Add GUI controls to enter pulse widths in microseconds, convert them to absolute CCP match values, and send the corresponding binary bytes. Show the match value, packet bytes, and any servo errors in the GUI history.
 4. Replace the potentiometer with the LM34 on AN0. Add host-side voltage and temperature display using the raw ADC reply.
 5. Measure the actual ADC reference voltage and LM34 output with a DMM. Compare the ADC-derived voltage with the measured sensor voltage and the calculated temperature with an independent reference.
-6. With the servo disconnected, command 500, 1500, and 2500 us. Measure each output pulse and the 20 ms frame on the oscilloscope.
-7. Send an out-of-range servo command. Verify error packet `24 45 02 03 01` and confirm the last valid pulse width remains active.
+6. With the servo disconnected, command 500, 1500, and 2500 µs. Measure each HIGH pulse and the 20 ms frame on the oscilloscope. Change from one valid setting to another while observing RC2; confirm that the new setting is applied on a subsequent frame, without disturbing the current pulse.
+7. Send compare values one count below and above the valid range (`B3 D3` and `BB A5`). Verify error packet `24 45 02 03 01` and confirm that the previous valid pulse width remains active.
 8. Obtain instructor waveform checkoff, then connect the servo using a suitable supply and common ground.
 9. Request temperature and send servo commands at 500, 1500, and 2500 µs. Verify the returned ADC data and confirm that the 20 ms frame and commanded servo pulse widths remain stable.
 10. Probe RC2 and the RA1 receive-service diagnostic signal together for each of the three pulse widths. Measure the longest gap between RX service checks and compare it with your Part 2 timing calculations.
@@ -1001,7 +1005,7 @@ Include or reference:
 - raw ADC count, measured and calculated LM34 voltage, calculated temperature, independent reference temperature, and their difference;
 - updated parser and Timer1/CCP interrupt flowcharts, plus final PIC and graphical host source showing the Part 3 extensions;
 - GUI screenshot with decoded temperature, servo commands, an error indication, and hexadecimal TX/RX transaction history;
-- valid and invalid servo command captures, including preservation of the last valid pulse width after rejection;
+- captures of valid servo pulse widths and the transition to a new setting on a subsequent frame, plus both out-of-range command replies and preservation of the previous valid width;
 - a simultaneous RC2/RA1 capture showing the foreground-service pause during servo HIGH, measured service gaps for different pulse widths, and their comparison with the Part 2 timing budget;
 - a record of any communication errors, unexpected responses, or timeouts observed during testing, including the conditions under which they occurred, repeatability, and results of a subsequent valid request. If none occur, state the conditions tested and that none were observed.
 
@@ -1015,11 +1019,11 @@ Suggested verification table (no calibration correction):
 
 Use your extended Part 3 graphical host application to request temperature and command the servo. Display the packet history and a rejected out-of-range servo command. Show the servo pulse/frame timing and receive-service diagnostic measurements at different pulse widths. Discuss any unexpected communication behavior observed and the conditions under which it occurred.
 
-Explain the raw-data packet, host-side temperature calculation and measurement check, the conversion from microseconds to absolute CCP compare bytes, and the 16-bit range check. Distinguish saving the next compare value in RAM inside `ValidateServo` from loading the CCP hardware registers in the Timer1 interrupt. Explain how `servo_busy` changes when foreground services run and interpret your timing measurements.
+Explain the raw-data packet, host-side temperature calculation and measurement check, conversion from microseconds to absolute compare bytes, and 16-bit range validation. Trace one valid servo command from `servo_cmd_h:l` through `ccp_next_h:l` to `CCPR1H:CCPR1L` at the next frame start. Explain when `servo_busy` permits foreground services and interpret the receive-service timing measurements.
 
 ### Complete When
 
-Part 4 is complete when your extended Part 3 firmware and GUI retain the original packet/ADC/error handling, temperature data is calculated correctly and checked against measured voltage and a reference thermometer, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, the Lab07 servo busy gate preserves pulse timing, and you have documented the receive-service measurements and any unexpected communication behavior under the conditions tested.
+Part 4 is complete when the extended firmware and GUI retain the Part 3 packet/ADC/error functions, report checked LM34 temperatures, produce the requested servo pulse widths without changing a pulse in progress, reject out-of-range commands without changing the last valid setting, and preserve the Lab07 busy-gated timing. Document the receive-service measurements and any unexpected communication behavior under the conditions tested.
 
 [Back to top](#top)
 
