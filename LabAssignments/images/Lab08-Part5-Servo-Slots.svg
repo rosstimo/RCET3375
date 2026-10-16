@@ -1,43 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="370" viewBox="0 0 1040 370" role="img" aria-labelledby="title desc">
-<title id="title">Lab08 three servo time slots within one twenty millisecond Timer1 frame</title>
-<desc id="desc">Servo 1 on RC2 pulses high from zero to 500 microseconds. Servo 2 on RC0 pulses high from 2.5 to 4 milliseconds. Servo 3 on RC1 pulses high from 5 to 7.5 milliseconds. Each pulse has a protected final 100 microseconds marked orange. Timer1 reloads once every 20 milliseconds.</desc>
-<rect x="0" y="0" width="1040" height="370" fill="#FFFFFF"/>
-<text x="18" y="27" font-size="21" font-family="sans-serif" font-weight="700" fill="#0F172A">One 20 ms Timer1 frame, three 2.5 ms servo slots</text>
-<g font-family="sans-serif">
-<text x="974" y="57" font-size="13" fill="#475569">ms</text>
-<line x1="130" y1="65" x2="130" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="130" y="57" text-anchor="middle" font-size="13" fill="#334155">0</text>
-<line x1="232.5" y1="65" x2="232.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="232.5" y="57" text-anchor="middle" font-size="13" fill="#334155">2.5</text>
-<line x1="335" y1="65" x2="335" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="335" y="57" text-anchor="middle" font-size="13" fill="#334155">5</text>
-<line x1="437.5" y1="65" x2="437.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="437.5" y="57" text-anchor="middle" font-size="13" fill="#334155">7.5</text>
-<line x1="540" y1="65" x2="540" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="540" y="57" text-anchor="middle" font-size="13" fill="#334155">10</text>
-<line x1="642.5" y1="65" x2="642.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="642.5" y="57" text-anchor="middle" font-size="13" fill="#334155">12.5</text>
-<line x1="745" y1="65" x2="745" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="745" y="57" text-anchor="middle" font-size="13" fill="#334155">15</text>
-<line x1="847.5" y1="65" x2="847.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="847.5" y="57" text-anchor="middle" font-size="13" fill="#334155">17.5</text>
-<line x1="950" y1="65" x2="950" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="950" y="57" text-anchor="middle" font-size="13" fill="#334155">20</text>
-<rect x="130" y="70" width="102.5" height="27" fill="#E2E8F0" stroke="#CBD5E1"/><text x="181.3" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 1 slot</text>
-<rect x="232.5" y="70" width="102.5" height="27" fill="#F1F5F9" stroke="#CBD5E1"/><text x="283.8" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 2 slot</text>
-<rect x="335" y="70" width="102.5" height="27" fill="#E2E8F0" stroke="#CBD5E1"/><text x="386.3" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 3 slot</text>
-<rect x="437.5" y="70" width="512.5" height="27" fill="#F1F5F9" stroke="#CBD5E1"/><text x="693.8" y="88" text-anchor="middle" font-size="14" fill="#334155">Idle / foreground work</text>
-<text x="10" y="129" font-size="15" font-weight="600" fill="#0F172A">Servo 1 (RC2)</text>
- <line x1="130" y1="146" x2="950" y2="146" stroke="#94A3B8" stroke-width="2"/>
- <path d="M130 146 V118 H150.5 V146" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
- <rect x="146.4" y="113" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
- <line x1="150.5" y1="112" x2="150.5" y2="151" stroke="#C2410C" stroke-width="2"/>
- <text x="147" y="106" font-size="13" text-anchor="middle" fill="#166534">500 µs</text>
-<text x="10" y="198" font-size="15" font-weight="600" fill="#0F172A">Servo 2 (RC0)</text>
- <line x1="130" y1="215" x2="950" y2="215" stroke="#94A3B8" stroke-width="2"/>
- <path d="M232.5 215 V187 H294 V215" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
- <rect x="289.9" y="182" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
- <line x1="294" y1="181" x2="294" y2="220" stroke="#C2410C" stroke-width="2"/>
- <text x="263.3" y="175" font-size="13" text-anchor="middle" fill="#166534">1500 µs</text>
-<text x="10" y="267" font-size="15" font-weight="600" fill="#0F172A">Servo 3 (RC1)</text>
- <line x1="130" y1="284" x2="950" y2="284" stroke="#94A3B8" stroke-width="2"/>
- <path d="M335 284 V256 H437.5 V284" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
- <rect x="433.4" y="251" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
- <line x1="437.5" y1="250" x2="437.5" y2="289" stroke="#C2410C" stroke-width="2"/>
- <text x="386.3" y="244" font-size="13" text-anchor="middle" fill="#166534">2500 µs</text>
-<rect x="128" y="311" width="16" height="12" fill="#F59E0B" opacity=".65"/><text x="153" y="322" fill="#334155" font-size="14">Last 100 µs: servo_busy = 1</text>
-<line x1="402" y1="317" x2="418" y2="317" stroke="#C2410C" stroke-width="2"/><text x="428" y="322" fill="#334155" font-size="14">CCP falling edge: output LOW, servo_busy = 0</text>
-<text x="128" y="353" fill="#64748B" font-size="13">Example: servo widths 500, 1500, 2500 µs. All three repeat at the next 20 ms rollover.</text>
-</g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="388" viewBox="0 0 1200 388" role="img" aria-labelledby="title desc">
+<title id="title">Eight staggered 2.5 ms servo time slots with 128 microsecond protected windows</title>
+<desc id="desc">Eight servo pulses of different widths share one 20 millisecond timeline. Each green pulse starts at its own slot boundary; a thin red band marks the final 128 microseconds before each falling edge, when servo_busy blocks foreground servicing. A second shared foreground work timeline is green everywhere except at those same eight red windows. Foreground UART and ADC services can run during green regions, including most of a high servo pulse.</desc>
+<rect width="1200" height="388" fill="#FFFFFF"/>
+<g font-family="DejaVu Sans, Arial, sans-serif">
+<text x="22" y="35" fill="#0F172A" font-size="24" font-weight="700">Servo time-slot scheduler: eight possible slots</text>
+<text x="22" y="62" fill="#475569" font-size="15">One 20 ms Timer1 frame   ·   2.5 ms per slot   ·   illustrative pulse widths</text>
+<text x="82" y="124" text-anchor="end" fill="#334155" font-size="14">Slot</text>
+<text x="82" y="180" text-anchor="end" fill="#334155" font-size="14">Pulse</text>
+<text x="82" y="271" text-anchor="end" fill="#334155" font-size="14">Work</text>
+<line x1="94" y1="91" x2="94" y2="287" stroke="#94A3B8" stroke-width="2" stroke-dasharray="none"/>
+<text x="94" y="85" text-anchor="middle" fill="#334155" font-size="13">0</text>
+<line x1="224" y1="91" x2="224" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="224" y="85" text-anchor="middle" fill="#334155" font-size="13">2.5</text>
+<line x1="354" y1="91" x2="354" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="354" y="85" text-anchor="middle" fill="#334155" font-size="13">5</text>
+<line x1="484" y1="91" x2="484" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="484" y="85" text-anchor="middle" fill="#334155" font-size="13">7.5</text>
+<line x1="614" y1="91" x2="614" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="614" y="85" text-anchor="middle" fill="#334155" font-size="13">10</text>
+<line x1="744" y1="91" x2="744" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="744" y="85" text-anchor="middle" fill="#334155" font-size="13">12.5</text>
+<line x1="874" y1="91" x2="874" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="874" y="85" text-anchor="middle" fill="#334155" font-size="13">15</text>
+<line x1="1004" y1="91" x2="1004" y2="287" stroke="#94A3B8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="1004" y="85" text-anchor="middle" fill="#334155" font-size="13">17.5</text>
+<line x1="1134" y1="91" x2="1134" y2="287" stroke="#94A3B8" stroke-width="2" stroke-dasharray="none"/>
+<text x="1134" y="85" text-anchor="middle" fill="#334155" font-size="13">20</text>
+<text x="1152" y="85" fill="#475569" font-size="12">ms</text>
+<rect x="94" y="251" width="1040" height="30" fill="#BBF7D0" stroke="#86EFAC"/>
+<rect x="94" y="103" width="130" height="101" fill="#F8FAFC" stroke="#E2E8F0"/>
+<text x="159" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">1</text>
+<text x="159" y="146" text-anchor="middle" fill="#475569" font-size="13">850 µs</text>
+<rect x="94" y="162" width="44.2" height="30" fill="#16A34A" rx="1"/>
+<rect x="131.544" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="131.544" y1="194" x2="131.544" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="131.544" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="138.2" y1="158" x2="138.2" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="224" y="103" width="130" height="101" fill="#F1F5F9" stroke="#E2E8F0"/>
+<text x="289" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">2</text>
+<text x="289" y="146" text-anchor="middle" fill="#475569" font-size="13">1700 µs</text>
+<rect x="224" y="162" width="88.4" height="30" fill="#16A34A" rx="1"/>
+<rect x="305.744" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="305.744" y1="194" x2="305.744" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="305.744" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="312.4" y1="158" x2="312.4" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="354" y="103" width="130" height="101" fill="#F8FAFC" stroke="#E2E8F0"/>
+<text x="419" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">3</text>
+<text x="419" y="146" text-anchor="middle" fill="#475569" font-size="13">2250 µs</text>
+<rect x="354" y="162" width="117" height="30" fill="#16A34A" rx="1"/>
+<rect x="464.344" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="464.344" y1="194" x2="464.344" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="464.344" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="471" y1="158" x2="471" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="484" y="103" width="130" height="101" fill="#F1F5F9" stroke="#E2E8F0"/>
+<text x="549" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">4</text>
+<text x="549" y="146" text-anchor="middle" fill="#475569" font-size="13">700 µs</text>
+<rect x="484" y="162" width="36.4" height="30" fill="#16A34A" rx="1"/>
+<rect x="513.744" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="513.744" y1="194" x2="513.744" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="513.744" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="520.4" y1="158" x2="520.4" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="614" y="103" width="130" height="101" fill="#F8FAFC" stroke="#E2E8F0"/>
+<text x="679" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">5</text>
+<text x="679" y="146" text-anchor="middle" fill="#475569" font-size="13">1900 µs</text>
+<rect x="614" y="162" width="98.8" height="30" fill="#16A34A" rx="1"/>
+<rect x="706.144" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="706.144" y1="194" x2="706.144" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="706.144" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="712.8" y1="158" x2="712.8" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="744" y="103" width="130" height="101" fill="#F1F5F9" stroke="#E2E8F0"/>
+<text x="809" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">6</text>
+<text x="809" y="146" text-anchor="middle" fill="#475569" font-size="13">1200 µs</text>
+<rect x="744" y="162" width="62.4" height="30" fill="#16A34A" rx="1"/>
+<rect x="799.744" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="799.744" y1="194" x2="799.744" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="799.744" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="806.4" y1="158" x2="806.4" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="874" y="103" width="130" height="101" fill="#F8FAFC" stroke="#E2E8F0"/>
+<text x="939" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">7</text>
+<text x="939" y="146" text-anchor="middle" fill="#475569" font-size="13">2400 µs</text>
+<rect x="874" y="162" width="124.8" height="30" fill="#16A34A" rx="1"/>
+<rect x="992.144" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="992.144" y1="194" x2="992.144" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="992.144" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="998.8" y1="158" x2="998.8" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<rect x="1004" y="103" width="130" height="101" fill="#F1F5F9" stroke="#E2E8F0"/>
+<text x="1069" y="124" text-anchor="middle" fill="#0F172A" font-weight="700" font-size="15">8</text>
+<text x="1069" y="146" text-anchor="middle" fill="#475569" font-size="13">1050 µs</text>
+<rect x="1004" y="162" width="54.6" height="30" fill="#16A34A" rx="1"/>
+<rect x="1051.944" y="162" width="6.656" height="30" fill="#DC2626"/>
+<line x1="1051.944" y1="194" x2="1051.944" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
+<rect x="1051.944" y="251" width="6.656" height="30" fill="#DC2626"/>
+<line x1="1058.6" y1="158" x2="1058.6" y2="198" stroke="#991B1B" stroke-width="1.5"/>
+<text x="94" y="230" fill="#334155" font-size="15" font-weight="600">Foreground UART / ADC services: green = allowed, red = blocked</text>
+<rect x="26" y="314" width="20" height="14" fill="#16A34A"/><text x="55" y="326" fill="#334155" font-size="14">Pulse HIGH</text>
+<rect x="205" y="314" width="20" height="14" fill="#DC2626"/><text x="235" y="326" fill="#334155" font-size="14">servo_busy = 1 for final 128 µs (0x0080 counts)</text>
+<rect x="734" y="314" width="20" height="14" fill="#BBF7D0" stroke="#86EFAC"/><text x="763" y="326" fill="#334155" font-size="14">servo_busy = 0, service allowed</text>
+<text x="26" y="356" fill="#475569" font-size="14">Foreground services may run during a HIGH pulse until its red pre-edge window starts.</text>
+<text x="26" y="377" fill="#64748B" font-size="12">Only three servos are required for Lab08 Part 5; eight illustrates the scheduler capacity.</text>
+</g></svg>
