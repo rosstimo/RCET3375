@@ -688,7 +688,7 @@ The PIC accepts the full **500–2500 µs** range, including both endpoints. Rej
 
 - **Packet parser:** Add `S` with length `2`, followed by the high and low compare bytes. Collect both bytes before validating the 16-bit value. The `I` and `A` commands continue working as in Part 3.
 - **New servo target:** Reuse Lab07's Timer1/CCP1 20 ms frame, 1 µs resolution, RC2 servo output, and initial **1500 µs** setting. Instead of the Lab07 ADC lookup/calculation for the servo, take the **next** compare value from a valid UART `S` packet.
-- **Next-frame update:** Store the validated compare bytes together in RAM, protecting the two-byte update from an interrupt. The Timer1 frame-start interrupt transfers that saved value into `CCPR1H:CCPR1L`. Receiving a command must not write the hardware compare registers or disturb a pulse in progress.
+- **Next-frame update:** Store the validated compare bytes together in RAM, **protecting the two-byte update from an interrupt.** The Timer1 frame-start interrupt transfers that saved value into `CCPR1H:CCPR1L`. **Receiving a command must not write the hardware compare registers or disturb a pulse in progress.**
 - **Foreground servicing:** Retain Lab07's `servo_busy` behavior. Do not start UART/ADC foreground service work while the servo output is HIGH; check the busy flag between service calls. Keep the Part 3 receive-service diagnostic output on RA1.
 - **Existing functions:** Preserve the Part 3 ADC service, packet responses, and receive-error recovery.
 
@@ -725,9 +725,9 @@ Verify the measurement against the LM34 voltage measured with a DMM and an indep
 
 Build on the Part 3 GUI and preserve its packet decoding, error reporting, and scrollable transaction history. In Part 4, the application must operate automatically without requiring the user to choose a serial port or press Connect.
 
-- **Automatic PIC identification:** On startup, enumerate available serial ports, open each candidate at 9600 baud (8N1), and send the device-ID request `24 49 00`. A port is accepted only when the complete response is exactly `24 49 02 33 75`. Close candidates that do not return the expected ID. Send no ADC or servo commands to an unverified port. Display the name of the verified port (for example, `COM5` or `/dev/ttyUSB0`) and the connection status.
+- **Automatic PIC identification:** On startup, enumerate available serial ports, open each candidate at 9600 baud (8N1), and send the device-ID request `24 49 00`. A port is accepted only when the complete response is exactly `24 49 02 33 75`. Close ports that do not return the expected ID. Send no ADC or servo commands to an unverified port. Display the name of the verified port (for example, `COM5` or `/dev/ttyUSB0`) and the connection status.
 - **Temperature:** Once the PIC is identified, request AN0 (`24 41 01 00`) every **1 second**. Convert the returned 10-bit ADC reading to temperature using the measured reference voltage and display the result in **°F**. Keep the displayed temperature current.
-- **Servo slider:** Use **180 selectable integer-degree positions, 1°–180° inclusive**, with the slider initially set to **90°**. Map 1° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
+- **Servo slider:** Use **180 selectable integer-degree positions, 0°–180° inclusive**, with the slider initially set to **90°**. Map 0° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
 - **Servo transmission rule:** Send the centered 90° command (`24 53 02 B7 BC`) **once after the first successful PIC identification at application startup**. Thereafter, send servo commands **only when the user changes the slider**. Do not resend the same command every second or automatically upon reconnection. Do not transmit or queue slider commands while disconnected.
 - **Communication loss:** If the port disappears or communication fails, show **`COM ERR`** and replace the temperature with **`--- °F`**. Close the failed connection and attempt PIC discovery **every 1 second** until a valid ID reply is received. On reconnection, show the newly verified port and resume temperature updates automatically, without assuming that the old port name is still valid.
 - **Transaction history:** Display **all serial TX and RX packets as they happen**, including ID checks, periodic ADC requests/replies, servo commands, and errors. Include timestamp, port, direction, hexadecimal bytes, and decoded meaning. Log connection/disconnection and discovery outcomes too. Reassemble complete packets even when bytes arrive in multiple reads; preserve the Part 3 error and timeout handling.
@@ -744,12 +744,10 @@ Prepare or reference:
 
 ### In the Lab
 
-Keep the servo disconnected until waveform checkoff.
-
 1. Combine Part 3 with the Lab07 servo timing and add the `S` packet. Verify the original ID, ADC, and error responses still work.
 2. Build the GUI to the requirements above. Replace the potentiometer with the LM34, measure the ADC reference and sensor voltage, and compare the GUI temperature with an independent reference.
 3. With the servo disconnected, command **500, 1500, and 2500 µs**; measure each HIGH pulse and the 20 ms frame on the oscilloscope. Verify a new command affects a subsequent frame without changing the pulse in progress.
-4. Send `B3 D3` and `BB A5`, check for the expected error reply, and confirm that the last valid servo setting remains in effect. Obtain waveform checkoff before connecting the servo to an appropriate supply with common ground.
+4. Send `B3 D3` and `BB A5`, check for the expected error reply, and confirm that the last valid servo setting remains in effect.
 5. Start the GUI with the PIC adapter already connected. Confirm automatic ID verification, displayed port, **90°** initial slider, **one** startup servo packet, 1-second temperature updates, and servo packets only when the slider changes.
 6. Unplug the USB-to-RS-232 adapter from the host PC while the GUI is running. Verify `COM ERR`, `--- °F`, 1-second reconnection attempts, and automatic recovery after reconnection.
 7. Attach at least one additional virtual serial-port device. Repeat discovery with the PIC connected and disconnected; confirm that only an ID-verified PIC port receives ADC or servo commands.
