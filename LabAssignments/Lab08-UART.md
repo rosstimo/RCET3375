@@ -782,89 +782,47 @@ Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo tim
 
 > **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
 
-Part 5 is optional Mastery. Complete Parts 1 through 4 first.
-
-### Goal
-
-Extend Part 4 to independently command three servos while UART RX/TX and ADC acquisition remain active.
+Part 5 is optional Mastery. **Extend your working Part 4 firmware and GUI.** Keep the existing UART, ADC/LM34, automatic connection, error handling, and packet logging. Only extend the servo controls and timing.
 
 ### Three-servo command
 
-Use one packet to update all three next pulse widths:
+Add Servo 2 on **RC0** and Servo 3 on **RC1**; Servo 1 remains on **RC2**. Use GPIO for all three outputs, with the existing CCP1 compare interrupt scheduling their edges.
+
+Replace the Part 4 two-byte `S` command with **one six-byte payload**, containing three **absolute CCP compare values**. The host calculates each value exactly as in Part 4: `MATCH = 0xB1E0 + pulse width in µs`. Each match must remain in `0xB3D4`–`0xBBA4` (500–2500 µs).
 
 ```text
-$ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
+Command:       $ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
+Example:       24 53 06 B3 D4 B7 BC BB A4
+Pulse widths:            500   1500   2500 µs
 ```
 
-Each value is a 16-bit pulse width in microseconds and must be 500 through 2500 us.
+Validate **all three** before accepting any. An invalid value rejects the entire packet, leaves all three previous settings unchanged, and returns `24 45 02 03 NN`, where `NN` is the first invalid servo number (`01`, `02`, or `03`). Valid commands require no reply. Stage the six accepted bytes together and apply them at the **next 20 ms frame**, never midway through a frame.
 
-Reject the complete command if any of the three values is out of range. Return error `0x03` with `DETAIL` equal to the failing servo number:
+Extend the GUI to **three independent 0°–180° sliders**, each in 1° increments and initially at 90°. Send all three current values in one `S` packet when any slider changes. Preserve Part 4's **one initial centered command after first successful identification** and its no-repeat-on-reconnection rule.
 
-```text
-0x01 = Servo 1
-0x02 = Servo 2
-0x03 = Servo 3
-```
+### Time-slot scheduler
 
-Do not partially update the command.
+**Keep the existing Timer1 20 ms rollover, 1 µs tick, and one CCP1 compare event stream.** Start the servos at 0, 2.5, and 5 ms, respectively. The rest of the 20 ms frame is available for foreground work.
 
-### Scheduler
+![Three staggered servo pulses showing 2.5 ms time slots and their final 100 µs protected windows](images/Lab08-Part5-Servo-Slots.svg)
 
-Use one Timer1 20 ms frame and one CCP Compare event stream.
+For each servo, the received match is relative to the **original frame reload** (`0xB1E0`), not to the start of its slot. In firmware, add that servo's slot offset (0, 2500, or 5000 timer counts):
 
-```text
-0 ms   Servo 1 slot
-5 ms   Servo 2 slot
-10 ms  Servo 3 slot
-15 ms  final idle slot
-20 ms  next frame
-```
+- **First CCP match:** `MATCH + slot offset - 100`. Set `servo_busy` and load the final compare value.
+- **Second CCP match:** `MATCH + slot offset`. Drive that servo LOW, clear `servo_busy`, and schedule the next slot start. At a full 2500 µs pulse, the falling edge and next slot start coincide; perform both actions in the same ISR.
 
-Use the same protected-edge idea from Part 4:
+At each slot start, drive its servo HIGH and schedule its first compare. Only the last approximately **100 µs** before a falling edge is protected; the short nonblocking UART/ADC foreground services may now run during the earlier part of a HIGH pulse. After Servo 3, wait for the next Timer1 rollover to start another frame.
 
-```text
-0 = Servo 1 pre-edge
-1 = Servo 1 protected edge
-2 = Servo 1 remainder
+### Verify and document
 
-3 = Servo 2 pre-edge
-4 = Servo 2 protected edge
-5 = Servo 2 remainder
+1. Measure 500, 1500, and 2500 µs pulses on all three outputs, with a common **20 ms** repetition period. Verify independent commands and next-frame updates.
+2. Reject invalid values for each servo without changing any of the three outputs.
+3. Use the oscilloscope and RA1 RX-service diagnostic to verify the falling-edge protection and continued UART/ADC servicing under sustained communication. Check for timing degradation, RX errors, and servo chatter.
+4. Connect all three servos using an appropriate external supply and common ground. Demonstrate independent GUI control and the continuing LM34 temperature display.
 
-6 = Servo 3 pre-edge
-7 = Servo 3 protected edge
-8 = Servo 3 remainder
+Include the updated scheduler/parser flowcharts, PIC and host source, three-channel scope evidence, representative timing measurements, and results of the UART/ADC stress check.
 
-9 = final idle
-```
-
-States 1, 4, and 7 are the only protected states.
-
-Use absolute Timer1 deadlines so ISR execution time does not accumulate frame drift.
-
-### In the Lab
-
-1. Verify all three waveforms before connecting servos.
-2. Verify 500, 1500, and 2500 us for each output.
-3. Verify one 20 ms frame for all three channels.
-4. Connect the servos using a suitable external supply and common ground.
-5. Command all three servos independently from the host.
-6. Run sustained UART requests and ADC acquisition while all three servos operate.
-7. Verify no visible chatter or measurable timing degradation beyond normal ISR timing.
-
-### Evidence
-
-Include or reference:
-
-- final scheduler/parser flowchart;
-- final PIC and host source;
-- three-channel scope capture;
-- representative min/center/max measurements for all three outputs;
-- timing evidence while UART and ADC are active.
-
-### Complete When
-
-Mastery is complete when all three servos accept independent pulse-width commands through the packet protocol and maintain stable timing while UART and ADC remain active.
+**Complete when:** All three servos respond independently to one packet, their timing remains stable with UART and ADC active, and Parts 1–4 continue working.
 
 [Back to top](#top)
 
