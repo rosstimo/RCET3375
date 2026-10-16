@@ -727,7 +727,7 @@ Build on the Part 3 GUI and preserve its packet decoding, error reporting, and s
 
 - **Automatic PIC identification:** On startup, enumerate available serial ports, open each candidate at 9600 baud (8N1), and send the device-ID request `24 49 00`. A port is accepted only when the complete response is exactly `24 49 02 33 75`. Close ports that do not return the expected ID. Send no ADC or servo commands to an unverified port. Display the name of the verified port (for example, `COM5` or `/dev/ttyUSB0`) and the connection status.
 - **Temperature:** Once the PIC is identified, request AN0 (`24 41 01 00`) every **1 second**. Convert the returned 10-bit ADC reading to temperature using the measured reference voltage and display the result in **°F**. Keep the displayed temperature current.
-- **Servo slider: **Slider positions, 0°–180° inclusive in **1° increments**, with the slider initially set to **90°**. Map 0° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
+- **Servo slider:** Positions, 0°–180° inclusive in **1° increments**, with the slider initially set to **90°**. Map 0° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
 - **Servo transmission rule:** Send the centered 90° command (`24 53 02 B7 BC`) **once after the first successful PIC identification at application startup**. Thereafter, send servo commands **only when the user changes the slider**. Do not resend the same command every second or automatically upon reconnection. Do not transmit or queue slider commands while disconnected.
 - **Communication loss:** If the port disappears or communication fails, show **`COM ERR`** and replace the temperature with **`--- °F`**. Close the failed connection and attempt PIC discovery **every 1 second** until a valid ID reply is received. On reconnection, show the newly verified port and resume temperature updates automatically, without assuming that the old port name is still valid.
 - **Transaction history:** Display **all serial TX and RX packets as they happen**, including ID checks, periodic ADC requests/replies, servo commands, and errors. Include timestamp, port, direction, hexadecimal bytes, and decoded meaning. Log connection/disconnection and discovery outcomes too. Reassemble complete packets even when bytes arrive in multiple reads; preserve the Part 3 error and timeout handling.
@@ -740,7 +740,7 @@ Prepare or reference:
 - Schematic, loading calculations, and the LM34, MAX232, PIC, and servo documentation.
 - LM34 temperature and servo compare-value worked calculations and predicted measurements.
 - Working Part 3 and Lab07 projects, a plan for integrating the `S` packet and next-frame update, and updated parser/interrupt flowcharts.
-- The GUI design for ID-based discovery, 1-second °F updates, the 180-position slider, full packet logging, and automatic reconnection.
+- The GUI design for ID-based discovery, 1-second °F updates, the 0°–180° slider, full packet logging, and automatic reconnection.
 
 ### In the Lab
 
