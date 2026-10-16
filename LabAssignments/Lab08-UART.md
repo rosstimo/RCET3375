@@ -780,7 +780,7 @@ Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo tim
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Servo Scheduler
 
-> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+> **Status: Final draft.**
 
 Optional Mastery: **Extend your working Part 4 firmware and GUI.** Keep UART, ADC/LM34, connection, error handling, and logging as they are.
 
