@@ -782,47 +782,43 @@ Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo tim
 
 > **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
 
-Part 5 is optional Mastery. **Extend your working Part 4 firmware and GUI.** Keep the existing UART, ADC/LM34, automatic connection, error handling, and packet logging. Only extend the servo controls and timing.
+Optional Mastery: **Extend your working Part 4 firmware and GUI.** Keep UART, ADC/LM34, connection, error handling, and logging as they are.
 
 ### Three-servo command
 
-Add Servo 2 on **RC0** and Servo 3 on **RC1**; Servo 1 remains on **RC2**. Use GPIO for all three outputs, with the existing CCP1 compare interrupt scheduling their edges.
+Keep Servo 1 on **RC2**; add Servo 2 on **RC0** and Servo 3 on **RC1**. All three use GPIO, timed by the existing CCP1 compare interrupt.
 
-Replace the Part 4 two-byte `S` command with **one six-byte payload**, containing three **absolute CCP compare values**. The host calculates each value exactly as in Part 4: `MATCH = 0xB1E0 + pulse width in µs`. Each match must remain in `0xB3D4`–`0xBBA4` (500–2500 µs).
+Expand `S` from two to **six payload bytes**. As in Part 4, the host sends each **absolute CCP match** (`0xB1E0 + pulse width in µs`), not a pulse width or slot-adjusted time:
 
 ```text
-Command:       $ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
-Example:       24 53 06 B3 D4 B7 BC BB A4
-Pulse widths:            500   1500   2500 µs
+$ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
+24 53 06 B3 D4 B7 BC BB A4    (500, 1500, 2500 µs)
 ```
 
-Validate **all three** before accepting any. An invalid value rejects the entire packet, leaves all three previous settings unchanged, and returns `24 45 02 03 NN`, where `NN` is the first invalid servo number (`01`, `02`, or `03`). Valid commands require no reply. Stage the six accepted bytes together and apply them at the **next 20 ms frame**, never midway through a frame.
+Accept only `0xB3D4`–`0xBBA4` per servo. Reject the **whole packet** if any value is invalid; preserve all three previous settings and return `24 45 02 03 NN` (`NN` = first invalid servo: `01`, `02`, or `03`). Valid commands have no reply. Stage all six bytes safely, then apply all three **together at the next frame start**.
 
-Extend the GUI to **three independent 0°–180° sliders**, each in 1° increments and initially at 90°. Send all three current values in one `S` packet when any slider changes. Preserve Part 4's **one initial centered command after first successful identification** and its no-repeat-on-reconnection rule.
+Extend the GUI to three **0°–180° sliders**, in 1° increments, initially at 90°. Changing any slider sends one packet with all three current settings. Retain Part 4's single initial centered command after first identification and its no-repeat-on-reconnection behavior.
 
-### Time-slot scheduler
+### One Timer1 frame
 
-**Keep the existing Timer1 20 ms rollover, 1 µs tick, and one CCP1 compare event stream.** Start the servos at 0, 2.5, and 5 ms, respectively. The rest of the 20 ms frame is available for foreground work.
+**Retain the 20 ms Timer1 rollover and one CCP1 event stream.** Start the three 2.5 ms slots at **0, 2.5, and 5 ms**; the remaining frame is idle.
 
-![Three staggered servo pulses showing 2.5 ms time slots and their final 100 µs protected windows](images/Lab08-Part5-Servo-Slots.svg)
+![Three servo time slots with protected falling-edge windows](images/Lab08-Part5-Servo-Slots.svg)
 
-For each servo, the received match is relative to the **original frame reload** (`0xB1E0`), not to the start of its slot. In firmware, add that servo's slot offset (0, 2500, or 5000 timer counts):
+For each servo, add its slot offset (**0, 2500, or 5000 counts**) to the received absolute match:
 
-- **First CCP match:** `MATCH + slot offset - 100`. Set `servo_busy` and load the final compare value.
-- **Second CCP match:** `MATCH + slot offset`. Drive that servo LOW, clear `servo_busy`, and schedule the next slot start. At a full 2500 µs pulse, the falling edge and next slot start coincide; perform both actions in the same ISR.
+1. Compare at **match + offset − 100**: set `servo_busy`; load the final compare.
+2. Compare at **match + offset**: drive that servo LOW, clear `servo_busy`, and schedule the next slot start.
 
-At each slot start, drive its servo HIGH and schedule its first compare. Only the last approximately **100 µs** before a falling edge is protected; the short nonblocking UART/ADC foreground services may now run during the earlier part of a HIGH pulse. After Servo 3, wait for the next Timer1 rollover to start another frame.
+At each slot start, drive its servo HIGH and schedule its first compare. If a 2500 µs pulse ends exactly at the next slot start, perform both actions in **one ISR**. After Servo 3, wait for the next Timer1 rollover.
+
+Unlike Part 4, protect **only the last approximately 100 µs** of each HIGH pulse. Continue the existing short, nonblocking UART/ADC services outside those windows.
 
 ### Verify and document
 
-1. Measure 500, 1500, and 2500 µs pulses on all three outputs, with a common **20 ms** repetition period. Verify independent commands and next-frame updates.
-2. Reject invalid values for each servo without changing any of the three outputs.
-3. Use the oscilloscope and RA1 RX-service diagnostic to verify the falling-edge protection and continued UART/ADC servicing under sustained communication. Check for timing degradation, RX errors, and servo chatter.
-4. Connect all three servos using an appropriate external supply and common ground. Demonstrate independent GUI control and the continuing LM34 temperature display.
+Measure 500, 1500, and 2500 µs on all three outputs and their shared 20 ms period. Verify next-frame updates, independent GUI control, rejection without partial updates, and stable timing while UART/ADC run. Use RA1 to inspect RX servicing and check for errors or chatter. Power the servos from a suitable external supply with common ground.
 
-Include the updated scheduler/parser flowcharts, PIC and host source, three-channel scope evidence, representative timing measurements, and results of the UART/ADC stress check.
-
-**Complete when:** All three servos respond independently to one packet, their timing remains stable with UART and ADC active, and Parts 1–4 continue working.
+Submit updated scheduler/parser flowcharts, PIC and host source, three-channel scope captures, timing measurements, and communication test results. Preserve the Part 1–4 behavior.
 
 [Back to top](#top)
 
