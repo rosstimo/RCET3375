@@ -780,91 +780,48 @@ Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo tim
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Servo Scheduler
 
-> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
+> **Status: Final draft.**
 
-Part 5 is optional Mastery. Complete Parts 1 through 4 first.
+Optional Mastery: **Extend your working Part 4 firmware and GUI.** Keep UART, ADC/LM34, connection, error handling, and logging as they are.
 
-### Goal
+### Servo command packet
 
-Extend Part 4 to independently command three servos while UART RX/TX and ADC acquisition remain active.
+Keep Servo 1 on **RC2**; add Servo 2 on **RC0** and Servo 3 on **RC1**. All three use GPIO, timed by the existing CCP1 compare interrupt.
 
-### Three-servo command
-
-Use one packet to update all three next pulse widths:
+Extend the Part 4 `S` packet with a **channel byte** and the same **two-byte absolute CCP match**. The length becomes `3`: one channel byte plus two compare bytes. As in Part 4, the host sends `0xB1E0 + pulse width in µs`; the PIC adds the time-slot offset.
 
 ```text
-$ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
+Command:      $ S 3 CH MATCH_H MATCH_L
+Servo 1:      24 53 03 01 B3 D4    (500 µs)
+Servo 2:      24 53 03 02 B7 BC    (1500 µs)
+Servo 3:      24 53 03 03 BB A4    (2500 µs)
 ```
 
-Each value is a 16-bit pulse width in microseconds and must be 500 through 2500 us.
+Channels are `01`, `02`, and `03`. Accept a compare value only within `0xB3D4`–`0xBBA4`. An invalid channel or compare value rejects **that packet**, leaves all servo settings unchanged, and returns `24 45 02 03 CH` (using the received channel as the error detail). Valid commands have no reply. Stage the accepted value for **only the addressed servo**, then apply it at the **next 20 ms frame start** without changing the other servos.
 
-Reject the complete command if any of the three values is out of range. Return error `0x03` with `DETAIL` equal to the failing servo number:
+Extend the GUI to three **0°–180° sliders**, in 1° increments, initially at 90°. Changing a slider sends **one packet for that channel only**. On the first successful identification at application startup, send **one centered command per servo**. Do not repeat those startup commands on reconnection or send slider commands while disconnected.
+### One Timer1 frame
 
-```text
-0x01 = Servo 1
-0x02 = Servo 2
-0x03 = Servo 3
-```
+**Keep Timer1's existing 20 ms rollover and one CCP1 event stream.** Eight 2.5 ms slots fit in one frame; **Part 5 uses only the first three**, starting at 0, 2.5, and 5 ms. The remaining slots stay unused.
 
-Do not partially update the command.
+![Eight possible servo time slots, with the protected windows where servo_busy blocks foreground servicing](images/Lab08-Part5-Servo-Slots.svg)
 
-### Scheduler
+The diagram illustrates eight *possible* slots with example pulse widths, not eight required servos. Foreground UART/ADC work can run anywhere `servo_busy = 0`, **even during the earlier part of a HIGH pulse**.
 
-Use one Timer1 20 ms frame and one CCP Compare event stream.
+For each of the three servos, add its slot offset (**0, 2500, or 5000 counts**) to the absolute match received from the host:
 
-```text
-0 ms   Servo 1 slot
-5 ms   Servo 2 slot
-10 ms  Servo 3 slot
-15 ms  final idle slot
-20 ms  next frame
-```
+1. **Pre-edge match:** `match + offset - 0x0080`. Set `servo_busy` and load the final match.
+2. **Final match:** `match + offset`. Drive that servo LOW, clear `servo_busy`, and schedule the next slot start.
 
-Use the same protected-edge idea from Part 4:
+**128 µs is `0x0080` Timer1 counts.** To subtract it from a 16-bit match, toggle bit 7 of the low byte; if that bit was originally clear, also decrement the high byte.
 
-```text
-0 = Servo 1 pre-edge
-1 = Servo 1 protected edge
-2 = Servo 1 remainder
+At each slot start, drive its servo HIGH and schedule its pre-edge match. If a 2500 µs pulse ends exactly at the next slot start, perform both actions in **one ISR**. After Servo 3, wait for the next Timer1 rollover. Preserve the existing short, nonblocking UART/ADC services; block new foreground work only during each final **128 µs** window.
 
-3 = Servo 2 pre-edge
-4 = Servo 2 protected edge
-5 = Servo 2 remainder
+### Verify and document
 
-6 = Servo 3 pre-edge
-7 = Servo 3 protected edge
-8 = Servo 3 remainder
+Measure 500, 1500, and 2500 µs on all three outputs and their shared 20 ms period. Verify next-frame updates, independent channel commands, rejection of invalid channels or compare values without changing servo settings, and stable timing while UART/ADC run. Use RA1 to inspect RX servicing and check for errors or chatter. Power the servos from a suitable external supply with common ground.
 
-9 = final idle
-```
-
-States 1, 4, and 7 are the only protected states.
-
-Use absolute Timer1 deadlines so ISR execution time does not accumulate frame drift.
-
-### In the Lab
-
-1. Verify all three waveforms before connecting servos.
-2. Verify 500, 1500, and 2500 us for each output.
-3. Verify one 20 ms frame for all three channels.
-4. Connect the servos using a suitable external supply and common ground.
-5. Command all three servos independently from the host.
-6. Run sustained UART requests and ADC acquisition while all three servos operate.
-7. Verify no visible chatter or measurable timing degradation beyond normal ISR timing.
-
-### Evidence
-
-Include or reference:
-
-- final scheduler/parser flowchart;
-- final PIC and host source;
-- three-channel scope capture;
-- representative min/center/max measurements for all three outputs;
-- timing evidence while UART and ADC are active.
-
-### Complete When
-
-Mastery is complete when all three servos accept independent pulse-width commands through the packet protocol and maintain stable timing while UART and ADC remain active.
+Submit updated scheduler/parser flowcharts, PIC and host source, three-channel scope captures, timing measurements, and communication test results. Preserve the Part 1–4 behavior.
 
 [Back to top](#top)
 
