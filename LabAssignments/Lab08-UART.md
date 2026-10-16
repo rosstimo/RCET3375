@@ -1006,9 +1006,12 @@ Include or reference:
 - LM34 loading/component analysis, measured ADC reference voltage, and one-point measurement verification;
 - raw ADC count, measured and calculated LM34 voltage, calculated temperature, independent reference temperature, and their difference;
 - updated parser and Timer1/CCP interrupt flowcharts, plus final PIC and graphical host source showing the Part 3 extensions;
-- GUI screenshot with decoded temperature, servo commands, an error indication, and hexadecimal TX/RX transaction history;
+- screenshots of the connected GUI showing the verified port name, 1-second temperature updates in °F, servo angle slider, and timestamped TX/RX packet history; include a disconnected `COM ERR` / `--- °F` screenshot;
 - captures of valid servo pulse widths and the transition to a new setting on a subsequent frame, plus both out-of-range command replies and preservation of the previous valid width;
 - a simultaneous RC2/RA1 capture showing the foreground-service pause during servo HIGH, measured service gaps for different pulse widths, and their comparison with the Part 2 timing budget;
+- results of unplugging/reconnecting the host USB-to-RS-232 adapter, showing automatic 1-second retry attempts, ID-based recovery, and resumed temperature updates;
+- results with additional serial adapters or other virtual ports present, demonstrating that only ID-verified PIC ports receive ADC or servo commands;
+- a transaction-history example proving that the centered servo command is sent once after initial identification and thereafter only on slider position changes while periodic temperature requests continue;
 - a record of any communication errors, unexpected responses, or timeouts observed during testing, including the conditions under which they occurred, repeatability, and results of a subsequent valid request. If none occur, state the conditions tested and that none were observed.
 
 Suggested verification table (no calibration correction):
@@ -1019,13 +1022,15 @@ Suggested verification table (no calibration correction):
 
 ### Demonstrate
 
-Use your extended Part 3 graphical host application to request temperature and command the servo. Display the packet history and a rejected out-of-range servo command. Show the servo pulse/frame timing and receive-service diagnostic measurements at different pulse widths. Discuss any unexpected communication behavior observed and the conditions under which it occurred.
+Launch the GUI with the PIC connected. Without selecting a serial port or clicking Connect, show the identified PIC port, automatic temperature readings in °F at 1-second intervals, the 90° startup slider position, and the startup servo packet. Move the slider and show that servo commands occur only after position changes while temperature updates continue. Keep the complete hexadecimal TX/RX transaction history visible.
 
-Explain the raw-data packet, host-side temperature calculation and measurement check, conversion from microseconds to absolute compare bytes, and 16-bit range validation. Trace one valid servo command from `servo_cmd_h:l` through `ccp_next_h:l` to `CCPR1H:CCPR1L` at the next frame start. Explain when `servo_busy` permits foreground services and interpret the receive-service timing measurements.
+Unplug and reconnect the host's USB-to-RS-232 adapter while the application runs. Show the `COM ERR` status and `--- °F` display, automatic reconnection attempts, ID-based port verification, and resumed temperature readings. Repeat identification with at least one additional virtual serial port present, demonstrating that the GUI does not issue ADC or servo commands to an unverified port.
+
+Show the servo and receive-service diagnostic timing at different positions and explain any errors you actually observed. Explain the LM34 conversion, degree-to-CCP mapping, valid servo range, and saving the compare value in RAM until the Timer1 frame-start interrupt.
 
 ### Complete When
 
-Part 4 is complete when the extended firmware and GUI retain the Part 3 packet/ADC/error functions, report checked LM34 temperatures, produce the requested servo pulse widths without changing a pulse in progress, reject out-of-range commands without changing the last valid setting, and preserve the Lab07 busy-gated timing. Document the receive-service measurements and any unexpected communication behavior under the conditions tested.
+Part 4 is complete when the PIC retains the Part 3 packet/error handling and Lab07 servo timing, and the GUI identifies the PIC through its device-ID reply, displays the active port, updates °F every second, and controls the servo with the centered 180-position slider. It sends one initial servo command and additional commands only when the slider changes. It displays `COM ERR` and `--- °F` when disconnected, retries identification every second, and automatically resumes temperature updates on reconnection. The required unplug/reconnect and competing-port tests, full transaction log, scope measurements, and observations are documented.
 
 [Back to top](#top)
 
