@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="388" viewBox="0 0 1200 388" role="img" aria-labelledby="title desc">
 <title id="title">Eight staggered 2.5 ms servo time slots with 128 microsecond protected windows</title>
-<desc id="desc">Eight servo pulses of different widths share one 20 millisecond timeline. Each green pulse starts at its own slot boundary; a thin red band marks the final 128 microseconds before each falling edge, when servo_busy blocks foreground servicing. A second shared foreground work timeline is green everywhere except at those same eight red windows. Foreground UART and ADC services can run during green regions, including most of a high servo pulse.</desc>
+<desc id="desc">Eight servo pulses of different widths share one 20 millisecond timeline. Each green pulse starts at its own slot boundary; a thin red band marks the final 128 microseconds before each falling edge, when servo_busy blocks foreground servicing. A second shared background work timeline is green everywhere except at those same eight red windows. Main-loop UART and ADC services can run during green regions, including most of a high servo pulse.</desc>
 <rect width="1200" height="388" fill="#FFFFFF"/>
 <g font-family="DejaVu Sans, Arial, sans-serif">
 <text x="22" y="35" fill="#0F172A" font-size="24" font-weight="700">Servo time-slot scheduler: eight possible slots</text>
@@ -92,7 +92,7 @@
 <line x1="1051.944" y1="194" x2="1051.944" y2="248" stroke="#DC2626" stroke-width="1.2" stroke-dasharray="3 4"/>
 <rect x="1051.944" y="251" width="6.656" height="30" fill="#DC2626"/>
 <line x1="1058.6" y1="158" x2="1058.6" y2="198" stroke="#991B1B" stroke-width="1.5"/>
-<text x="94" y="230" fill="#334155" font-size="15" font-weight="600">Foreground UART / ADC services: green = allowed, red = blocked</text>
+<text x="94" y="230" fill="#334155" font-size="15" font-weight="600">Background work (main-loop UART / ADC): green = allowed, red = blocked</text>
 <rect x="26" y="314" width="20" height="14" fill="#16A34A"/><text x="55" y="326" fill="#334155" font-size="14">Pulse HIGH</text>
 <rect x="205" y="314" width="20" height="14" fill="#DC2626"/><text x="235" y="326" fill="#334155" font-size="14">servo_busy = 1 for final 128 µs (0x0080 counts)</text>
 <rect x="734" y="314" width="20" height="14" fill="#BBF7D0" stroke="#86EFAC"/><text x="763" y="326" fill="#334155" font-size="14">servo_busy = 0, service allowed</text>
