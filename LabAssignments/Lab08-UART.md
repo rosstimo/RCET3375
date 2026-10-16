@@ -645,8 +645,6 @@ Part 3 is complete when the graphical host application sends and decodes the def
 
 ## Part 4 - LM34, UART, and Servo Integration
 
-> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
-
 ### Goal
 
 Extend your **working Part 3 PIC firmware and GUI** with one UART-controlled servo and an LM34 temperature sensor on AN0. Integrate the servo timing from **Lab07** with the Part 3 communication and ADC functions. Display temperature in °F and control the servo from the host GUI.
