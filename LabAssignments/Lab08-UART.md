@@ -651,35 +651,6 @@ Part 3 is complete when the graphical host application sends and decodes the def
 
 Extend your **working Part 3 PIC firmware and GUI** with one UART-controlled servo and an LM34 temperature sensor on AN0. Integrate the servo timing from **Lab07** with the Part 3 communication and ADC functions. Display temperature in °F and control the servo from the host GUI.
 
-### LM34 temperature conversion
-
-Replace the potentiometer with the [LM34](https://www.ti.com/lit/ds/symlink/lm34.pdf). The sensor provides a nominal **10 mV/°F**; the PIC continues to transmit the raw, right-justified 10-bit ADC result. Convert it to temperature in the host application using the measured ADC reference voltage.
-
-```math
-V_{\mathrm{LM34}}=\mathrm{ADC}\left(\frac{V_{\mathrm{REF}}}{1024}\right)
-```
-
-```math
-T[^\circ\mathrm{F}]=\frac{V_{\mathrm{LM34}}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}
-```
-
-#### Worked example
-
-**What:** Convert ADC code 150 to temperature. **Why:** The PIC reports counts, while the host displays engineering units.
-
-For a measured ADC reference of 5.00 V:
-
-```math
-\begin{aligned}
-V_{\mathrm{LM34}}&=150\left(\frac{5.00\,\mathrm{V}}{1024}\right)\\
-&=0.732\,\mathrm{V}\\[4pt]
-T&=\frac{0.732\,\mathrm{V}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}\\
-&=73.2^\circ\mathrm{F}
-\end{aligned}
-```
-
-Verify the measurement against the LM34 voltage measured with a DMM and an independent temperature reference. No sensor calibration is required.
-
 ### Servo command packet
 
 The host converts the requested pulse width to an **absolute CCP1 compare value**. At 4 MHz, using Lab07's 1 µs Timer1 tick and reload value of `0xB1E0`:
@@ -719,7 +690,36 @@ The PIC accepts the full **500–2500 µs** range, including both endpoints. Rej
 - **New servo target:** Reuse Lab07's Timer1/CCP1 20 ms frame, 1 µs resolution, RC2 servo output, and initial **1500 µs** setting. Instead of the Lab07 ADC lookup/calculation for the servo, take the **next** compare value from a valid UART `S` packet.
 - **Next-frame update:** Store the validated compare bytes together in RAM, protecting the two-byte update from an interrupt. The Timer1 frame-start interrupt transfers that saved value into `CCPR1H:CCPR1L`. Receiving a command must not write the hardware compare registers or disturb a pulse in progress.
 - **Foreground servicing:** Retain Lab07's `servo_busy` behavior. Do not start UART/ADC foreground service work while the servo output is HIGH; check the busy flag between service calls. Keep the Part 3 receive-service diagnostic output on RA1.
-- **Existing functions:** Preserve the Part 3 ADC acquisition, packet response handling, and receive-error recovery. The LM34 replaces the potentiometer on AN0; no ADC-to-servo scaling is needed.
+- **Existing functions:** Preserve the Part 3 ADC service, packet responses, and receive-error recovery.
+
+### LM34 temperature conversion
+
+Replace the potentiometer with the [LM34](https://www.ti.com/lit/ds/symlink/lm34.pdf) on AN0. **Reuse the Part 3 ADC service code unchanged.** The sensor outputs 10 mV/°F; convert the raw 10-bit ADC reading to °F in the host using the measured reference voltage.
+
+```math
+V_{\mathrm{LM34}}=\mathrm{ADC}\left(\frac{V_{\mathrm{REF}}}{1024}\right)
+```
+
+```math
+T[^\circ\mathrm{F}]=\frac{V_{\mathrm{LM34}}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}
+```
+
+#### Worked example
+
+**What:** Convert ADC code 150 to temperature. **Why:** The PIC reports counts, while the host displays engineering units.
+
+For a measured ADC reference of 5.00 V:
+
+```math
+\begin{aligned}
+V_{\mathrm{LM34}}&=150\left(\frac{5.00\,\mathrm{V}}{1024}\right)\\
+&=0.732\,\mathrm{V}\\[4pt]
+T&=\frac{0.732\,\mathrm{V}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}\\
+&=73.2^\circ\mathrm{F}
+\end{aligned}
+```
+
+Verify the measurement against the LM34 voltage measured with a DMM and an independent temperature reference. No sensor calibration is required.
 
 ### Extend the graphical host application
 
