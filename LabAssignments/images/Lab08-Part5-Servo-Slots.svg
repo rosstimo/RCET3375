@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="370" viewBox="0 0 1040 370" role="img" aria-labelledby="title desc">
+<title id="title">Lab08 three servo time slots within one twenty millisecond Timer1 frame</title>
+<desc id="desc">Servo 1 on RC2 pulses high from zero to 500 microseconds. Servo 2 on RC0 pulses high from 2.5 to 4 milliseconds. Servo 3 on RC1 pulses high from 5 to 7.5 milliseconds. Each pulse has a protected final 100 microseconds marked orange. Timer1 reloads once every 20 milliseconds.</desc>
+<rect x="0" y="0" width="1040" height="370" fill="#FFFFFF"/>
+<text x="18" y="27" font-size="21" font-family="sans-serif" font-weight="700" fill="#0F172A">One 20 ms Timer1 frame, three 2.5 ms servo slots</text>
+<g font-family="sans-serif">
+<text x="974" y="57" font-size="13" fill="#475569">ms</text>
+<line x1="130" y1="65" x2="130" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="130" y="57" text-anchor="middle" font-size="13" fill="#334155">0</text>
+<line x1="232.5" y1="65" x2="232.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="232.5" y="57" text-anchor="middle" font-size="13" fill="#334155">2.5</text>
+<line x1="335" y1="65" x2="335" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="335" y="57" text-anchor="middle" font-size="13" fill="#334155">5</text>
+<line x1="437.5" y1="65" x2="437.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="437.5" y="57" text-anchor="middle" font-size="13" fill="#334155">7.5</text>
+<line x1="540" y1="65" x2="540" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="540" y="57" text-anchor="middle" font-size="13" fill="#334155">10</text>
+<line x1="642.5" y1="65" x2="642.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="642.5" y="57" text-anchor="middle" font-size="13" fill="#334155">12.5</text>
+<line x1="745" y1="65" x2="745" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="745" y="57" text-anchor="middle" font-size="13" fill="#334155">15</text>
+<line x1="847.5" y1="65" x2="847.5" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="847.5" y="57" text-anchor="middle" font-size="13" fill="#334155">17.5</text>
+<line x1="950" y1="65" x2="950" y2="295" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3 5"/><text x="950" y="57" text-anchor="middle" font-size="13" fill="#334155">20</text>
+<rect x="130" y="70" width="102.5" height="27" fill="#E2E8F0" stroke="#CBD5E1"/><text x="181.3" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 1 slot</text>
+<rect x="232.5" y="70" width="102.5" height="27" fill="#F1F5F9" stroke="#CBD5E1"/><text x="283.8" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 2 slot</text>
+<rect x="335" y="70" width="102.5" height="27" fill="#E2E8F0" stroke="#CBD5E1"/><text x="386.3" y="88" text-anchor="middle" font-size="12" fill="#334155">Servo 3 slot</text>
+<rect x="437.5" y="70" width="512.5" height="27" fill="#F1F5F9" stroke="#CBD5E1"/><text x="693.8" y="88" text-anchor="middle" font-size="14" fill="#334155">Idle / foreground work</text>
+<text x="10" y="129" font-size="15" font-weight="600" fill="#0F172A">Servo 1 (RC2)</text>
+ <line x1="130" y1="146" x2="950" y2="146" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M130 146 V118 H150.5 V146" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
+ <rect x="146.4" y="113" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
+ <line x1="150.5" y1="112" x2="150.5" y2="151" stroke="#C2410C" stroke-width="2"/>
+ <text x="147" y="106" font-size="13" text-anchor="middle" fill="#166534">500 µs</text>
+<text x="10" y="198" font-size="15" font-weight="600" fill="#0F172A">Servo 2 (RC0)</text>
+ <line x1="130" y1="215" x2="950" y2="215" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M232.5 215 V187 H294 V215" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
+ <rect x="289.9" y="182" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
+ <line x1="294" y1="181" x2="294" y2="220" stroke="#C2410C" stroke-width="2"/>
+ <text x="263.3" y="175" font-size="13" text-anchor="middle" fill="#166534">1500 µs</text>
+<text x="10" y="267" font-size="15" font-weight="600" fill="#0F172A">Servo 3 (RC1)</text>
+ <line x1="130" y1="284" x2="950" y2="284" stroke="#94A3B8" stroke-width="2"/>
+ <path d="M335 284 V256 H437.5 V284" fill="none" stroke="#16A34A" stroke-width="4" stroke-linejoin="round"/>
+ <rect x="433.4" y="251" width="4.1" height="36" fill="#F59E0B" opacity=".48"/>
+ <line x1="437.5" y1="250" x2="437.5" y2="289" stroke="#C2410C" stroke-width="2"/>
+ <text x="386.3" y="244" font-size="13" text-anchor="middle" fill="#166534">2500 µs</text>
+<rect x="128" y="311" width="16" height="12" fill="#F59E0B" opacity=".65"/><text x="153" y="322" fill="#334155" font-size="14">Last 100 µs: servo_busy = 1</text>
+<line x1="402" y1="317" x2="418" y2="317" stroke="#C2410C" stroke-width="2"/><text x="428" y="322" fill="#334155" font-size="14">CCP falling edge: output LOW, servo_busy = 0</text>
+<text x="128" y="353" fill="#64748B" font-size="13">Example: servo widths 500, 1500, 2500 µs. All three repeat at the next 20 ms rollover.</text>
+</g>
+</svg>
