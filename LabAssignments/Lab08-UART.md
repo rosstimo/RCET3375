@@ -645,255 +645,135 @@ Part 3 is complete when the graphical host application sends and decodes the def
 
 ## Part 4 - LM34, UART, and Servo Integration
 
-> **Instructions under revision:** This part is still being edited. Refresh your browser to check for updates and/or see your instructor before continuing.
-
 ### Goal
 
-Replace the potentiometer with an LM34 temperature sensor and integrate UART RX/TX, ADC acquisition, and one CCP-timed servo.
+Extend your **working Part 3 PIC firmware and GUI** with one UART-controlled servo and an LM34 temperature sensor on AN0. Integrate the servo timing from **Lab07** with the Part 3 communication and ADC functions. Display temperature in °F and control the servo from the host GUI.
 
-The UART packet structure remains unchanged. The PIC returns raw ADC data. Temperature conversion and calibration are performed on the host.
+### Servo command packet
 
-### LM34 conversion
-
-The LM34 nominal output scale is:
+The host converts the requested pulse width to an **absolute CCP1 compare value**. At 4 MHz, using Lab07's 1 µs Timer1 tick and reload value of `0xB1E0`:
 
 ```math
-10\,\text{mV}/^\circ\text{F}
+\begin{aligned}
+\mathrm{CCP1\ match}&=0xB1E0+PW_{\mu s}\\
+&=45536+PW_{\mu s}\\
+&=45536+1500\\
+&=47036=0xB7BC
+\end{aligned}
 ```
 
-Using VDD/VSS as ADC references:
+The `S` command contains **two payload bytes**, the high byte and then the low byte of the absolute match:
 
-```math
-V_{\text{sensor}}
-=
-\text{ADC}
-\left(
-\frac{V_{\text{REF}}}{1024}
-\right)
+```text
+Command:               $ S 2 MATCH_H MATCH_L
+1500 us command:        24 53 02 B7 BC      (no reply)
+Below minimum:         24 53 02 B3 D3
+Above maximum:         24 53 02 BB A5
+Invalid servo reply:   24 45 02 03 01
 ```
 
-Then:
+| Servo HIGH time | Allowed CCP match |
+| ---: | --- |
+| 500 µs | `0xB3D4` |
+| 1500 µs | `0xB7BC` |
+| 2500 µs | `0xBBA4` |
+
+The PIC accepts the full **500–2500 µs** range, including both endpoints. Reject absolute compare values outside `0xB3D4`–`0xBBA4`; leave the last accepted setting unchanged and return `24 45 02 03 01`. Valid `S` commands have no response. Preserve the Part 3 ID, ADC, and receive-error packets.
+
+### Firmware integration
+
+**Extend the working code from Part 3 and Lab07.** Combine their existing subroutines and interrupts to implement the new behavior.
+
+- **Packet parser:** Add `S` with length `2`, followed by the high and low compare bytes. Collect both bytes before validating the 16-bit value. The `I` and `A` commands continue working as in Part 3.
+- **New servo target:** Reuse Lab07's Timer1/CCP1 20 ms frame, 1 µs resolution, RC2 servo output, and initial **1500 µs** setting. Instead of the Lab07 ADC lookup/calculation for the servo, take the **next** compare value from a valid UART `S` packet.
+- **Next-frame update:** Store the validated compare bytes together in RAM, **protecting the two-byte update from an interrupt.** The Timer1 frame-start interrupt transfers that saved value into `CCPR1H:CCPR1L`. **Receiving a command must not write the hardware compare registers or disturb a pulse in progress.**
+- **Foreground servicing:** Retain Lab07's `servo_busy` behavior. Do not start UART/ADC foreground service work while the servo output is HIGH; check the busy flag between service calls. Keep the Part 3 receive-service diagnostic output on RA1.
+- **Existing functions:** Preserve the Part 3 ADC service, packet responses, and receive-error recovery.
+
+### LM34 temperature conversion
+
+Replace the potentiometer with the [LM34](https://www.ti.com/lit/ds/symlink/lm34.pdf) on AN0. **Reuse the Part 3 ADC service code unchanged.** The sensor outputs 10 mV/°F; convert the raw 10-bit ADC reading to °F in the host using the measured reference voltage.
 
 ```math
-T[^\circ\text{F}]
-=
-\frac{V_{\text{sensor}}}{0.010\,\text{V}/^\circ\text{F}}
+V_{\mathrm{LM34}}=\mathrm{ADC}\left(\frac{V_{\mathrm{REF}}}{1024}\right)
+```
+
+```math
+T[^\circ\mathrm{F}]=\frac{V_{\mathrm{LM34}}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}
 ```
 
 #### Worked example
 
-**What:** convert one returned ADC result to temperature.
+**What:** Convert ADC code 150 to temperature. **Why:** The PIC reports counts, while the host displays engineering units.
 
-**Why:** the PIC transmits raw measurement data; the host assigns the engineering units.
-
-For measured `V_{\text{REF}}=5.00\,\text{V}` and ADC code 150:
+For a measured ADC reference of 5.00 V:
 
 ```math
 \begin{aligned}
-V_{\text{sensor}}
-&=
-150
-\left(
-\frac{5.00\,\text{V}}{1024}
-\right) \\
-&=0.732\,\text{V}
+V_{\mathrm{LM34}}&=150\left(\frac{5.00\,\mathrm{V}}{1024}\right)\\
+&=0.732\,\mathrm{V}\\[4pt]
+T&=\frac{0.732\,\mathrm{V}}{0.010\,\mathrm{V}/^\circ\mathrm{F}}\\
+&=73.2^\circ\mathrm{F}
 \end{aligned}
 ```
 
-```math
-\begin{aligned}
-T
-&=
-\frac{0.732\,\text{V}}
-{0.010\,\text{V}/^\circ\text{F}} \\
-&=73.2^\circ\text{F}
-\end{aligned}
-```
+Verify the measurement against the LM34 voltage measured with a DMM and an independent temperature reference. No sensor calibration is required.
 
-Use your measured reference voltage and calibration results.
+### Extend the graphical host application
 
-### Servo command packet
+Build on the Part 3 GUI and preserve its packet decoding, error reporting, and scrollable transaction history. In Part 4, the application must operate automatically without requiring the user to choose a serial port or press Connect.
 
-Command one servo with the desired HIGH time directly in microseconds:
-
-```text
-$ S 2 PW_H PW_L
-```
-
-`PW_H:PW_L` is a 16-bit unsigned pulse width in microseconds.
-
-Accept:
-
-```text
-500 us through 2500 us
-```
-
-Reject any value outside that range. Do not clamp it in this lab.
-
-For an invalid command:
-
-- leave the previously accepted servo command unchanged;
-- return `$ E 2 0x03 0x01`;
-- do not automatically resend the same invalid command from the host.
-
-A simple 16-bit range check compares the high byte first and only checks the low byte when the high bytes match:
-
-```text
-500  us = 0x01F4
-2500 us = 0x09C4
-
-PW < 0x01F4 -> reject
-PW > 0x09C4 -> reject
-otherwise    -> accept
-```
-
-### One-servo scheduler
-
-Continue using Timer1 as a 1 us timebase and 20 ms frame. At 4 MHz with the Lab 07 setup, reload Timer1 to `0xB1E0` at the frame start.
-
-Use a short protected window before the servo falling edge. Start with:
-
-```text
-G = 100 us
-```
-
-Keep foreground code interruptible. Do not begin longer foreground work while `servo_state = 1`.
-
-```text
-servo_state:
-    0 = pre-edge
-    1 = protected falling-edge window
-    2 = remainder of frame
-```
-
-A separate `servo_busy` flag is not required.
-
-For pulse width (PW) and guard interval (G), schedule absolute Timer1 matches from the frame reload:
-
-```math
-\begin{aligned}
-\text{pre-edge match} &= 0xB1E0 + PW - G \\
-\text{falling-edge match} &= 0xB1E0 + PW
-\end{aligned}
-```
-
-For $PW = 1500\,\mu\text{s}$ and $G = 100\,\mu\text{s}$:
-
-```math
-\begin{aligned}
-\text{pre-edge match}
-&=45536+1500-100 \\
-&=46936 \\
-&=0xB758
-\end{aligned}
-```
-
-```math
-\begin{aligned}
-\text{falling-edge match}
-&=45536+1500 \\
-&=47036 \\
-&=0xB7BC
-\end{aligned}
-```
-
-Program structure:
-
-```text
-Timer1 overflow:
-    reload Timer1 for 20 ms
-    copy next pulse width to active pulse width
-    servo HIGH
-    servo_state = 0
-    schedule CCP at active_PW - G
-
-CCP, state 0:
-    servo_state = 1
-    schedule CCP at active_PW
-
-CCP, state 1:
-    servo LOW
-    servo_state = 2
-
-main:
-    service RX
-    service TX
-    service ADC/reply
-    when servo_state != 1
-        perform other foreground work
-```
-
-Use absolute Timer1 compare deadlines. Do not change the active pulse-width value after the pulse starts.
-
-### Required LM34 calibration
-
-Before lab, write a calibration procedure that:
-
-- uses an independent temperature reference;
-- uses at least two stable temperature points when practical;
-- records raw ADC count and calculated LM34 voltage;
-- calculates temperature using the nominal 10 mV/°F relationship;
-- compares calculated temperature with the independent reference;
-- records error at each point;
-- states whether an offset or other correction is justified;
-- applies any correction on the host side.
-
-The calibration verifies the complete LM34 → ADC → UART → host measurement chain.
+- **Automatic PIC identification:** On startup, enumerate available serial ports, open each candidate at 9600 baud (8N1), and send the device-ID request `24 49 00`. A port is accepted only when the complete response is exactly `24 49 02 33 75`. Close ports that do not return the expected ID. Send no ADC or servo commands to an unverified port. Display the name of the verified port (for example, `COM5` or `/dev/ttyUSB0`) and the connection status.
+- **Temperature:** Once the PIC is identified, request AN0 (`24 41 01 00`) every **1 second**. Convert the returned 10-bit ADC reading to temperature using the measured reference voltage and display the result in **°F**. Keep the displayed temperature current.
+- **Servo slider:** Positions, 0°–180° inclusive in **1° increments**, with the slider initially set to **90°**. Map 0° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
+- **Servo transmission rule:** Send the centered 90° command (`24 53 02 B7 BC`) **once after the first successful PIC identification at application startup**. Thereafter, send servo commands **only when the user changes the slider**. Do not resend the same command every second or automatically upon reconnection. Do not transmit or queue slider commands while disconnected.
+- **Communication loss:** If the port disappears or communication fails, show **`COM ERR`** and replace the temperature with **`--- °F`**. Close the failed connection and attempt PIC discovery **every 1 second** until a valid ID reply is received. On reconnection, show the newly verified port and resume temperature updates automatically, without assuming that the old port name is still valid.
+- **Transaction history:** Display **all serial TX and RX packets as they happen**, including ID checks, periodic ADC requests/replies, servo commands, and errors. Include timestamp, port, direction, hexadecimal bytes, and decoded meaning. Log connection/disconnection and discovery outcomes too. Reassemble complete packets even when bytes arrive in multiple reads; preserve the Part 3 error and timeout handling.
+- **Responsive operation:** Keep the GUI responsive while looking for serial ports, waiting for packet replies, and reconnecting. Do not overlap connection scans or confuse responses between requests.
 
 ### Before Lab
 
 Prepare or reference:
 
-- LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
-- LM34 temperature-conversion worked calculation;
-- temperature-calibration procedure;
-- Part 3 packet parser, host program, and reused Lab 07 ADC routines;
-- working Lab 07 Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
-- `servo_state` scheduler flowchart;
-- 16-bit servo range-check logic;
-- source that keeps UART, ADC, and servo timing nonblocking.
+- Schematic, loading calculations, and the LM34, MAX232, PIC, and servo documentation.
+- LM34 temperature and servo compare-value worked calculations and predicted measurements.
+- Working Part 3 and Lab07 projects, a plan for integrating the `S` packet and next-frame update, and updated parser/interrupt flowcharts.
+- The GUI design for ID-based discovery, 1-second °F updates, the 0°–180° slider, full packet logging, and automatic reconnection.
 
 ### In the Lab
 
-Keep the servo disconnected until waveform checkoff.
-
-1. Replace the potentiometer with the LM34 on AN0.
-2. Request raw ADC data and verify host temperature conversion.
-3. Perform the planned temperature calibration.
-4. Verify the servo command at 500, 1500, and 2500 us on the oscilloscope.
-5. Send an out-of-range servo command and verify it is rejected with `0x03` while the previous valid command remains active.
-6. Obtain instructor waveform checkoff.
-7. Connect the servo using a suitable supply and common ground.
-8. Repeatedly request temperature and change servo pulse width while the servo is active.
-9. Verify UART/ADC activity does not visibly shift the servo falling edge or disturb the 20 ms frame.
+1. Combine Part 3 with the Lab07 servo timing and add the `S` packet. Verify the original ID, ADC, and error responses still work.
+2. Build the GUI to the requirements above. Replace the potentiometer with the LM34, measure the ADC reference and sensor voltage, and compare the GUI temperature with an independent reference.
+3. With the servo disconnected, command **500, 1500, and 2500 µs**; measure each HIGH pulse and the 20 ms frame on the oscilloscope. Verify a new command affects a subsequent frame without changing the pulse in progress.
+4. Send `B3 D3` and `BB A5`, check for the expected error reply, and confirm that the last valid servo setting remains in effect.
+5. Start the GUI with the PIC adapter already connected. Confirm automatic ID verification, displayed port, **90°** initial slider, **one** startup servo packet, 1-second temperature updates, and servo packets only when the slider changes.
+6. Unplug the USB-to-RS-232 adapter from the host PC while the GUI is running. Verify `COM ERR`, `--- °F`, 1-second reconnection attempts, and automatic recovery after reconnection.
+7. Attach at least one additional virtual serial-port device. Repeat discovery with the PIC connected and disconnected; confirm that only an ID-verified PIC port receives ADC or servo commands.
+8. Measure RC2 and the RA1 receive-service diagnostic output together at different pulse widths. Compare the longest RX service interval with your Part 2 timing calculation. Note any communication errors, their conditions, repeatability, and what happens after a fresh valid request.
 
 ### Evidence
 
 Include or reference:
 
-- LM34 loading/component analysis;
-- calibration procedure and measurement table;
-- raw ADC, calculated voltage, calculated temperature, reference temperature, and error;
-- final PIC and host source;
-- valid and invalid servo command captures;
-- servo timing under sustained UART/ADC activity.
+- Schematic, loading analysis, worked calculations, updated flowcharts, and both final software projects.
+- Measured ADC reference and LM34 voltage, returned ADC count, calculated °F, reference °F, and their difference.
+- Oscilloscope captures showing servo pulse widths, a change applied at the next frame, and RC2/RA1 timing; include invalid-command responses and preservation of the last accepted setting.
+- GUI captures for connected operation and `COM ERR` / `--- °F`, plus TX/RX logs showing startup, periodic temperature, slider, reconnection, and competing-port tests.
+- Any observed errors, with their conditions and recovery results. If none occur, state the conditions tested.
 
-Suggested calibration table:
-
-| Reference °F | ADC code | Calculated voltage | Calculated °F | Error °F | Corrected °F |
+| Measured VREF (V) | ADC code | Measured LM34 (V) | Calculated LM34 (V) | Calculated °F | Reference °F |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-|  |  |  |  |  |  |
 |  |  |  |  |  |  |
 
 ### Demonstrate
 
-Show live temperature requests while independently changing servo pulse width.
+Show the running GUI automatically identifying the PIC, updating °F every second, and controlling the servo by slider position. Demonstrate USB adapter removal/reconnection and identification with another virtual serial port present. Show the servo and receive-service timing measurements.
 
-Explain the raw-data packet, host-side temperature calculation, calibration result, 16-bit pulse-width validation, protected-edge state, and why an invalid command is rejected rather than clamped.
+Explain the LM34 conversion, the `S` packet and range validation, how a received compare value is saved for the next Timer1 frame, and any observed communication problems.
 
 ### Complete When
 
-Part 4 is complete when temperature data is calibrated and reported correctly, valid servo commands produce the requested pulse widths, invalid commands are rejected/reported, and sustained UART/ADC work does not disturb servo timing.
+Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo timing, the GUI meets its automatic connection, temperature, slider, and logging requirements, and the waveform, measurement, disconnection, competing-port, and error-observation evidence is documented.
 
 [Back to top](#top)
 
