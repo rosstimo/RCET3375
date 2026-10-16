@@ -945,15 +945,15 @@ Do not change the servo timing method to avoid an observed communication problem
 
 ### Extend the graphical host application
 
-Build on your Part 3 GUI and retain its serial connection controls, ID/ADC commands, custom hex packets, decoded errors/timeouts, and TX/RX transaction history.
+Build on the Part 3 GUI and preserve its packet decoding, error reporting, and scrollable transaction history. In Part 4, the application must operate automatically without requiring the user to choose a serial port or press Connect.
 
-Add:
-
-- **Temperature display:** show the latest raw ADC count, calculated LM34 voltage, and temperature in °F using your measured ADC reference voltage.
-- **Servo control:** enter or select a pulse width in microseconds; calculate `0xB1E0 + PW` and send its high/low bytes in the `S` packet. Display both the requested width and the calculated match/packet bytes. A transmitted command is not confirmation of the measured servo pulse.
-- **Error indication:** decode and display servo range errors (`03 01`) alongside the existing Part 3 receive errors. Record any unexpected reply or request timeout in the history, and allow a fresh request after an error. Display sent servo commands in the transaction history. Since a valid servo command has no reply, do not label it acknowledged simply because transmission completed.
-
-Keep the GUI responsive during temperature requests and servo commands.
+- **Automatic PIC identification:** On startup, enumerate available serial ports, open each candidate at 9600 baud (8N1), and send the device-ID request `24 49 00`. A port is accepted only when the complete response is exactly `24 49 02 33 75`. Close candidates that do not return the expected ID. Send no ADC or servo commands to an unverified port. Display the name of the verified port (for example, `COM5` or `/dev/ttyUSB0`) and the connection status.
+- **Temperature:** Once the PIC is identified, request AN0 (`24 41 01 00`) every **1 second**. Convert the returned 10-bit ADC reading to temperature using the measured reference voltage and display the result in **°F**. Keep the displayed temperature current.
+- **Servo slider:** Use **180 selectable integer-degree positions, 1°–180° inclusive**, with the slider initially set to **90°**. Map 1° to 500 µs, 90° to 1500 µs, and 180° to 2500 µs, interpolating between these points. Display the degree setting. Convert the pulse width to `0xB1E0 + PW`, then send the high and low bytes using `24 53 02 MATCH_H MATCH_L`.
+- **Servo transmission rule:** Send the centered 90° command (`24 53 02 B7 BC`) **once after the first successful PIC identification at application startup**. Thereafter, send servo commands **only when the user changes the slider**. Do not resend the same command every second or automatically upon reconnection. Do not transmit or queue slider commands while disconnected.
+- **Communication loss:** If the port disappears or communication fails, show **`COM ERR`** and replace the temperature with **`--- °F`**. Close the failed connection and attempt PIC discovery **every 1 second** until a valid ID reply is received. On reconnection, show the newly verified port and resume temperature updates automatically, without assuming that the old port name is still valid.
+- **Transaction history:** Display **all serial TX and RX packets as they happen**, including ID checks, periodic ADC requests/replies, servo commands, and errors. Include timestamp, port, direction, hexadecimal bytes, and decoded meaning. Log connection/disconnection and discovery outcomes too. Reassemble complete packets even when bytes arrive in multiple reads; preserve the Part 3 error and timeout handling.
+- **Responsive operation:** Keep the GUI responsive while looking for serial ports, waiting for packet replies, and reconnecting. Do not overlap connection scans or confuse responses between requests.
 
 ### LM34 measurement verification
 
