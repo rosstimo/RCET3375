@@ -801,19 +801,20 @@ Extend the GUI to three **0°–180° sliders**, in 1° increments, initially at
 
 ### One Timer1 frame
 
-**Retain the 20 ms Timer1 rollover and one CCP1 event stream.** Start the three 2.5 ms slots at **0, 2.5, and 5 ms**; the remaining frame is idle.
+**Keep Timer1's existing 20 ms rollover and one CCP1 event stream.** Eight 2.5 ms slots fit in one frame; **Part 5 uses only the first three**, starting at 0, 2.5, and 5 ms. The remaining slots stay unused.
 
-![Three servo time slots with protected falling-edge windows](images/Lab08-Part5-Servo-Slots.svg)
+![Eight possible servo time slots, with the protected windows where servo_busy blocks foreground servicing](images/Lab08-Part5-Servo-Slots.svg)
 
-For each servo, add its slot offset (**0, 2500, or 5000 counts**) to the received absolute match:
+The diagram illustrates eight *possible* slots with example pulse widths, not eight required servos. Foreground UART/ADC work can run anywhere `servo_busy = 0`, **even during the earlier part of a HIGH pulse**.
 
-1. Compare at **match + offset − 100**: set `servo_busy`; load the final compare.
-2. Compare at **match + offset**: drive that servo LOW, clear `servo_busy`, and schedule the next slot start.
+For each of the three servos, add its slot offset (**0, 2500, or 5000 counts**) to the absolute match received from the host:
 
-At each slot start, drive its servo HIGH and schedule its first compare. If a 2500 µs pulse ends exactly at the next slot start, perform both actions in **one ISR**. After Servo 3, wait for the next Timer1 rollover.
+1. **Pre-edge match:** `match + offset - 0x0080`. Set `servo_busy` and load the final match.
+2. **Final match:** `match + offset`. Drive that servo LOW, clear `servo_busy`, and schedule the next slot start.
 
-Unlike Part 4, protect **only the last approximately 100 µs** of each HIGH pulse. Continue the existing short, nonblocking UART/ADC services outside those windows.
+**128 µs is `0x0080` Timer1 counts.** To subtract it from a 16-bit match, toggle bit 7 of the low byte; if that bit was originally clear, also decrement the high byte.
 
+At each slot start, drive its servo HIGH and schedule its pre-edge match. If a 2500 µs pulse ends exactly at the next slot start, perform both actions in **one ISR**. After Servo 3, wait for the next Timer1 rollover. Preserve the existing short, nonblocking UART/ADC services; block new foreground work only during each final **128 µs** window.
 ### Verify and document
 
 Measure 500, 1500, and 2500 µs on all three outputs and their shared 20 ms period. Verify next-frame updates, independent GUI control, rejection without partial updates, and stable timing while UART/ADC run. Use RA1 to inspect RX servicing and check for errors or chatter. Power the servos from a suitable external supply with common ground.
