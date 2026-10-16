@@ -784,21 +784,22 @@ Part 4 is complete when the PIC retains Part 3 communication and Lab07 servo tim
 
 Optional Mastery: **Extend your working Part 4 firmware and GUI.** Keep UART, ADC/LM34, connection, error handling, and logging as they are.
 
-### Three-servo command
+### Servo command packet
 
 Keep Servo 1 on **RC2**; add Servo 2 on **RC0** and Servo 3 on **RC1**. All three use GPIO, timed by the existing CCP1 compare interrupt.
 
-Expand `S` from two to **six payload bytes**. As in Part 4, the host sends each **absolute CCP match** (`0xB1E0 + pulse width in µs`), not a pulse width or slot-adjusted time:
+Extend the Part 4 `S` packet with a **channel byte** and the same **two-byte absolute CCP match**. The length becomes `3`: one channel byte plus two compare bytes. As in Part 4, the host sends `0xB1E0 + pulse width in µs`; the PIC adds the time-slot offset.
 
 ```text
-$ S 6 S1_H S1_L S2_H S2_L S3_H S3_L
-24 53 06 B3 D4 B7 BC BB A4    (500, 1500, 2500 µs)
+Command:      $ S 3 CH MATCH_H MATCH_L
+Servo 1:      24 53 03 01 B3 D4    (500 µs)
+Servo 2:      24 53 03 02 B7 BC    (1500 µs)
+Servo 3:      24 53 03 03 BB A4    (2500 µs)
 ```
 
-Accept only `0xB3D4`–`0xBBA4` per servo. Reject the **whole packet** if any value is invalid; preserve all three previous settings and return `24 45 02 03 NN` (`NN` = first invalid servo: `01`, `02`, or `03`). Valid commands have no reply. Stage all six bytes safely, then apply all three **together at the next frame start**.
+Channels are `01`, `02`, and `03`. Accept a compare value only within `0xB3D4`–`0xBBA4`. An invalid channel or compare value rejects **that packet**, leaves all servo settings unchanged, and returns `24 45 02 03 CH` (using the received channel as the error detail). Valid commands have no reply. Stage the accepted value for **only the addressed servo**, then apply it at the **next 20 ms frame start** without changing the other servos.
 
-Extend the GUI to three **0°–180° sliders**, in 1° increments, initially at 90°. Changing any slider sends one packet with all three current settings. Retain Part 4's single initial centered command after first identification and its no-repeat-on-reconnection behavior.
-
+Extend the GUI to three **0°–180° sliders**, in 1° increments, initially at 90°. Changing a slider sends **one packet for that channel only**. On the first successful identification at application startup, send **one centered command per servo**. Do not repeat those startup commands on reconnection or send slider commands while disconnected.
 ### One Timer1 frame
 
 **Keep Timer1's existing 20 ms rollover and one CCP1 event stream.** Eight 2.5 ms slots fit in one frame; **Part 5 uses only the first three**, starting at 0, 2.5, and 5 ms. The remaining slots stay unused.
@@ -815,9 +816,10 @@ For each of the three servos, add its slot offset (**0, 2500, or 5000 counts**) 
 **128 µs is `0x0080` Timer1 counts.** To subtract it from a 16-bit match, toggle bit 7 of the low byte; if that bit was originally clear, also decrement the high byte.
 
 At each slot start, drive its servo HIGH and schedule its pre-edge match. If a 2500 µs pulse ends exactly at the next slot start, perform both actions in **one ISR**. After Servo 3, wait for the next Timer1 rollover. Preserve the existing short, nonblocking UART/ADC services; block new foreground work only during each final **128 µs** window.
+
 ### Verify and document
 
-Measure 500, 1500, and 2500 µs on all three outputs and their shared 20 ms period. Verify next-frame updates, independent GUI control, rejection without partial updates, and stable timing while UART/ADC run. Use RA1 to inspect RX servicing and check for errors or chatter. Power the servos from a suitable external supply with common ground.
+Measure 500, 1500, and 2500 µs on all three outputs and their shared 20 ms period. Verify next-frame updates, independent channel commands, rejection of invalid channels or compare values without changing servo settings, and stable timing while UART/ADC run. Use RA1 to inspect RX servicing and check for errors or chatter. Power the servos from a suitable external supply with common ground.
 
 Submit updated scheduler/parser flowcharts, PIC and host source, three-channel scope captures, timing measurements, and communication test results. Preserve the Part 1–4 behavior.
 
