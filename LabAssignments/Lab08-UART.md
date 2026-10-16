@@ -974,7 +974,7 @@ Prepare or reference:
 - LM34/MAX232/PIC/servo schematic and complete electrical-loading/component verification;
 - LM34 temperature-conversion worked calculation;
 - plan to measure the ADC reference voltage, LM34 output, and temperature for a one-point functional check;
-- completed Part 3 PIC firmware and graphical host application, with a plan for the new `S` command and temperature/servo controls;
+- completed Part 3 PIC firmware and GUI, with a plan for automatic ID-based port selection, 1-second temperature sampling, the 180-position servo slider, and serial reconnection;
 - reused Lab 07 ADC routines and working Timer1/CCP servo code, SFR documentation, and 1 us/20 ms timing calculations;
 - updated packet-parser and Timer1/CCP interrupt flowcharts showing only the additions to the Part 3 program;
 - 16-bit compare-value range-check logic and the two-stage update: saved RAM value first, CCP hardware registers at Timer1 frame start;
@@ -984,18 +984,20 @@ Prepare or reference:
 
 Keep the servo disconnected until waveform checkoff.
 
-1. Continue from your working Part 3 firmware and GUI. Confirm that device-ID requests, raw ADC requests, RX error handling, and the transaction history still work.
-2. Extend the Part 3 parser for `S` packets. Reuse the Lab07 Timer1/CCP interrupts and gate foreground services with `servo_busy`. After a valid packet, store the next match in `ccp_next_h:l` (RAM); load the hardware compare registers only in `StartFrame`. Do not add `ServiceServo`.
-3. Add GUI controls to enter pulse widths in microseconds, convert them to absolute CCP match values, and send the corresponding binary bytes. Show the match value, packet bytes, and any servo errors in the GUI history.
-4. Replace the potentiometer with the LM34 on AN0. Add host-side voltage and temperature display using the raw ADC reply.
-5. Measure the actual ADC reference voltage and LM34 output with a DMM. Compare the ADC-derived voltage with the measured sensor voltage and the calculated temperature with an independent reference.
-6. With the servo disconnected, command 500, 1500, and 2500 µs. Measure each HIGH pulse and the 20 ms frame on the oscilloscope. Change from one valid setting to another while observing RC2; confirm that the new setting is applied on a subsequent frame, without disturbing the current pulse.
-7. Send compare values one count below and above the valid range (`B3 D3` and `BB A5`). Verify error packet `24 45 02 03 01` and confirm that the previous valid pulse width remains active.
-8. Obtain instructor waveform checkoff, then connect the servo using a suitable supply and common ground.
-9. Request temperature and send servo commands at 500, 1500, and 2500 µs. Verify the returned ADC data and confirm that the 20 ms frame and commanded servo pulse widths remain stable.
-10. Probe RC2 and the RA1 receive-service diagnostic signal together for each of the three pulse widths. Measure the longest gap between RX service checks and compare it with your Part 2 timing calculations.
-11. Test ID, ADC, and servo requests using different servo settings and request timing. Record any errors, unexpected replies, or timeouts. Document the pulse width, packet, timing or request frequency, error information, and whether the behavior repeats. After any unexpected result, send another valid request and record what happens.
-12. Capture a GUI screenshot showing multiple packet transactions, live temperature, servo commands, and the transaction history. Include any observed error information.
+1. Start from your working Part 3 firmware and GUI. Confirm that ID, ADC, and error packets still work, including hexadecimal TX/RX history.
+2. Extend the PIC parser for `S` packets. Retain the Lab07 Timer1/CCP interrupts and `servo_busy` gating. A valid command updates only `ccp_next_h:l` in RAM; `StartFrame` later loads the CCP registers.
+3. Implement automatic port discovery using the exact device-ID reply. The GUI must display the verified port and should never require manual port selection.
+4. Implement the 180-position slider (1°–180°, initially 90°) and the degree-to-pulse-width/CCP conversion. Confirm the centered packet is sent **once when the PIC is first identified**, with further servo packets only after slider changes.
+5. Replace the potentiometer with the LM34 on AN0. Request ADC data **every 1 second**, calculate °F in the GUI, and verify the ADC reference voltage, sensor voltage, and reported temperature against measurements.
+6. With the servo disconnected, command 500, 1500, and 2500 µs and check the pulse widths and 20 ms period with an oscilloscope. Confirm that a new valid command takes effect at a subsequent frame start.
+7. Send the invalid compare values `B3 D3` and `BB A5`, check for `24 45 02 03 01`, and confirm that the previous valid width remains active.
+8. Obtain instructor waveform checkoff, then connect the servo with appropriate power and a common ground.
+9. **Start the GUI with the PIC adapter connected.** Verify that it identifies the PIC without user action, displays the correct port, starts showing °F at 1-second intervals, and transmits exactly one centered servo command. Move the slider and verify one command per position change, with no periodic servo retransmissions.
+10. **Disconnect the USB-to-RS-232 adapter from the host while the GUI runs.** Check for `COM ERR`, `--- °F`, and automatic retry attempts every second. Reconnect the adapter and verify that the GUI identifies the PIC again and resumes temperature updates without manual port selection.
+11. **Connect additional USB-to-RS-232 adapters or other devices that create virtual serial ports.** Repeat the discovery and reconnection tests with the PIC connected and disconnected. Confirm that only a port returning the exact PIC device ID is accepted; unverified ports must never receive ADC or servo commands.
+12. Probe RC2 and the RA1 receive-service diagnostic signal together at different servo settings. Measure the longest gap between RX service checks and compare with the Part 2 timing calculations.
+13. Test different slider positions and communication conditions. Document any errors, unexpected responses, or timeouts with the port, servo position, packet bytes, timing or request frequency, and whether the issue repeats. Try a fresh valid request afterward and record the result.
+14. Capture GUI screenshots showing connected operation (port, °F, slider, and transactions) and the disconnected `COM ERR` / `--- °F` state.
 
 ### Evidence
 
