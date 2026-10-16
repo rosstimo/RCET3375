@@ -687,9 +687,9 @@ The host converts the requested pulse width to an **absolute CCP1 compare value*
 ```math
 \begin{aligned}
 \mathrm{CCP1\ match}&=0xB1E0+PW_{\mu s}\\
-&=45536+PW_{\mu s}\\[4pt]
-\mathrm{For}\ PW=1500\,\mu s:\quad
-&45536+1500=47036=0xB7BC
+&=45536+PW_{\mu s}\\
+&=45536+1500\\
+&=47036=0xB7BC
 \end{aligned}
 ```
 
@@ -713,7 +713,7 @@ The PIC accepts the full **500–2500 µs** range, including both endpoints. Rej
 
 ### Firmware integration
 
-**Extend the working code from Part 3 and Lab07.** Decide how to combine their existing subroutines and interrupts; no Part 4 pseudocode is provided.
+**Extend the working code from Part 3 and Lab07.** Combine their existing subroutines and interrupts to implement the new behavior.
 
 - **Packet parser:** Add `S` with length `2`, followed by the high and low compare bytes. Collect both bytes before validating the 16-bit value. The `I` and `A` commands continue working as in Part 3.
 - **New servo target:** Reuse Lab07's Timer1/CCP1 20 ms frame, 1 µs resolution, RC2 servo output, and initial **1500 µs** setting. Instead of the Lab07 ADC lookup/calculation for the servo, take the **next** compare value from a valid UART `S` packet.
