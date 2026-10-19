@@ -193,11 +193,14 @@ Update RA2 from the `EEPROM_ERROR` status flag on **every** main-loop iteration.
 
 ### Timed selection
 
-- **Select button (RB0):** A debounced press enters selection mode and toggles the pending `A`/`B` value. Show the pending character and turn on RA0. Each subsequent Select press toggles again and restarts an approximately **one-second timeout**.
-- **Timeout:** About one second after the last Select press, turn off RA0 and return to continuously reading EEPROM address `0x00` for the DLG7137. Do not write on or after timeout.
-- **Write button (RB1):** A debounced press during selection requests a save. Ignore Write outside the selection window, or while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set. Do not let a timeout interrupt a write awaiting verification.
-- **After the save:** Exit selection mode and return to main.
+- **Normal operation:** RA0 is OFF. Continuously read EEPROM address `0x00` and display the stored character.
+- **First Select button (RB0) press:** Enter selection mode, select `A`, display `A`, turn RA0 ON, and start an approximately one-second timeout.
+- **Additional Select presses:** Toggle the pending value between `A` and `B`, update the display, and restart the one-second timeout.
+- **Timeout:** About one second after the last Select press, exit selection mode, turn RA0 OFF, and resume the stored-value display. A timeout does not start an EEPROM write.
+- **Write button (RB1):** A debounced press before the timeout exits selection mode, turns RA0 OFF, and calls `EEPROMWrite` to save the pending character to address `0x00`. Ignore Write presses outside selection mode.
+- **After Write:** If the stored value already matches, resume normal display operation without writing. Otherwise, main continues running while the `EEPROM_WRITE` status flag blocks button handling and further EEPROM operations. The selection timer is no longer used. Resume EEPROM reading after `EEPROMVerifyWrite` completes; RA2 shows the `EEPROM_ERROR` status flag.
 
+Debounce both buttons and accept one action per press. Ignore button input while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set; the `EEPROM_ERROR` status flag does not block buttons.
 
 ### Before Lab
 
@@ -213,12 +216,12 @@ Document the RA0 and RA2 LED connections and loading, and the RA1 diagnostic pin
 4. Handle `EEIF` and call `EEPROMVerifyWrite` once per completed write. Confirm that successful verification clears `ee_status`. Test that buttons are ignored while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set.
 5. Test verification failure by deliberately programming a different byte from the expected value retained in `ee_data`. Confirm that `EEPROM_ERROR` is set and the RA2 LED turns on. Restore the code, make a successful changed-value write, and confirm the error clears. **Do not try to cause an actual EEPROM failure or run an endurance test.**
 6. Try saving the value already stored. Confirm no EEPROM write starts and any previous `EEPROM_ERROR` status flag remains unchanged.
-7. Measure the selection timeout. Check that Select restarts it, timeout causes no write, and Write is accepted only during the selection window. Verify that `EEPROM_ERROR` alone does not block the buttons.
+7. Measure the selection timeout. Check that the first Select press shows `A`, later presses toggle `A`/`B` and restart the timer, and timeout exits without writing. Confirm that Write is ignored outside selection mode, but exits selection mode immediately when accepted. Verify that the selection timer does not affect a pending write and that `EEPROM_ERROR` alone does not block the buttons.
 8. Capture RA1 during normal operation and an EEPROM write. Check that RA2 follows the `EEPROM_ERROR` status flag on every main-loop iteration.
 
 ### Evidence
 
-Include the updated code, routine contracts, schematic and loading calculations, state diagram, address/value tests, and labeled timing captures. Show main running during a write, a successful verification, the controlled verification error and recovery, the skipped unchanged write, and selection timeout without a write.
+Include the updated code, routine contracts, schematic and loading calculations, state diagram, address/value tests, and labeled timing captures. Show main running during a write, a successful verification, the controlled verification error and recovery, the skipped unchanged write, and selection exiting on timeout or an accepted Write press.
 
 ### Demonstrate
 
