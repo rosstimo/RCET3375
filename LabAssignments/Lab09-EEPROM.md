@@ -177,14 +177,14 @@ Use three RAM general-purpose registers (GPRs):
 Define the three status flag bit positions with `EQU`. Use these routine labels:
 
 - **`EEPROMRead:`** Load `ee_address` before the call. Set the `EEPROM_READ` status flag on entry, place the EEPROM byte in `ee_data`, and clear the `EEPROM_READ` status flag before returning.
-- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing or changing `ee_status`. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return while the write is in progress. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1.
+- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing or changing `ee_status`. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return without waiting for the write to finish. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1.
 - **`EEPROMVerifyWrite:`** Call after the hardware write finishes. Compare the byte at `ee_address` with the expected value still in `ee_data`. Do not overwrite `ee_data` during the comparison. If they match, clear `ee_status`. If they differ, clear the `EEPROM_WRITE` status flag and set the `EEPROM_ERROR` status flag. Clear `EEIF` and `WREN` before returning.
 
 Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write.
 
 ### Main-loop behavior
 
-`MainLoop` runs continuously, including during EEPROM programming. Do not wait for a write to finish.
+Repeat these steps in `MainLoop`:
 
 1. **Pulse RA1:** Set and immediately clear the main-loop diagnostic pin.
 2. **Check write completion:** If polling, check `EEIF` while the `EEPROM_WRITE` status flag is set and call `EEPROMVerifyWrite` when the write finishes. If using the EEPROM write-complete interrupt, the ISR calls `EEPROMVerifyWrite` instead.
