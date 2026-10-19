@@ -276,6 +276,16 @@ These labels usually mark:
 - local branches,
 - helper decision points.
 
+### 5.5.1 Familiar Acronyms in PascalCase and camelCase
+
+Preserve **widely recognized technical acronyms** in uppercase when they occur inside PascalCase or camelCase labels. Examples include `EEPROM`, `UART`, `ADC`, `HTML`, and `I2C`.
+
+- **PascalCase subroutines:** `EEPROMRead:`, `EEPROMWrite:`, `UARTSend:`, `ADCConvert:`, `HTMLParse:`
+- **camelCase local labels:** `waitForEEPROM:`, `checkUART:`, `parseHTML:`
+- **Acronym at the beginning of a camelCase label:** use lowercase to preserve camelCase, for example `eepromReady:` and `uartIdle:`.
+
+Prefer familiar acronyms over mixed-case spellings such as `EepromRead:` or `HtmlParse:`. Apply this rule to **code labels**; the existing lower_snake_case RAM-variable rule and UPPER_SNAKE_CASE constant rule still apply. Avoid obscure abbreviations that make code harder to understand.
+
 ### 5.6 Variables in RAM
 
 Use **lower_snake_case** for writable variables.
