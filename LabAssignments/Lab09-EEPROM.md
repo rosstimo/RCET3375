@@ -176,7 +176,7 @@ Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write
 
 `EEPROMWrite` returns before EEPROM programming finishes. Main continues running; it must not wait in a loop for `EEIF`.
 
-- Check write completion by polling `EEIF` during normal main-loop iterations **or** using the EEPROM write-complete interrupt. Hardware sets `EEIF` when programming finishes. After completion, disable writing as appropriate and call `EEPROMVerifyWrite` once to verify the data and clear `EEIF`. Keep the `EEPROM_WRITE` status flag set through verification.
+- Check write completion by polling `EEIF` in main or by enabling the EEPROM write-complete interrupt. With polling, main calls `EEPROMVerifyWrite` when `EEIF` is set. With interrupts, the ISR calls `EEPROMVerifyWrite`. In either case, call it once per completed write to verify the data and clear `EEIF`. Keep the `EEPROM_WRITE` status flag set through verification, and disable EEPROM writing when the operation is complete.
 - While the `EEPROM_READ` or `EEPROM_WRITE` status flag is set, ignore both buttons. The `EEPROM_ERROR` status flag does not block button input.
 - Do not start another EEPROM operation or change `ee_address` or `ee_data` while a write is awaiting verification. Normal EEPROM display reads resume afterward.
 - Keep the protected write-unlock sequence uninterrupted and observe the interrupt precautions from Part 1.
