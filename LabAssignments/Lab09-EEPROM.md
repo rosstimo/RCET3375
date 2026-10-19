@@ -152,15 +152,17 @@ The display reflects EEPROM in normal operation, the Select button changes RAM o
 
 Extend Part 1 with reusable EEPROM routines, a non-blocking write, and a separate verification routine. Replace hold-to-select with a timed selection mode.
 
+Keep the Part 1 button debouncing and display interface.
+
 ### EEPROM routines
 
 Use three RAM general-purpose registers (GPRs):
 
 | GPR | Purpose |
 | --- | --- |
-| `ee_address` | EEPROM byte address (`0x00`–`0xFF` on the PIC16F883) |
-| `ee_data` | Byte returned by a read or the expected value for a write |
-| `ee_status` | Contains the `EEPROM_READ`, `EEPROM_WRITE`, and `EEPROM_ERROR` status flags |
+| `ee_address` | EEPROM byte address for read or write |
+| `ee_data` | Byte returned by a read or written during a write |
+| `ee_status` | `EEPROM_READ`, `EEPROM_WRITE`, and `EEPROM_ERROR` status flags |
 
 Define the three status flag bit positions with `EQU`. Use these routine labels:
 
@@ -168,7 +170,7 @@ Define the three status flag bit positions with `EQU`. Use these routine labels:
 - **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing. Otherwise, clear `EEIF`, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return while the write is in progress.
 - **`EEPROMVerifyWrite:`** Call after the hardware write finishes. Compare the byte at `ee_address` with the expected value still in `ee_data`. Do not overwrite `ee_data` during the comparison. If they match, clear `ee_status`. If they differ, clear the `EEPROM_WRITE` status flag and set the `EEPROM_ERROR` status flag.
 
-Neither `EEPROMWrite` nor `EEPROMVerifyWrite` may automatically retry a write.
+Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write.
 
 ### Main-loop behavior
 
@@ -179,12 +181,12 @@ Neither `EEPROMWrite` nor `EEPROMVerifyWrite` may automatically retry a write.
 - Do not start another EEPROM operation or change `ee_address` or `ee_data` while a write is awaiting verification. Normal EEPROM display reads resume afterward.
 - Keep the protected write-unlock sequence uninterrupted and observe the interrupt precautions from Part 1.
 
-Move the diagnostics to main. No EEPROM subroutine may control a diagnostic output.
+Move the diagnostics to main. No EEPROM subroutine should directly control a diagnostic output.
 
 | Pin | Behavior |
 | --- | --- |
 | **RA0** | Selection-mode LED, ON during timed selection |
-| **RA1** | Set HIGH at the beginning of **every** main-loop iteration and LOW at the end, including while EEPROM is writing |
+| **RA1** | Set then immetiatly clear at the beginning of **every** main-loop iteration |
 | **RA2** | EEPROM error LED, HIGH when the `EEPROM_ERROR` status flag is set and LOW when it is clear |
 
 Update RA2 from the `EEPROM_ERROR` status flag on **every** main-loop iteration. A failed verification turns the LED on. A later successfully verified write clears `ee_status` and turns it off. Skipping an unchanged write does not clear a previous error.
@@ -192,11 +194,10 @@ Update RA2 from the `EEPROM_ERROR` status flag on **every** main-loop iteration.
 ### Timed selection
 
 - **Select button (RB0):** A debounced press enters selection mode and toggles the pending `A`/`B` value. Show the pending character and turn on RA0. Each subsequent Select press toggles again and restarts an approximately **one-second timeout**.
-- **Timeout:** About one second after the last Select press, turn off RA0 and return to continuously reading EEPROM address `0x00` for the DLG7137. Do not write on timeout.
+- **Timeout:** About one second after the last Select press, turn off RA0 and return to continuously reading EEPROM address `0x00` for the DLG7137. Do not write on or after timeout.
 - **Write button (RB1):** A debounced press during selection requests a save. Ignore Write outside the selection window, or while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set. Do not let a timeout interrupt a write awaiting verification.
-- **After the save:** Exit selection mode and return to the stored-value display. If the data was unchanged, no write occurs. A successful write clears any previous `EEPROM_ERROR` status flag. A verification mismatch sets that status flag; no retry occurs.
+- **After the save:** Exit selection mode and return to main.
 
-Keep the Part 1 button debouncing and display interface.
 
 ### Before Lab
 
