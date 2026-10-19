@@ -154,6 +154,18 @@ Extend Part 1 with reusable EEPROM routines, a non-blocking write, and a separat
 
 Keep the Part 1 button debouncing and display interface.
 
+### I/O assignments
+
+| Pin | Direction | Function |
+| --- | --- | --- |
+| **RA0** | Output | Selection-mode LED, HIGH during selection |
+| **RA1** | Output | Main-loop diagnostic pulse, once per iteration |
+| **RA2** | Output | EEPROM error LED, HIGH when `EEPROM_ERROR` is set |
+| **RB0** | Input | Select button, active LOW with internal pull-up |
+| **RB1** | Input | Write button, active LOW with internal pull-up |
+
+Keep the DLG7137 connections on PORTC from Part 1.
+
 ### EEPROM routines
 
 Use three RAM general-purpose registers (GPRs):
@@ -182,14 +194,6 @@ Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write
 4. **Service buttons and the selection timeout:** Poll the buttons or process button events supplied by interrupts.
 5. **Update the DLG7137 display:** Show the pending character during selection. Otherwise, read EEPROM address `0x00` and display its value. While the `EEPROM_WRITE` status flag is set, keep displaying the last character without reading EEPROM.
 6. Repeat.
-
-No EEPROM routine should control the diagnostic pins.
-
-| Pin | Behavior |
-| --- | --- |
-| **RA0** | Selection-mode LED, ON during timed selection |
-| **RA1** | Main-loop diagnostic pulse at the start of every iteration |
-| **RA2** | EEPROM error LED, HIGH when the `EEPROM_ERROR` status flag is set and LOW otherwise |
 
 A successful write verification clears the `EEPROM_ERROR` status flag. Skipping an unchanged write leaves any previous error unchanged.
 
