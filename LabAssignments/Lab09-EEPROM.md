@@ -160,21 +160,23 @@ Reserve these three RAM general-purpose registers (GPRs) as the shared EEPROM in
 | --- | --- |
 | `ee_address` | EEPROM byte address supplied by the caller (`0x00`–`0xFF` on the PIC16F883). |
 | `ee_data` | Data returned by a read, or the requested byte to write and later verify. |
-| `ee_status` | Individual **READ**, **WRITE**, and **ERROR** status flags. Choose and document their bit positions. ERROR records a failed verification until a later write verifies successfully. |
+| `ee_status` | Contains the `EEPROM_READ`, `EEPROM_WRITE`, and `EEPROM_ERROR` status flags. Define their bit positions with `EQU` and document them. `EEPROM_ERROR` remains set after failed verification until a later write verifies successfully. |
 
-Implement the following routines:
+Use these PascalCase subroutine labels as defined by the [PIC-AS Style Guide](https://github.com/rosstimo/RCET3375/blob/main/Notes/RCET_PIC-AS_Style_Guide.md). The three named status flags are UPPER_SNAKE_CASE symbolic bit positions in `ee_status`.
 
-- **EEPROM Read:** The caller loads `ee_address` before the call. **Set READ** on entry; read that EEPROM address into `ee_data`; **clear READ** before returning.
-- **EEPROM Write:** The caller loads both `ee_address` and `ee_data`. First compare against the stored byte, without changing the requested value in `ee_data`. If it already matches, return **without starting a write**. Otherwise clear any stale `EEIF`, **set WRITE** in `ee_status`, start the protected EEPROM write sequence, and **return immediately**. Do not wait for programming to finish inside this routine.
-- **EEPROM Write Verify:** Call this **after hardware reports write completion**. Read the address in `ee_address` and compare the stored byte against the expected value still held in `ee_data`. Do not overwrite that expected value before comparing. On a match, **clear `ee_status`, including any previous ERROR**. On a mismatch, **clear WRITE and set ERROR**. Return without starting another write.
+Implement these routines:
 
-**No automatic retries:** Neither EEPROM Write nor EEPROM Write Verify may retry a write. The application must be able to detect an error without silently rewriting EEPROM.
+- **`ReadEeprom:`** The caller loads `ee_address` before calling `ReadEeprom`. Set the `EEPROM_READ` status flag on entry; read the requested EEPROM address into `ee_data`; clear the `EEPROM_READ` status flag before returning.
+- **`WriteEeprom:`** The caller loads `ee_address` and `ee_data` before calling `WriteEeprom`. First compare against the stored byte, without changing the requested value in `ee_data`. If it already matches, return **without starting a write**. Otherwise clear any stale `EEIF`, set the `EEPROM_WRITE` status flag, start the protected EEPROM write sequence, and **return immediately**. Do not wait for programming to finish inside this routine.
+- **`VerifyEepromWrite:`** Call `VerifyEepromWrite` **after hardware reports write completion**. Read the address in `ee_address` and compare the stored byte against the expected value still held in `ee_data`. Do not overwrite that expected value before comparing. On a match, **clear `ee_status`, including any previous `EEPROM_ERROR` status flag**. On a mismatch, **clear the `EEPROM_WRITE` status flag and set the `EEPROM_ERROR` status flag**. Return without starting another write.
+
+**No automatic retries:** Neither `WriteEeprom` nor `VerifyEepromWrite` may retry a write. The application must be able to detect an error without silently rewriting EEPROM.
 
 ### Non-blocking write operation
 
-After EEPROM Write returns, the main loop must continue useful work such as refreshing outputs and maintaining timing. **Do not wait in a loop for `EEIF`**. While READ or WRITE is set, **ignore both buttons**; do not launch another EEPROM operation or change `ee_address`/`ee_data` while a write awaits verification. ERROR alone does not block buttons.
+After `WriteEeprom` returns, the main loop must continue useful work such as refreshing outputs and maintaining timing. **Do not wait in a loop for `EEIF`**. While the `EEPROM_READ` or `EEPROM_WRITE` status flag is set, **ignore both buttons**; do not launch another EEPROM operation or change `ee_address`/`ee_data` while a write awaits verification. The `EEPROM_ERROR` status flag alone does not block buttons.
 
-Detect completion by **polling `EEIF` in the ordinary main-loop pass** or by using the EEPROM write-complete interrupt. `EEIF` is set by hardware on completion and must be cleared in software. Once completion is detected, clear the hardware write-enable setting as appropriate and call EEPROM Write Verify. Keep the WRITE status flag set until verification resolves the operation. Preserve the uninterrupted write-unlock sequence and its interrupt precautions. Normal continuous EEPROM reading can resume after the pending write has been verified.
+Detect completion by **polling `EEIF` in the ordinary main-loop pass** or by using the EEPROM write-complete interrupt. `EEIF` is set by hardware on completion and must be cleared in software. Once completion is detected, clear the hardware write-enable setting as appropriate and call `VerifyEepromWrite`. Keep the `EEPROM_WRITE` status flag set until verification resolves the operation. Preserve the uninterrupted write-unlock sequence and its interrupt precautions. Normal continuous EEPROM reading can resume after the pending write has been verified.
 
 ### Main-loop diagnostic and error indication
 
@@ -184,49 +186,49 @@ For Part 2, reassign the Part 1 diagnostic pins:
 | --- | --- |
 | **RA0** | Selection-mode LED: ON only during timed selection. |
 | **RA1** | Main-loop diagnostic: **set HIGH at the beginning of every main-loop iteration and clear LOW at the end**, before the next iteration. This continues while EEPROM writing is in progress. |
-| **RA2** | EEPROM error output with an **LED**: HIGH exactly when the ERROR bit of `ee_status` is set; LOW otherwise. |
+| **RA2** | EEPROM error output with an **LED**: HIGH exactly when the `EEPROM_ERROR` status flag is set; LOW otherwise. |
 
-**Only main controls RA1 and RA2.** Do not set or clear diagnostic/output pins inside EEPROM subroutines. On **every main-loop iteration**, update RA2 directly from the ERROR bit, regardless of selection mode or whether a write is underway. A failed verification lights the error LED; a later **successfully verified write clears ERROR**, so main turns the LED off. Skipping an unchanged-value write does not clear a previous error.
+**Only main controls RA1 and RA2.** Do not set or clear diagnostic/output pins inside EEPROM subroutines. On **every main-loop iteration**, update RA2 directly from the `EEPROM_ERROR` status flag, regardless of selection mode or whether a write is underway. A failed verification lights the error LED; a later **successfully verified write clears the `EEPROM_ERROR` status flag**, so main turns the LED off. Skipping an unchanged-value write does not clear a previous error.
 
-Check READ and WRITE before processing the Select or Write buttons: **if either bit is set, ignore button input for that iteration**. ERROR does not prevent button handling, allowing a later intentional write to recover from a verification error.
+Check the `EEPROM_READ` and `EEPROM_WRITE` status flags before processing the Select or Write buttons: **if either status flag is set, ignore button input for that iteration**. The `EEPROM_ERROR` status flag does not prevent button handling, allowing a later intentional write to recover from a verification error.
 
 ### Timed selection behavior
 
 - **Select button (RB0):** A debounced press enters selection mode, toggles the pending `A`/`B` value, and turns on the **RA0 selection-mode LED (pin 2)**. Each additional Select press toggles the value and restarts an approximately **one-second timeout**.
 - **Timeout:** About one second after the last Select press, exit selection mode, turn off RA0, and resume continuously reading EEPROM address `0x00` for the DLG7137 display. **Do not write on timeout.**
-- **Write button (RB1):** A debounced press within the selection window requests a save, provided READ and WRITE are both clear. Ignore presses outside that window or while either busy flag is set. If the byte differs, start the non-blocking write. Keep the pending address/data intact and do not let a timeout interrupt the pending write and verification.
-- **Completion:** On successful verification, clear status (including ERROR), exit selection mode, turn off RA0, and display the stored value. On a mismatch, set ERROR so main lights RA2; do not retry automatically. An unchanged-value save exits selection mode without a hardware write.
+- **Write button (RB1):** A debounced press within the selection window requests a save, provided the `EEPROM_READ` and `EEPROM_WRITE` status flags are both clear. Ignore presses outside that window or while either busy status flag is set. If the byte differs, start the non-blocking write. Keep the pending address/data intact and do not let a timeout interrupt the pending write and verification.
+- **Completion:** On successful verification, clear `ee_status` (including the `EEPROM_ERROR` status flag), exit selection mode, turn off RA0, and display the stored value. On a mismatch, set the `EEPROM_ERROR` status flag so main lights RA2; do not retry automatically. An unchanged-value save exits selection mode without a hardware write.
 
 Preserve software debouncing and the display behavior developed in Part 1.
 
 ### Before Lab
 
-Document the three GPR assignments, the READ/WRITE/ERROR bit layout, and each routine's inputs, outputs, and status changes. Document the RA0 and RA2 LED connections and loading, and the RA1 main-loop diagnostic. Prepare a state diagram showing selection, timeout, write in progress, verification, button gating, and error handling. Include the one-second timing plan, a table of address/value tests, and an explanation of what main continues doing while EEPROM writes.
+Document the three GPR assignments, the bit positions of the `EEPROM_READ`, `EEPROM_WRITE`, and `EEPROM_ERROR` status flags, and each routine's inputs, outputs, and status flag changes. Document the RA0 and RA2 LED connections and loading, and the RA1 main-loop diagnostic. Prepare a state diagram showing selection, timeout, write in progress, verification, button gating, and error handling. Include the one-second timing plan, a table of address/value tests, and an explanation of what main continues doing while EEPROM writes.
 
 Explain why EEPROM reads do not consume write endurance and why skipping identical writes improves endurance.
 
 ### In the Lab
 
-1. Refactor Part 1 to use `ee_address`, `ee_data`, and `ee_status` for the EEPROM interface. Confirm the READ flag is set during the read routine and cleared on return, with the result in `ee_data`.
+1. Refactor Part 1 to use `ee_address`, `ee_data`, and `ee_status` for the EEPROM interface. Confirm the `EEPROM_READ` status flag is set during `ReadEeprom` and cleared on return, with the result in `ee_data`.
 2. Read and write several different bytes at several valid EEPROM addresses. Check their contents again after removing and restoring power.
-3. Implement the non-blocking EEPROM Write routine. Confirm that it returns to main with WRITE set while the hardware operation is still underway. Continue main-loop iterations, updating the diagnostic and error LED, but ignore button input while READ or WRITE is set.
-4. Detect completion through `EEIF` polling in main or the EEPROM interrupt. Call EEPROM Write Verify exactly once for each completed write. Confirm a successful comparison clears `ee_status`.
-5. Test the ERROR path **without trying to cause a physical EEPROM failure**: for one controlled test, deliberately program a different byte than the expected byte kept in `ee_data`. Verify that the comparison sets ERROR and main lights the RA2 LED. Restore the normal code, then perform a changed-value write that verifies successfully; confirm ERROR clears and the LED turns off. Do not start a retry or perform an endurance stress test.
-6. Verify that saving an already stored value produces **no EEPROM write**, using the EEPROM hardware flags/registers or debugger. This skipped write must not clear an existing ERROR.
+3. Implement the non-blocking `WriteEeprom` routine. Confirm that it returns to main with the `EEPROM_WRITE` status flag set while the hardware operation is still underway. Continue main-loop iterations, updating the diagnostic and error LED, but ignore button input while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set.
+4. Detect completion through `EEIF` polling in main or the EEPROM interrupt. Call `VerifyEepromWrite` exactly once for each completed write. Confirm a successful comparison clears `ee_status`.
+5. Test the `EEPROM_ERROR` status flag **without trying to cause a physical EEPROM failure**: for one controlled test, deliberately program a different byte than the expected byte kept in `ee_data`. Verify that the comparison sets the `EEPROM_ERROR` status flag and main lights the RA2 LED. Restore the normal code, then perform a changed-value write that verifies successfully; confirm the `EEPROM_ERROR` status flag clears and the LED turns off. Do not start a retry or perform an endurance stress test.
+6. Verify that saving an already stored value produces **no EEPROM write**, using the EEPROM hardware flags/registers or debugger. This skipped write must not clear an existing `EEPROM_ERROR` status flag.
 7. Implement and measure timed selection. Verify each Select press restarts the one-second window; timeout causes no write; Write outside the window is ignored; and a permitted save completes verification before returning to display mode.
-8. Use the scope to show **RA1 pulsing once per main-loop iteration**, including while WRITE is set. Show the RA0 selection LED and verify **RA2 always follows the ERROR status**, both after a controlled mismatch and after a successful write. Demonstrate that button presses are ignored while READ or WRITE is set, but not when ERROR alone is set. Explain how the shared address/data registers are protected until verification finishes.
+8. Use the scope to show **RA1 pulsing once per main-loop iteration**, including while the `EEPROM_WRITE` status flag is set. Show the RA0 selection LED and verify **RA2 always follows the `EEPROM_ERROR` status flag**, both after a controlled mismatch and after a successful write. Demonstrate that button presses are ignored while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set, but not when only the `EEPROM_ERROR` status flag is set. Explain how the shared address/data registers are protected until verification finishes.
 
 ### Evidence
 
-Include the GPR/flag calling contracts, state diagrams and flowcharts, test address/value table, final source, and labeled measurements. Show a main-loop RA1 pulse on every iteration, including during a pending write; RA2 matching ERROR on each iteration; the read-status transitions; a write returning before `EEIF`; a successful write clearing an earlier ERROR; a controlled verification mismatch setting ERROR; an unchanged-value request without a hardware write; and selection timeout without a write.
+Include the GPR/flag calling contracts, state diagrams and flowcharts, test address/value table, final source, and labeled measurements. Show a main-loop RA1 pulse on every iteration, including during a pending write; RA2 matching the `EEPROM_ERROR` status flag on each iteration; the read-status transitions; a write returning before `EEIF`; a successful write clearing an earlier `EEPROM_ERROR` status flag; a controlled verification mismatch setting the `EEPROM_ERROR` status flag; an unchanged-value request without a hardware write; and selection timeout without a write.
 
 ### Demonstrate
 
-Show independent EEPROM addresses, RA1 main-loop pulses continuing through a non-blocking write, and RA2 reflecting the last write-verification error status. Demonstrate both a failed verification and a later successful write that clears the error LED, with no automatic retries. Show that READ/WRITE block button handling but ERROR does not. Demonstrate the one-second selection window, timeout without writing, and skipped writes for unchanged data.
+Show independent EEPROM addresses, RA1 main-loop pulses continuing through a non-blocking write, and RA2 reflecting the last write-verification error status. Demonstrate both a failed verification and a later successful write that clears the error LED, with no automatic retries. Show that the `EEPROM_READ` and `EEPROM_WRITE` status flags block button handling but the `EEPROM_ERROR` status flag does not. Demonstrate the one-second selection window, timeout without writing, and skipped writes for unchanged data.
 
 ### Complete When
 
-The three-GPR interface works at variable EEPROM addresses; reads return data and clear READ; writes return before completion with WRITE set; main detects completion and calls verification; successful verification clears status and a mismatch sets ERROR without retry; RA1 pulses each main-loop iteration; the RA2 error LED always follows ERROR; READ/WRITE suppress button handling while ERROR does not; unchanged values are not rewritten; and timed selection behaves reliably.
+The three-GPR interface works at variable EEPROM addresses; `ReadEeprom` returns data and clears the `EEPROM_READ` status flag; `WriteEeprom` returns before completion with the `EEPROM_WRITE` status flag set; main detects completion and calls `VerifyEepromWrite`; successful verification clears `ee_status` and a mismatch sets the `EEPROM_ERROR` status flag without retry; RA1 pulses each main-loop iteration; the RA2 error LED always follows the `EEPROM_ERROR` status flag; the `EEPROM_READ` and `EEPROM_WRITE` status flags suppress button handling while the `EEPROM_ERROR` status flag does not; unchanged values are not rewritten; and timed selection behaves reliably.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
