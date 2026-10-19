@@ -177,7 +177,7 @@ Use three RAM general-purpose registers (GPRs):
 Define the three status flag bit positions with `EQU`. Use these routine labels:
 
 - **`EEPROMRead:`** Load `ee_address` before the call. Set the `EEPROM_READ` status flag on entry, place the EEPROM byte in `ee_data`, and clear the `EEPROM_READ` status flag before returning.
-- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing or changing `ee_status`. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return without waiting for the write to finish. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1.
+- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing. Preserve any existing `EEPROM_ERROR` status flag. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return without waiting for the write to finish. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1.
 - **`EEPROMVerifyWrite:`** Call after the hardware write finishes. Compare the byte at `ee_address` with the expected value still in `ee_data`. Do not overwrite `ee_data` during the comparison. If they match, clear `ee_status`. If they differ, clear the `EEPROM_WRITE` status flag and set the `EEPROM_ERROR` status flag. Clear `EEIF` and `WREN` before returning.
 
 Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write.
@@ -190,7 +190,7 @@ Repeat these steps in `MainLoop`:
 2. **Check write completion:** If polling, check `EEIF` while the `EEPROM_WRITE` status flag is set and call `EEPROMVerifyWrite` when the write finishes. If using the EEPROM write-complete interrupt, the ISR calls `EEPROMVerifyWrite` instead.
 3. **Update RA2:** Set the error LED to match the `EEPROM_ERROR` status flag on every iteration.
 4. **Service buttons and the selection timeout:** Poll the buttons or process button events supplied by interrupts.
-5. **Update the DLG7137 display:** Show the pending character during selection. Otherwise, read EEPROM address `0x00` and display its value. While the `EEPROM_WRITE` status flag is set, keep displaying the last character without reading EEPROM. Keep the Part 1 display interface.
+5. **Update the DLG7137 display:** Show the pending character during selection. Otherwise, read EEPROM address `0x00` and display `A`, `B`, or `?` for any other stored value. While the `EEPROM_WRITE` status flag is set, keep displaying the last character without reading EEPROM. Keep the Part 1 display interface.
 6. Repeat.
 
 ### Button service
