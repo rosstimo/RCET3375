@@ -238,7 +238,7 @@ Use the debugger to show that an unchanged value does not start another write. D
 
 ### Complete When
 
-All three EEPROM routines meet their calling contracts; main continues running during writes; verification and error indication work without retries; timed selection, button restrictions, and the required measurements pass.
+All three EEPROM routines work as specified; main continues running during writes; verification and error indication work without retries; timed selection, button restrictions, and the required measurements pass.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
