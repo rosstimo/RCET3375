@@ -226,11 +226,15 @@ Document the RA0 and RA2 LED connections and loading, and the RA1 diagnostic pin
 
 ### Evidence
 
-Include the updated code, routine contracts, schematic and loading calculations, state diagram, address/value tests, and labeled timing captures. Show main running during a write, a successful verification, the controlled verification error and recovery, the skipped unchanged write, and selection exiting on timeout or an accepted Write press.
+Include the final source code, flowcharts for `EEPROMRead`, `EEPROMWrite`, and `EEPROMVerifyWrite`, the schematic and loading calculations, selection state diagram, and address/value test results, including power-cycle checks.
+
+Provide labeled oscilloscope captures of the selection timeout and RA1 pulses during EEPROM programming. Record debugger observations of `WR`, `EEIF`, and `ee_status` for a completed write, a skipped unchanged-value write, and a controlled verification failure followed by recovery.
 
 ### Demonstrate
 
-Show the timed selection and the EEPROM routines working at different addresses. Use the scope to demonstrate continued main-loop execution during a write, and the error LED responding to failed and successful verification. Explain button handling while the status flags are set.
+Demonstrate timed selection, including toggling, timeout, and saving a value. Use the oscilloscope to show that main continues running during EEPROM programming.
+
+Use the debugger to show that an unchanged value does not start another write. Demonstrate a verification failure, the RA2 error indication, and recovery following a successful write. Explain how `ee_status`, `ee_address`, and `ee_data` are used during writing and verification.
 
 ### Complete When
 
