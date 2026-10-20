@@ -174,13 +174,37 @@ Use three RAM general-purpose registers (GPRs):
 | `ee_data` | Byte returned by a read or written during a write |
 | `ee_status` | `EEPROM_READ`, `EEPROM_WRITE`, and `EEPROM_ERROR` status flags |
 
-Define the three status flag bit positions with `EQU`. Use these routine labels:
+Define the three status flag bit positions with `EQU`. 
+
+The EEPROM subroutines should be fully reusable without modification. They should not access GPRs other than those defined above.
+
+You may choose whether to use polling or the EEPROM write-complete interrupt to determine when a write finishes. If using the interrupt, the ISR should call `EEPROMVerifyWrite` once per completed write. Also you may use additional internal helper subroutines for EEPROM read/write, but they should not be called externally and you must document the maximum stack depth.
+
+Use these routine labels for external calls:
 
 - **`EEPROMRead:`** Load `ee_address` before the call. Set the `EEPROM_READ` status flag on entry, place the EEPROM byte in `ee_data`, and clear the `EEPROM_READ` status flag before returning.
-- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. Read the stored byte first, preserving the requested value in `ee_data`. If the values match, return without writing. Preserve any existing `EEPROM_ERROR` status flag. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return without waiting for the write to finish. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1.
+- **`EEPROMWrite:`** Load `ee_address` and `ee_data` before the call. If either `EEPROM_WRITE` or `EEIF` are set return immidiatly without changing `ee_status`. Otherwise test if the value stored at `ee_address` already matches the requested value in `ee_data` without overwriting `ee_data`. If the values match, return without writing. Preserve any existing `EEPROM_ERROR` status flag. Otherwise, set the `EEPROM_WRITE` status flag, start the protected write sequence, and return without waiting for the write to finish. Keep the unlock sequence uninterrupted and follow the interrupt precautions from Part 1. Before returning restore `GIE` to its previous state. In other words only enable interrupts if they were enabled on entry. `ee_status` can be used to track `GIE` state for the protected write sequence.
 - **`EEPROMVerifyWrite:`** Call after the hardware write finishes. Compare the byte at `ee_address` with the expected value still in `ee_data`. Do not overwrite `ee_data` during the comparison. If they match, clear `ee_status`. If they differ, clear the `EEPROM_WRITE` status flag and set the `EEPROM_ERROR` status flag. Clear `EEIF` and `WREN` before returning.
 
-Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write.
+Neither `EEPROMWrite` nor `EEPROMVerifyWrite` should automatically retry a write on failure.
+
+
+### Button service
+
+ - Service the Select and Write buttons by polling or interrupts. Keep the Part 1 button debouncing and accept one action per press.
+
+ - **Do not** start another EEPROM operation or change `ee_address` or `ee_data` while a write is awaiting verification.
+
+ - **Ignore** button events while either the `EEPROM_READ` or `EEPROM_WRITE` status flags are set. The `EEPROM_ERROR` status flag does not block the buttons.
+
+
+### Timed selection
+
+- **Normal operation:** RA0 is OFF. Display the character stored at EEPROM address `0x00`.
+- **First Select button (RB0) press:** Enter selection mode, select `A`, display `A`, turn RA0 ON, and start an approximately one-second timeout.
+- **Additional Select button presses:** Toggle the pending value between `A` and `B`, update the display, and restart the one-second timeout.
+- **Timeout:** About one second after the last Select button press, exit selection mode, turn RA0 OFF, and resume the EEPROM stored-value display. A timeout **does not** start an EEPROM write.
+- **Write button (RB1):** A debounced press before the timeout exits selection mode, stops the selection timer, turns RA0 OFF, and calls `EEPROMWrite` to save the pending character to address `0x00`. Ignore Write Button presses outside selection mode.
 
 ### Main-loop behavior
 
@@ -190,23 +214,8 @@ Repeat these steps in `MainLoop`:
 2. **Check write completion:** If polling, check `EEIF` while the `EEPROM_WRITE` status flag is set and call `EEPROMVerifyWrite` when the write finishes. If using the EEPROM write-complete interrupt, the ISR calls `EEPROMVerifyWrite` instead.
 3. **Update RA2:** Set the error LED to match the `EEPROM_ERROR` status flag on every iteration.
 4. **Service buttons and the selection timeout:** Poll the buttons or process button events supplied by interrupts.
-5. **Update the DLG7137 display:** Show the pending character during selection. Otherwise, read EEPROM address `0x00` and display `A`, `B`, or `?` for any other stored value. While the `EEPROM_WRITE` status flag is set, keep displaying the last character without reading EEPROM. Keep the Part 1 display interface.
+5. **Update the DLG7137 display:** Show the pending character while in selection mode. Otherwise, read EEPROM address `0x00` and display `A`, `B`, or `?` for any other stored value. While the `EEPROM_WRITE` status flag is set, keep displaying the last character without reading EEPROM.
 6. Repeat.
-
-### Button service
-
-Service the Select and Write buttons by polling or interrupts. Keep the Part 1 button debouncing and accept one action per press. Ignore button events while the `EEPROM_READ` or `EEPROM_WRITE` status flag is set. The `EEPROM_ERROR` status flag does not block the buttons.
-
-Do not start another EEPROM operation or change `ee_address` or `ee_data` while a write is awaiting verification.
-
-### Timed selection
-
-- **Normal operation:** RA0 is OFF. Display the character stored at EEPROM address `0x00`.
-- **First Select button (RB0) press:** Enter selection mode, select `A`, display `A`, turn RA0 ON, and start an approximately one-second timeout.
-- **Additional Select presses:** Toggle the pending value between `A` and `B`, update the display, and restart the one-second timeout.
-- **Timeout:** About one second after the last Select press, exit selection mode, turn RA0 OFF, and resume the stored-value display. A timeout does not start an EEPROM write.
-- **Write button (RB1):** A debounced press before the timeout exits selection mode, stops the selection timer, turns RA0 OFF, and calls `EEPROMWrite` to save the pending character to address `0x00`. Ignore Write presses outside selection mode.
-
 ### Before Lab
 
 Document the three GPR assignments, status flag bit positions, and inputs and outputs of each EEPROM routine. Prepare a state diagram for selection, timeout, writing, verification, and errors. Include the one-second timing plan and an address/value test table.
