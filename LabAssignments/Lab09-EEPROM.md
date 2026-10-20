@@ -279,7 +279,7 @@ Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routi
 | `A`–`D` | No PIN-entry action |
 
 - Accept one digit per debounced physical key press, not one per keypad scan.
-- Accept **exactly four digits followed by `#`**. Do not check the PIN when the fourth digit is pressed.
+- Accept **exactly four digits followed by `#`**.
 - A `#` press with fewer than four digits rejects and clears the entry. Reject an entry if a fifth digit is pressed; do not accept its first four digits as a valid PIN.
 - After a correct entry, drive the simulated solenoid output HIGH for approximately one second, then LOW. An incorrect or incomplete entry must not activate it.
 - Clear the collected entry after `#`, after `*`, and after reset. A user can then begin another attempt.
@@ -287,7 +287,7 @@ Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routi
 
 ### Stored PIN and startup
 
-Use `EEPROMRead` to retrieve the four PIN digits, including any leading zeros. The PIN must not appear anywhere in the program source. Do not change the stored PIN in Part 3.
+Use `EEPROMRead` to retrieve the four PIN digits, including any leading zeros. The PIN must not appear anywhere in the program source.
 
 On startup or reset, keep the solenoid output OFF until the correct PIN is entered.
 
@@ -307,9 +307,8 @@ Draw a state diagram covering startup, locked operation, PIN entry, cancel, comp
 2. Verify that the lock reads the PIN already stored in EEPROM and that the PIN digits do not appear in the source code.
 3. Enter a correct PIN and confirm that the solenoid output activates **only after `#`**. Measure its one-second HIGH pulse.
 4. Test an incorrect PIN, `#` after fewer than four digits, a fifth digit, and `*` during entry. None may unlock. Verify that a new entry works after each rejected or canceled attempt.
-5. Test a PIN beginning with zero. Verify that all four digits are required and leading zeros are preserved.
-6. Verify the buzzer responds to all 16 keys. Measure its 100–250 ms pulse and confirm the same feedback occurs for correct and incorrect PIN entries.
-7. Power-cycle the PIC and confirm that the solenoid output stays inactive until the saved PIN is entered again.
+5. Verify the buzzer responds to all 16 keys. Measure its 100–250 ms pulse and confirm the same feedback occurs for correct and incorrect PIN entries.
+6. Power-cycle the PIC and confirm that the solenoid output stays inactive until the saved PIN is entered again.
 
 ### Evidence
 
