@@ -301,8 +301,6 @@ Only accept a PIN record when its marker is valid **and all four digits are in r
 
 Use an **active buzzer** that produces its own tone when powered. Sound the buzzer for **100–250 ms** on each debounced keypad press, including `*` and `#`.
 
-Choose how to time the buzzer and one-second solenoid output.
-
 ### Before Lab
 
 Prepare or reference the keypad scanner, display wiring, and debouncing from Lab 02, including electrical precautions for simultaneous key presses. Document the buzzer and simulated-solenoid output wiring, loading calculations, and reset-safe output behavior.
