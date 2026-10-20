@@ -259,9 +259,30 @@ All three EEPROM routines work as specified; main continues running during write
 
 ### Goal
 
-Reuse the keypad and display to build a lock that recognizes a four-digit PIN stored in EEPROM. A correct PIN energizes a **simulated solenoid output** for one second; all other conditions keep the output inactive.
+Extend Part 2 into a keypad-controlled electronic lock. Enter a four-digit PIN followed by `#` to activate a simulated solenoid output for one second. Store the PIN in data EEPROM so it survives a power cycle.
 
-**Safety:** Do not connect a solenoid directly to a PIC output. A real inductive load requires an appropriate driver and transient protection. Hold the simulated output inactive through reset and startup, not only during normal locked operation.
+**Safety:** Do not connect a solenoid directly to a PIC output. A real inductive load requires an appropriate driver and transient protection. Keep the simulated output inactive during reset and startup as well as normal locked operation.
+
+### Reuse from previous labs
+
+Use the `EEPROMRead`, `EEPROMWrite`, and `EEPROMVerifyWrite` routines from Part 2 without changing their interfaces. PIN entry and display handling belong to the application, not the EEPROM routines.
+
+Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routine can work much like `ParseRx` from the UART lab: recognize one key-press event at a time, collect digits in RAM, and track how many digits have been entered.
+
+### Keypad behavior
+
+| Key | Action |
+| --- | --- |
+| `0`–`9` | Add one digit to the PIN entry in RAM |
+| `*` | Cancel the entry and clear the collected digits |
+| `#` | Submit the entry for comparison with the stored PIN |
+
+- Accept one digit per debounced physical key press, not one per keypad scan.
+- Accept **exactly four digits followed by `#`**. Do not check the PIN when the fourth digit is pressed.
+- A `#` press with fewer than four digits rejects and clears the entry. Reject an entry if a fifth digit is pressed; do not accept its first four digits as a valid PIN.
+- After a correct entry, drive the simulated solenoid output HIGH for approximately one second, then LOW. An incorrect or incomplete entry must not activate it.
+- Clear the collected entry after `#`, after `*`, and after reset. A user can then begin another attempt.
+- Provide useful one-character progress/status feedback on the DLG7137 display. Choose the characters and document their meanings in the lab book.
 
 ### PIN storage and startup
 
@@ -272,44 +293,50 @@ Store the **four decimal digits separately** so leading zeros are retained. Use 
 | `0x10` through `0x13` | Four PIN digits, in order, each a value from 0 through 9 |
 | `0x14` | Validity marker: `0xA5` means the PIN record was committed |
 
-Only accept a PIN record when its marker is valid **and all four digits are in range**. On erased or invalid EEPROM, fail locked. A one-time commissioning method for entering the **initial** PIN is required before the lock can be used; it must be a deliberate operation, not an automatic overwrite on every reset.
+Only accept a PIN record when its marker is valid **and all four digits are in range**. An erased or invalid record must never unlock the output. On reset, start locked and require a new correct PIN entry, regardless of whether the output was previously active. Do not save the unlocked state in EEPROM.
+
+An initial four-digit PIN must be programmed deliberately before normal operation. Do not overwrite the PIN on every reset.
 
 > **Instructor review needed:** choose and verify the initial-PIN commissioning method before publishing this part.
 
-### Required behavior
+### Keypress feedback
 
-- Use only keypad digits `0`–`9` for PIN entry, accepting **one digit per physical key press**, not one digit per scan.
-- Maintain the entered digits and progress in RAM. A reset discards an incomplete entry.
-- Compare a completed four-digit entry with the stored PIN; do not accept shorter entries or drop leading zeros.
-- After a correct entry, drive the simulated solenoid output HIGH for **one second**, then LOW.
-- Incorrect entries must never activate the output. Allow the user to retry.
-- On startup/reset, the output must remain inactive until a **new correct PIN** is entered. Do not store an unlocked state in EEPROM.
-- Provide useful one-character entry/status feedback on the existing DLG7137 display. Choose symbols and describe them in your lab book. The display holds only **one character at a time**.
+Use an **active buzzer** that produces its own tone when powered. Sound the buzzer for **100–250 ms** on each debounced keypad press, including `*` and `#`.
+
+Reuse the timing approach from Part 2. Turn on the buzzer when a key press is recognized and turn it off when its time expires. Keep the keypad and EEPROM service running during the beep. The buzzer and one-second solenoid output need separate timing counts, but they may share the same timing source. No tone-generation code or blocking beep delay is required.
 
 ### Before Lab
 
-Prepare or reference the keypad schematic and scan logic from Lab 02, including electrical precautions for simultaneous keys. Document the simulated-output wiring and its reset-safe pull-down/driver behavior. Draw an EEPROM address map, a state diagram covering startup, locked, PIN entry, success, and failed entry, and a flowchart of the PIN comparison. Describe the initial-PIN provisioning method.
+Prepare or reference the keypad scanner, display wiring, and debouncing from Lab 02, including electrical precautions for simultaneous key presses. Document the buzzer and simulated-solenoid output wiring, loading calculations, and reset-safe output behavior.
+
+Draw the EEPROM address map and a state diagram covering startup, locked operation, PIN entry, cancel, comparison, and the one-second output. Prepare flowcharts for keypad entry and PIN comparison, including `*`, `#`, incorrect-length entries, and a fifth digit. Document how the EEPROM routines are reused and describe the initial-PIN programming method.
+
+Plan how the keypad beep and solenoid output will be timed without stopping the main loop.
 
 ### In the Lab
 
-1. Bring the keypad and display back into the working Part 2 project. Confirm the input scanner produces distinct key events.
-2. Provision a known four-digit PIN deliberately and verify its stored digits and validity marker.
-3. Test correct, incorrect, too-short, and leading-zero PIN entries as applicable.
-4. Measure the simulated unlock pulse. Its HIGH duration must be **one second**.
-5. Power-cycle the PIC, confirm the output remains inactive at startup, and enter the saved PIN again.
-6. Deliberately test an invalid PIN record. It must not authorize an unlock.
+1. Bring the keypad and display back into the working Part 2 project. Verify that each debounced press produces one key event.
+2. Program a known four-digit PIN deliberately and inspect its four EEPROM digits and validity marker.
+3. Enter a correct PIN and confirm that the solenoid output activates **only after `#`**. Measure its one-second HIGH pulse.
+4. Test an incorrect PIN, `#` after fewer than four digits, a fifth digit, and `*` during entry. None may unlock. Verify that a new entry works after each rejected or canceled attempt.
+5. Test a PIN beginning with zero. Verify that all four digits are required and leading zeros are preserved.
+6. Verify the 100–250 ms buzzer pulse on digit, `*`, and `#` presses while keypad scanning continues.
+7. Power-cycle the PIC and confirm that the solenoid output stays inactive until the saved PIN is entered again.
+8. Deliberately test an invalid PIN record, including an invalid marker or out-of-range digit. It must not authorize an unlock.
 
 ### Evidence
 
-Include the PIN address map, state diagram/flowcharts, code, PIN test table, oscilloscope capture or timed measurement of the unlock output, and observations of startup and invalid-record behavior.
+Include the EEPROM PIN address map, schematic and loading calculations, keypad-entry and comparison flowcharts, state diagram, final code, and a table of the PIN-entry tests.
+
+Provide labeled measurements of the buzzer pulse and one-second solenoid-output pulse. Record the power-cycle test and invalid-record results.
 
 ### Demonstrate
 
-Enter incorrect and correct PINs, show the one-second output, and prove that the code survives power removal while the **unlocked state does not**.
+Enter a correct PIN followed by `#` and show the one-second output on the oscilloscope. Demonstrate an incorrect PIN, incomplete entry, fifth digit, and `*` cancellation without unlocking. Show the beep on each key press, then power-cycle the PIC and unlock again using the saved PIN.
 
 ### Complete When
 
-The lock accepts exactly four decimal digits, uses persistent EEPROM data, activates its simulated output only for a correct PIN, and starts locked after every reset.
+The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the stored PIN survives power removal. The simulated solenoid activates for one second only after a correct PIN is submitted. Every debounced key press produces a 100–250 ms beep, and reset or invalid EEPROM data leaves the lock inactive.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
