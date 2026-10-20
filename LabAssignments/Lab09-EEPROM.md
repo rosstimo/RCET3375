@@ -263,6 +263,10 @@ Extend Part 2 into a keypad-controlled electronic lock. Enter a four-digit PIN f
 
 **Safety:** Do not connect a solenoid directly to a PIC output. A real inductive load requires an appropriate driver and transient protection. Keep the simulated output inactive during reset and startup as well as normal locked operation.
 
+### Initial PIN setup
+
+Before running Part 3, manually program a four-digit PIN into **four consecutive data EEPROM addresses**, with one decimal digit (0–9) in each address. Choose the addresses and verify the stored digits. This is a one-time setup. PIN changes are not part of Part 3, and the PIN must not appear anywhere in the program source.
+
 ### Reuse from previous labs
 
 Use `EEPROMRead` from Part 2 without changing its interface. PIN entry and display handling belong to the application, not the EEPROM routines.
@@ -287,7 +291,7 @@ Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routi
 
 ### Stored PIN and startup
 
-Use `EEPROMRead` to retrieve the four PIN digits, including any leading zeros. The PIN must not appear anywhere in the program source.
+Use `EEPROMRead` to retrieve the four stored PIN digits, including any leading zeros.
 
 On startup or reset, keep the solenoid output OFF until the correct PIN is entered.
 
