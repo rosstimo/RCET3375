@@ -255,8 +255,6 @@ All three EEPROM routines work as specified; main continues running during write
 <a id="part-3"></a>
 ## Part 3 - Four-Digit Electronic Lock
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
-
 ### Goal
 
 Extend Part 2 into a keypad-controlled electronic lock. Enter a four-digit PIN followed by `#` to activate a simulated solenoid output for one second. The PIN is read from data EEPROM.
@@ -291,7 +289,7 @@ Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routi
 
 ### Stored PIN and startup
 
-Use `EEPROMRead` to retrieve the four stored PIN digits, including any leading zeros.
+Use `EEPROMRead` to retrieve the four stored PIN digits.
 
 On startup or reset, keep the solenoid output OFF until the correct PIN is entered.
 
@@ -307,7 +305,7 @@ Draw a state diagram covering startup, locked operation, PIN entry, cancel, comp
 
 ### In the Lab
 
-1. Bring the keypad and display back into the working Part 2 project. Verify that each debounced press produces one key event.
+1. Bring the keypad and display into the project. Verify that each debounced press produces one key event.
 2. Verify that the lock reads the PIN already stored in EEPROM and that the PIN digits do not appear in the source code.
 3. Enter a correct PIN and confirm that the solenoid output activates **only after `#`**. Measure its one-second HIGH pulse.
 4. Test an incorrect PIN, `#` after fewer than four digits, a fifth digit, and `*` during entry. None may unlock. Verify that a new entry works after each rejected or canceled attempt.
