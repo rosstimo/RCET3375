@@ -146,8 +146,6 @@ The display reflects EEPROM in normal operation, the Select button changes RAM o
 <a id="part-2"></a>
 ## Part 2 - Reusable EEPROM Read/Write Routines and Timed Selection
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
-
 ### Goal
 
 Extend Part 1 with reusable EEPROM routines, a non-blocking write, and a separate verification routine. Replace hold-to-select with a timed selection mode.
