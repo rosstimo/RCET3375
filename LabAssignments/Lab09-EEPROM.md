@@ -276,6 +276,7 @@ Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routi
 | `0`–`9` | Add one digit to the PIN entry in RAM |
 | `*` | Cancel the entry and clear the collected digits |
 | `#` | Submit the entry for comparison with the stored PIN |
+| `A`–`D` | No PIN-entry action |
 
 - Accept one digit per debounced physical key press, not one per keypad scan.
 - Accept **exactly four digits followed by `#`**. Do not check the PIN when the fourth digit is pressed.
@@ -292,7 +293,7 @@ On startup or reset, keep the solenoid output OFF until the correct PIN is enter
 
 ### Keypress feedback
 
-Use an **active buzzer** that produces its own tone when powered. Sound the buzzer for **100–250 ms** on each debounced keypad press, including `*` and `#`.
+Use an **active buzzer** that produces its own tone when powered. Sound the buzzer for **100–250 ms** on every debounced press of any of the **16 keypad keys**. This is button-press feedback only; it does not indicate whether the PIN is correct or incorrect.
 
 ### Before Lab
 
@@ -307,7 +308,7 @@ Draw a state diagram covering startup, locked operation, PIN entry, cancel, comp
 3. Enter a correct PIN and confirm that the solenoid output activates **only after `#`**. Measure its one-second HIGH pulse.
 4. Test an incorrect PIN, `#` after fewer than four digits, a fifth digit, and `*` during entry. None may unlock. Verify that a new entry works after each rejected or canceled attempt.
 5. Test a PIN beginning with zero. Verify that all four digits are required and leading zeros are preserved.
-6. Measure the 100–250 ms buzzer pulse on digit, `*`, and `#` presses.
+6. Verify the buzzer responds to all 16 keys. Measure its 100–250 ms pulse and confirm the same feedback occurs for correct and incorrect PIN entries.
 7. Power-cycle the PIC and confirm that the solenoid output stays inactive until the saved PIN is entered again.
 
 ### Evidence
@@ -318,11 +319,11 @@ Provide labeled measurements of the buzzer pulse and one-second solenoid-output 
 
 ### Demonstrate
 
-Enter a correct PIN followed by `#` and show the one-second output on the oscilloscope. Demonstrate an incorrect PIN, incomplete entry, fifth digit, and `*` cancellation without unlocking. Show the beep on each key press, then power-cycle the PIC and unlock again using the saved PIN.
+Enter a correct PIN followed by `#` and show the one-second output on the oscilloscope. Demonstrate an incorrect PIN, incomplete entry, fifth digit, and `*` cancellation without unlocking. Demonstrate the same button-press beep on all 16 keys, then power-cycle the PIC and unlock again using the saved PIN.
 
 ### Complete When
 
-The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the PIN is read from EEPROM without appearing in the program source. The simulated solenoid activates for one second only after a correct PIN is submitted. Every debounced key press produces a 100–250 ms beep, and reset leaves the lock inactive.
+The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the PIN is read from EEPROM without appearing in the program source. The simulated solenoid activates for one second only after a correct PIN is submitted. All 16 keys produce a 100–250 ms beep regardless of PIN verification, and reset leaves the lock inactive.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
