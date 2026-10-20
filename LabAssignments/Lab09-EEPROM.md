@@ -265,7 +265,7 @@ Extend Part 2 into a keypad-controlled electronic lock. Enter a four-digit PIN f
 
 ### Reuse from previous labs
 
-Use `EEPROMRead` from Part 2 without changing its interface. Keep the reusable write and verification routines for Part 4. PIN entry and display handling belong to the application, not the EEPROM routines.
+Use `EEPROMRead` from Part 2 without changing its interface. PIN entry and display handling belong to the application, not the EEPROM routines.
 
 Bring back the keypad scanner and DLG7137 display from Lab 02. A PIN-entry routine can work much like `ParseRx` from the UART lab: recognize one key-press event at a time, collect digits in RAM, and track how many digits have been entered.
 
