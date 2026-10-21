@@ -348,13 +348,13 @@ Before the first Part 4 run, use the programmer to set the marker to an invalid 
 
 ### Main-loop modes
 
-When the lock starts, it checks whether a valid PIN is stored. The keypad behavior depends on the current mode:
+At startup, the stored PIN-valid marker determines whether the lock begins in invalid PIN mode or normal locked mode.
 
-- **Invalid PIN mode:** Enter a new four-digit PIN followed by `#`, then enter it again followed by `#`. If both entries match, the new PIN is saved and the lock enters normal locked mode. The solenoid remains OFF until a valid PIN has been saved. This mode is used on first startup and after an interrupted PIN write leaves the stored PIN invalid.
-- **Normal locked mode:** Enter the current four-digit PIN followed by `#` to unlock. A correct PIN activates the simulated solenoid for approximately one second. Press `C` to enter PIN change mode.
-- **PIN change mode:** Enter the current four-digit PIN followed by `#`. If correct, enter a new four-digit PIN followed by `#`, then enter the new PIN again followed by `#`. If both new entries match, the new PIN is saved and the lock returns to normal locked mode. An incorrect current PIN returns to normal locked mode without unlocking or changing the stored PIN.
+- **Invalid PIN mode:** Enter a new four-digit PIN followed by `#`, then enter the same four digits followed by `#` again. Matching entries are saved as the new PIN. After a successful save, the lock enters normal locked mode. A mismatch, incomplete entry, unexpected key, or `*` clears the entry and restarts invalid PIN mode. The solenoid stays OFF.
+- **Normal locked mode:** Enter the current four-digit PIN followed by `#`. A correct PIN activates the simulated solenoid for approximately one second, then the lock remains in normal locked mode. An incorrect or incomplete entry, unexpected key, or `*` clears the entry and restarts normal locked mode. To change the PIN, press `C` followed by `#`. If `C` is not followed by `#`, return to normal locked mode.
+- **PIN change mode:** Enter the current four-digit PIN followed by `#`, then a new four-digit PIN followed by `#`, then the new PIN again followed by `#`. If the current PIN is correct and the two new entries match, save the new PIN and return to normal locked mode. An incorrect current PIN, mismatched new PINs, incomplete entry, unexpected key, or `*` cancels the change and returns to normal locked mode with the old PIN unchanged. PIN change mode never activates the solenoid.
 
-The lock does not respond to keypad input or activate the solenoid while saving a PIN.
+Each PIN entry accepts only digits `0`–`9`, with `#` required after exactly four digits. While saving a new PIN, the lock ignores keypad input and keeps the solenoid OFF. EEPROM write failures use the PIN-error behavior described below.
 
 ### Reusable PIN-matching routines
 
