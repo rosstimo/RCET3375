@@ -350,7 +350,7 @@ Before the first Part 4 run, use the programmer to set the marker to an invalid 
 
 At startup, the stored PIN-valid marker determines whether the lock begins in invalid PIN mode or normal locked mode.
 
-The keypad must be serviced in all modes and must not be blocked for more than 20 ms, except during the one-second solenoid activation and when a new PIN is written to EEPROM. The buzzer must sound for 100–250 ms on every debounced key press in all modes.
+The keypad must be serviced in all modes and must not be blocked for more than 20 ms, except during the one-second solenoid activation and when a new PIN is written to EEPROM. The buzzer must sound for 100–250 ms on every debounced key press in all modes. Holding a key must produce only one key press; another press is accepted only after the key is released and pressed again.
 
 Each PIN entry accepts only digits `0`–`9`, followed by `#` after exactly four digits. Use the DLG7137 to show whether the current or new PIN is being requested and whether saving succeeds or fails. Choose and document the display characters.
 
@@ -420,7 +420,7 @@ Update the Part 3 state diagram to show invalid PIN mode, normal locked mode, PI
 
 ### In the Lab
 
-1. Program an invalid PIN marker. Verify that first-run setup requires two matching PIN entries. Test `*`, incomplete entries, and mismatched confirmation without EEPROM writes.
+1. Program an invalid PIN marker. Verify that first-run setup requires two matching PIN entries. Test `*`, incomplete entries, mismatched confirmation, and long key holds without EEPROM writes or repeated key presses.
 2. Complete setup, reset the PIC, and unlock using the stored PIN.
 3. Press `C` and test an incorrect current PIN, cancellation, and mismatched new-PIN confirmation. Verify that the stored PIN remains unchanged.
 4. Change the PIN successfully. Use the debugger to confirm the six `PINWrite` steps occur in order, with each step verified before the next. Confirm the old PIN fails and the new PIN works after a power cycle.
