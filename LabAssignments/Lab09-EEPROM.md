@@ -466,23 +466,6 @@ Submit the updated calibration/arming flowchart, EEPROM layout, code, evidence o
 
 Create a GitHub repository for this assignment and push the complete work before instructor checkoff. Use the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md) for the lab-book and submission rules.
 
-Suggested repository structure:
-
-```text
-RCET3375-Lab09-EEPROM/
-├── README.md
-├── .gitignore
-├── source/
-│   └── pic/
-│       └── Lab09-EEPROM.X/
-├── schematics/
-├── documentation/
-├── evidence/
-│   └── oscilloscope/
-└── lab-book/
-    └── Lab09-Lab-Book.pdf
-```
-
 Submit Parts 1–4 and any attempted Mastery work, the PIC source and native project, editable schematic and export, flowcharts, SFR documentation, measurements, and the readable lab-book PDF. Verify that a fresh clone contains what is needed to rebuild your project.
 
 Instructor checkoff covers the working circuit and explanations listed in each required part.
