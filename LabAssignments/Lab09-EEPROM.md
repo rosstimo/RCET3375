@@ -444,8 +444,6 @@ The EEPROM PIN-valid marker selects normal locked mode or invalid PIN mode. Inva
 <a id="part-5"></a>
 ## Part 5 - Mastery: EEPROM Servo Calibration
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
-
 Extend your **Lab 08 Part 4 PIC firmware and GUI** using the EEPROM routines from this lab. Keep the ID, ADC/LM34, communication, logging, and 20 ms servo timing.
 
 ### Requirements
