@@ -355,7 +355,7 @@ When the PIN marker is invalid:
 2. Enter the same PIN again followed by `#`.
 3. If the entries match, save the PIN using the EEPROM update sequence below. If they differ, clear the entries and start again.
 
-Do not start an EEPROM update for an incomplete, canceled, or mismatched entry. Discard the entered digits and remain in setup with the marker invalid. After a successful save, enter normal locked operation. An interrupted or failed update returns to setup on the next power-up.
+Do not start an EEPROM update for an incomplete, canceled, or mismatched entry. Discard the entered digits and remain in setup with the marker invalid. After a successful save, enter normal locked operation. If an update is interrupted after the marker becomes invalid, the next power-up returns to setup.
 
 ### Change the PIN
 
@@ -387,9 +387,9 @@ Start each write only after the preceding one is complete and verified. Check `E
 
 For an error after the marker has been invalidated, leave the marker invalid, keep the simulated solenoid OFF, set a **PIN-error output on an available PORTA pin**, and display an error character on the DLG7137. Stop normal operation and require a **power cycle before another PIN setup attempt**. The same error indication and power-cycle requirement apply if the initial invalidation write fails.
 
-A power loss during the update stops the sequence. On the next startup, an invalid marker enters first-run setup, requiring two new matching PIN entries. The RAM `PIN_UPDATE` flag prevents other application actions during the approximately 30 ms update; the EEPROM marker determines whether the PIN is valid after reset. Repeated EEPROM write failures prevent successful setup and therefore prevent the solenoid from activating.
+A power loss during the update stops the sequence. On the next startup, an invalid marker enters first-run setup, requiring two new matching PIN entries. The RAM `PIN_UPDATE` flag prevents other application actions during the approximately 30 ms update; the EEPROM marker determines whether the PIN is valid after reset. If EEPROM cannot complete a PIN update, it cannot save a new valid PIN.
 
-**Marker-write limitation:** If the initial invalidation write fails while the previous marker is still `0xC4`, the old PIN may remain valid after a power cycle. The firmware must keep the solenoid OFF when it detects the failure. The single-marker method cannot guarantee an invalid marker after this particular write failure.
+**First-write failure:** If the invalidation write fails and the old marker remains `0xC4`, no PIN digits have been changed. Show the PIN error and keep the solenoid OFF until power is cycled. The next startup can use the unchanged old PIN. No additional recovery mechanism is required for this case.
 
 ### Before Lab
 
