@@ -442,22 +442,39 @@ The EEPROM PIN-valid marker selects normal locked mode or invalid PIN mode. Inva
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-5"></a>
-## Part 5 - Mastery: Servo Calibration and Safe Start
+## Part 5 - Mastery: EEPROM Servo Calibration
 
 > **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
 
-**Optional Mastery:** Extend the working **single-servo** UART/CCP application from Lab 08 Part 4. Preserve its normal measurement and communication behavior while adding persistent calibration and an explicit safe startup state. This is a separate application from the electronic lock.
+Extend your **Lab 08 Part 4 PIC firmware and GUI** using the EEPROM routines from this lab. Keep the ID, ADC/LM34, communication, logging, and 20 ms servo timing.
 
-- Save minimum and maximum permitted pulse widths and a neutral/safe command to EEPROM. Reject invalid calibration data rather than silently using it.
-- Change calibration in RAM while testing; only an explicit **Save** action commits it to EEPROM.
-- On reset, load calibration but keep the actuator **disarmed** until an explicit arming action. Do not resume the previous commanded position/throttle automatically.
-- Map an abstract position/throttle request to the saved pulse-width limits on the PIC. Preserve the timing of the existing 20 ms servo signal.
-- Resolve the Lab 08 GUI's initial centered commands so startup commands do not accidentally arm this application.
-- Demonstrate a power-cycle recovery and explain whether signal LOW, a neutral pulse, or a separate hardware enable is actually safe **for the tested controller**.
+### Requirements
 
-A LOW pulse line is **not** a universal motor-off guarantee. Use a simulated or otherwise safe test load, and verify the actual servo/ESC behavior before allowing motor power.
+- Store each servo's **minimum, maximum, and startup pulse widths** in EEPROM as three 16-bit values in microseconds. Document the EEPROM address map. Valid settings satisfy **500 µs ≤ minimum ≤ startup ≤ maximum ≤ 2500 µs**.
+- On reset, load and validate the EEPROM settings. Start at the saved startup pulse width. If the settings are invalid, keep that servo output LOW until valid settings are written and the PIC is reset.
+- Accept servo commands only within the saved limits. Keep the last accepted pulse width when rejecting a command. The host sends the same absolute CCP match values as Lab 08; the PIC uses the stored pulse-width limits for validation.
+- Do not send Lab 08's automatic centered servo command when the GUI connects. EEPROM writes to calibration settings take effect after reset.
+- Keep EEPROM writes nonblocking. Complete and verify each write before reusing the EEPROM address/data registers for another operation.
 
-Submit the updated calibration/arming flowchart, EEPROM layout, code, evidence of saved settings, scope timing, and safe-start test results. Successful Mastery earns the lab's standard optional +5 percentage points.
+### UART packets
+
+Keep the Lab 08 packet framing. Add the servo channel byte, even when using only one servo.
+
+```text
+Servo command:       24 53 03 CH MATCH_H MATCH_L   (no reply if valid)
+EEPROM read:         24 52 01 ADDR                -> 24 52 02 ADDR DATA
+EEPROM write:        24 57 02 ADDR DATA           (no reply on success)
+EEPROM write error:  24 45 02 04 ADDR
+Invalid servo:       24 45 02 03 CH
+```
+
+`R` and `W` must work with **any data EEPROM byte address**, not just calibration addresses. Send the EEPROM write-error packet only when write verification fails; include the address that failed. Preserve the existing Lab 08 ID, ADC, and receive-error packets.
+
+### Verify
+
+Demonstrate EEPROM reads/writes at multiple addresses, saved calibration after a power cycle, startup pulse width, servo limit rejection, and a controlled write-verification error. Capture the UART packets and servo timing. Submit the updated PIC/GUI source, EEPROM map, and test evidence.
+
+**Extra credit:** One servo completes Mastery (**+5 percentage points**). Implement all **eight 2.5 ms servo time slots** from Lab 08 Part 5, with independent channel commands and EEPROM settings, for **double Mastery credit (+10 percentage points total)**.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
