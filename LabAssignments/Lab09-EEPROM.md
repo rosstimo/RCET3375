@@ -357,10 +357,12 @@ After `PINWrite` succeeds, the next marker read selects normal locked mode. `PIN
 
 ### Reusable PIN-matching routines
 
-Consider two application subroutines:
+Consider two application subroutines. Both can use indirect addressing with `FSR` and `INDF` for PIN digits held in RAM. Use `EEPROMRead` for the stored PIN.
 
 - **`CurrentPINMatch:`** Compare an entered four-digit PIN with the four digits stored in EEPROM. Use it both for normal unlocking and to authenticate a PIN change. The calling code decides whether to activate the solenoid.
-- **`NewPINMatch:`** Collect two new four-digit PIN entries and compare them in RAM. Consider eight consecutive GPR locations with indirect addressing through `FSR` and `INDF`. Use a key-position index to accept the sequence `dddd#dddd#`, where each `d` must be a digit from `0` to `9`. Store each digit in the next GPR and advance the `FSR` pointer. The fifth and tenth key presses must be `#`; do not store them or advance the GPR pointer. `*` at any time aborts, as does any other key in the wrong position. After the final `#`, compare the two groups of four digits. This routine does not write EEPROM.
+- **`NewPINMatch:`** Collect two new four-digit PIN entries and compare them in RAM. Consider eight consecutive GPR locations, four per entry. Track the keypad sequence `dddd#dddd#`, where each `d` must be a digit from `0` to `9`. Store each digit in the next GPR and advance the pointer. The fifth and tenth key presses must be `#`; do not store them or advance the pointer. `*` at any time aborts, as does any other key in the wrong position. After the final `#`, compare the two groups of four digits. This routine does not write EEPROM.
+
+Use RAM GPRs as needed to track keypad state, pointer or index values, match flags, and other working data. Document the GPR assignments and how each routine uses them in the lab book.
 
 **Normal locked mode PIN change:** Press `C`, pass `CurrentPINMatch` with the existing PIN, then pass `NewPINMatch` with two matching new entries. Call `PINWrite` only after both checks pass. An incorrect current PIN exits change mode without unlocking or writing EEPROM.
 
