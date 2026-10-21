@@ -369,7 +369,7 @@ Use the DLG7137 to show which PIN is being requested and whether saving succeeds
 
 Create an application subroutine named **`PINWrite:`** to manage the six EEPROM write steps below. Use the Part 2 `EEPROMWrite` and `EEPROMVerifyWrite` routines without changing their interfaces.
 
-Start `PINWrite` **only after** the required PIN entries have been checked. Set a RAM `PIN_UPDATE` flag before the first write. While it is set, ignore keypad actions, keep the solenoid OFF, and suspend normal lock operation. The main loop must continue servicing EEPROM write completion and verification.
+Start `PINWrite` **only after** the required PIN entries have been checked. Set a RAM `PIN_UPDATE` flag before the first write. While it is set, keep the solenoid OFF and suspend normal lock operation. `PINWrite` handles EEPROM write completion and verification.
 
 | Step | EEPROM location | Value to write |
 | --- | --- | --- |
@@ -382,7 +382,7 @@ Start `PINWrite` **only after** the required PIN entries have been checked. Set 
 
 **Complete and verify each step before starting the next.** Check `EEPROM_ERROR` after verification. `EEPROMWrite` may skip a byte that already contains the requested value; confirm that the byte is correct before advancing.
 
-`PINWrite` may run across successive main-loop iterations while the EEPROM hardware is busy. Do not replace the Part 2 non-blocking write routine with a 30 ms delay or disable interrupts for the entire PIN write sequence.
+During `PINWrite`, intentionally block all other CPU work. Wait for each EEPROM write to finish, verify it, and continue to the next step. Do not resume normal operation until the sequence completes or stops with an error.
 
 - **Success:** After step 6 is verified, clear `PIN_UPDATE` and return to normal locked operation with the new PIN.
 - **Write or verification error:** Stop the sequence. Do not write any remaining bytes. Keep the solenoid OFF, activate a PIN-error indicator on an available PORTA output, and display an error character. Do not accept another PIN attempt until power is cycled.
