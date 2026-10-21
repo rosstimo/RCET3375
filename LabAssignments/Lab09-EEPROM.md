@@ -348,10 +348,11 @@ Before the first Part 4 run, use the programmer to set the marker to an invalid 
 
 ### Main-loop modes
 
-Read the PIN-valid marker from EEPROM in `MainLoop` to determine which of these two modes to run:
+Read the PIN-valid marker from EEPROM in `MainLoop` to select invalid PIN mode or normal locked mode. Pressing `C` in normal locked mode enters PIN change mode.
 
-- **Normal locked mode (`0xC4`):** Keep the Part 3 unlock behavior. A correct four-digit PIN followed by `#` activates the simulated solenoid for one second. Pressing keypad `C` starts a PIN change.
-- **Invalid PIN mode (any other value):** Keep the solenoid OFF. Require the user to enter a new four-digit PIN twice. Only matching entries can start the EEPROM PIN write sequence. This is also the startup mode after an interrupted write that left the marker invalid.
+- **Invalid PIN mode (any value other than `0xC4`):** Keep the solenoid OFF. Use `NewPINMatch` to collect and compare two new PIN entries. If they match, call `PINWrite`. The current PIN is not required. This mode also handles startup after an interrupted write that left the marker invalid.
+- **Normal locked mode (`0xC4`):** Keep the Part 3 unlock behavior. Use `CurrentPINMatch` to check an entered four-digit PIN followed by `#`. A correct PIN activates the simulated solenoid for one second. Pressing `C` enters PIN change mode.
+- **PIN change mode:** First use `CurrentPINMatch` to check the current PIN. If correct, use `NewPINMatch` to collect and compare two entries for the new PIN. Call `PINWrite` only when both checks pass. An incorrect current PIN returns to normal locked mode without unlocking or writing EEPROM.
 
 After `PINWrite` succeeds, the next marker read selects normal locked mode. `PINWrite` blocks the main loop while EEPROM writing and verification are in progress.
 
@@ -363,10 +364,6 @@ Consider two application subroutines. Both can use indirect addressing with `FSR
 - **`NewPINMatch:`** Collect the keypad sequence `dddd#dddd#`. Consider eight consecutive GPR locations, four for each new PIN entry. Store each digit from `0` to `9` and advance the pointer. The fifth and tenth key presses must be `#`; do not store them or advance the pointer. `*` or any unexpected key aborts. After the final `#`, compare the two groups of four digits in RAM and report whether they match. This routine does not write EEPROM.
 
 The routines may share keypad-entry or comparison code if that makes the program simpler. Use RAM GPRs as needed to track keypad state, pointer or index values, match flags, and other working data. Document the GPR assignments and how each routine uses them in the lab book.
-
-**Normal locked mode PIN change:** Press `C`, pass `CurrentPINMatch` with the existing PIN, then pass `NewPINMatch` with two matching new entries. Call `PINWrite` only after both checks pass. An incorrect current PIN exits change mode without unlocking or writing EEPROM.
-
-**Invalid PIN mode:** Use only `NewPINMatch`; the current PIN is not required. Call `PINWrite` only after the two new entries match.
 
 Apply the Part 3 rules for exactly four digits followed by `#`, fifth-digit rejection, debouncing, and 100–250 ms buzzer feedback on all 16 keys. `*` clears or cancels entry before `PINWrite` starts. In invalid PIN mode, `*` clears the entry but does not leave that mode. In normal locked mode, canceling a PIN change returns to normal locked operation. An incomplete, incorrect, canceled, or mismatched entry must not start EEPROM PIN writing.
 
