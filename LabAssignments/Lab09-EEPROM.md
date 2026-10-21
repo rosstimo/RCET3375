@@ -331,55 +331,113 @@ The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the
 <a id="part-4"></a>
 ## Part 4 - Authenticated PIN Change
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
-
 ### Goal
 
-Extend the Part 3 lock so a user can change the PIN only after entering the current PIN, and the new PIN remains effective after a power cycle.
+Extend the Part 3 lock so the user can set a PIN on first use and change it with the keypad. Store the PIN and its validity in EEPROM.
 
-### Required behavior
+### PIN storage and startup
 
-Use a momentary **Change PIN** button to enter change mode. The keypad is used to enter the current PIN, the new PIN, and confirmation of the new PIN.
+Use **five consecutive EEPROM addresses**: four for the PIN digits (0–9) and one for a validity marker. Choose and document the addresses.
 
-1. Require the current four-digit PIN. Incorrect authentication exits change mode without changing EEPROM.
-2. After authentication, collect a new four-digit PIN and then collect it again for confirmation.
-3. If confirmation fails or the user cancels before committing, keep the existing PIN.
-4. If the entries match, save the new PIN deliberately. Do not write to EEPROM on each digit press.
-5. Verify the saved record and report success or failure on the display.
-6. After a power cycle, the new PIN must unlock and the old PIN must not.
+- Marker = `0xC4`: the stored PIN is valid.
+- Any other marker value: the PIN is invalid.
 
-### Interrupted-update recovery
+Before the first Part 4 run, use the programmer to set the marker to an invalid value, such as `0xFF`.
 
-An EEPROM write completes one byte at a time. A power failure during a four-digit update must **not** accidentally authorize a partial new PIN.
+### Service modes
 
-A simple draft approach is to **invalidate the record marker first**, write and verify the four digit bytes, then write the valid marker **last**. If an update is interrupted, treat the record as invalid and keep the lock inactive until it is explicitly reprovisioned. Do not silently revert to an accessible factory default.
+At startup, the stored PIN-valid marker determines whether the lock begins in invalid PIN mode or normal locked mode.
 
-> **Instructor review needed:** confirm whether this fail-locked, re-provision-on-interruption policy is preferable to a more complex two-record recovery that preserves the old PIN.
+The keypad must be serviced in all modes and must not be blocked for more than 20 ms, except during the one-second solenoid activation and when a new PIN is written to EEPROM. The buzzer must sound for 100–250 ms on every debounced key press in all modes. Holding a key must produce only one key press; another press is accepted only after the key is released and pressed again.
+
+Each PIN entry accepts only digits `0`–`9`, followed by `#` after exactly four digits. Use the DLG7137 to show whether the current or new PIN is being requested and whether saving succeeds or fails. Choose and document the display characters.
+
+#### Invalid PIN mode
+
+The solenoid never activates in invalid PIN mode.
+
+1. Enter a new four-digit PIN followed by `#`.
+2. Enter the same four digits followed by `#`.
+
+Matching entries are saved as the new PIN. After a successful save, the lock enters normal locked mode. A mismatch, incomplete entry, unexpected key, or `*` clears the entry and restarts invalid PIN mode without saving.
+
+#### Normal locked mode
+
+1. Enter the current four-digit PIN followed by `#` to unlock.
+2. To change the PIN, press `C` followed by `#`.
+
+A correct PIN activates the simulated solenoid for approximately one second. The lock remains in normal locked mode. An incorrect or incomplete entry, unexpected key, or `*` clears the entry and restarts normal locked mode. If `C` is not the first key or is not followed by `#`, return to normal locked mode.
+
+#### PIN change mode
+
+The solenoid never activates in PIN change mode.
+
+1. Enter the current four-digit PIN followed by `#`.
+2. Enter a new four-digit PIN followed by `#`.
+3. Enter the new PIN again followed by `#`.
+
+If the current PIN is correct and the two new entries match, save the new PIN and return to normal locked mode. An incorrect current PIN, mismatched new PINs, incomplete entry, unexpected key, or `*` cancels the change and returns to normal locked mode with the old PIN unchanged.
+
+While saving a new PIN, the lock ignores keypad input and keeps the solenoid OFF. EEPROM write failures use the PIN-error behavior described below.
+
+### Reusable PIN-matching routines
+
+Consider two application subroutines. Both can use indirect addressing with `FSR` and `INDF` for PIN digits held in RAM.
+
+- **`CurrentPINMatch:`** Collect the keypad sequence `dddd#`, where each `d` is a digit from `0` to `9`. Consider four consecutive GPR locations with a pointer or index. Store each digit and advance the pointer. The fifth key press must be `#`; do not store it or advance the pointer. `*` or any unexpected key aborts. After `#`, use `EEPROMRead` to compare the four entered digits with the stored PIN. Report whether they match. Use this routine for normal unlocking and for authenticating a PIN change; the calling code decides whether to activate the solenoid.
+- **`NewPINMatch:`** Collect the keypad sequence `dddd#dddd#`. Consider eight consecutive GPR locations, four for each new PIN entry. Store each digit from `0` to `9` and advance the pointer. The fifth and tenth key presses must be `#`; do not store them or advance the pointer. `*` or any unexpected key aborts. After the final `#`, compare the two groups of four digits in RAM and report whether they match. This routine does not write EEPROM.
+
+Shared helper routines may be useful. Use RAM GPRs as needed to track key entry,  state, pointer or index values, match flags, and other working data. Document the GPR assignments and how each routine uses them in the lab book.
+
+### EEPROM PIN write sequence (`PINWrite:`)
+
+Create an application subroutine named **`PINWrite:`** to manage the six EEPROM write steps below. Use the Part 2 `EEPROMWrite` and `EEPROMVerifyWrite` routines without changing their interfaces.
+
+Start `PINWrite` only after `NewPINMatch` succeeds and, for a change in normal locked mode, `CurrentPINMatch` has authenticated the current PIN. Set a RAM `PIN_UPDATE` flag before the first write. While it is set, keep the solenoid OFF and suspend normal lock operation. `PINWrite` handles EEPROM write completion and verification.
+
+| Step | EEPROM location | Value to write |
+| --- | --- | --- |
+| 1 | PIN-valid marker | `0x00` (invalid) |
+| 2 | PIN digit 1 | First new digit |
+| 3 | PIN digit 2 | Second new digit |
+| 4 | PIN digit 3 | Third new digit |
+| 5 | PIN digit 4 | Fourth new digit |
+| 6 | PIN-valid marker | `0xC4` (valid) |
+
+**Complete and verify each step before starting the next.** Check `EEPROM_ERROR` after verification. `EEPROMWrite` may skip a byte that already contains the requested value; confirm that the byte is correct before advancing.
+
+During `PINWrite`, intentionally block all other CPU work. Wait for each EEPROM write to finish, verify it, and continue to the next step. Do not resume normal operation until the sequence completes or stops with an error.
+
+- **Success:** After step 6 is verified, clear `PIN_UPDATE` and return to normal locked operation with the new PIN.
+- **Write or verification error:** Stop the sequence. Do not write any remaining bytes. Keep the solenoid OFF, activate a PIN-error indicator on an available PORTA output, and display an error character. Do not accept another PIN attempt until power is cycled.
+- **Power interruption:** On the next startup, check the marker normally. If it is invalid, require two matching PIN entries before trying `PINWrite` again.
 
 ### Before Lab
 
-Update the keypad/lock state diagram with change mode, authentication, new entry, confirmation, write, verify, cancellation, and errors. Draw the order of EEPROM changes and predict the consequences of interruption at each step. Document how the user knows which PIN-entry phase is active using the single-character display.
+Update the Part 3 state diagram to show invalid PIN mode, normal locked mode, PIN change mode, `PINWrite`, success, and error handling. Include the `CurrentPINMatch` and `NewPINMatch` flows. Draw a flowchart for `PINWrite` showing all six EEPROM steps and the verification/error decisions. Document the five EEPROM addresses, `PIN_UPDATE`, display characters, and the PORTA error indicator with its loading calculation.
 
 ### In the Lab
 
-1. Verify change mode rejects an incorrect current PIN.
-2. Verify mismatched confirmation and cancellation leave the original PIN active.
-3. Change the PIN successfully and verify both the new and old codes.
-4. Power-cycle the PIC and repeat verification.
-5. Deliberately invalidate the stored record under controlled test conditions. Verify the simulated solenoid stays inactive, including after a reset.
-6. Explain the endurance tradeoff of writing one record only when a deliberate, authenticated change occurs.
+1. Program an invalid PIN marker. Verify that first-run setup requires two matching PIN entries. Test `*`, incomplete entries, mismatched confirmation, and long key holds without EEPROM writes or repeated key presses.
+2. Complete setup, reset the PIC, and unlock using the stored PIN. Measure the keypad servicing interval during normal operation and verify that it does not exceed 20 ms.
+3. Verify that `C` alone does not enter PIN change mode. Press `C` followed by `#` and test an incorrect current PIN, cancellation, and mismatched new-PIN confirmation. Verify that the stored PIN remains unchanged.
+4. Change the PIN successfully. Use the debugger to confirm the six `PINWrite` steps occur in order, with each step verified before the next. Confirm the old PIN fails and the new PIN works after a power cycle.
+5. While `PIN_UPDATE` is set, verify that keypad presses cannot unlock or cancel the EEPROM PIN write sequence.
+6. Interrupt the sequence after the marker becomes invalid. Power-cycle and verify that first-run setup is required. Simulate a verification error and demonstrate the PORTA and display error indicators, inactive solenoid, and required power cycle before another attempt.
 
 ### Evidence
 
-Include updated flowcharts/state diagrams, EEPROM transaction order, code, results for correct/incorrect current PIN, mismatched confirmation, successful update, power-cycle verification, and invalid-record recovery.
+Include the three-mode state diagram, PIN-matching and `PINWrite` flowcharts, five-address EEPROM map, final source, and test results. Provide oscilloscope captures of keypad scanning during normal operation, during the one-second solenoid activation, and during EEPROM PIN writing. Label the normal keypad servicing interval and the time scanning is blocked in each case. Document the power-cycle, cancellation, incorrect PIN, confirmation, held-key, and error tests.
 
 ### Demonstrate
 
-Change the PIN in front of the instructor. Show that incorrect current-PIN or confirmation attempts leave the existing code in place. Demonstrate that the new PIN survives power removal and the system remains locked on invalid storage.
+Demonstrate all three service modes and their keypad functions: first-run PIN setup, correct and incorrect PIN entries, new PIN confirmation and mismatch, `*` cancellation, and `C` followed by `#` to enter PIN change mode. Show that incomplete or unexpected entries are rejected, holding a key produces only one press, and all 16 keys produce buzzer feedback. Demonstrate normal unlocking, a successful PIN change, and operation after a power cycle.
+
+Show that canceled or rejected entries do not write EEPROM. Demonstrate an interrupted PIN write returning to invalid PIN mode and the error indicators after a failed verification. Use the oscilloscope to show normal keypad scanning and measure how long scanning stops during solenoid activation and EEPROM PIN writing.
 
 ### Complete When
 
-PIN changes require the old code and matching new entries, persist correctly, and never cause an unexpected unlock after reset or invalid storage.
+The EEPROM PIN-valid marker selects normal locked mode or invalid PIN mode. Invalid PIN mode requires two matching new PIN entries. Normal locked mode accepts the stored PIN, and PIN change mode requires the current PIN followed by two matching new PIN entries. `PINWrite` follows the six-step EEPROM sequence, verifies each step, and blocks lock operations while writing. A failed write stops the sequence and keeps the solenoid OFF until reset. A valid saved PIN survives power removal.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
@@ -407,23 +465,6 @@ Submit the updated calibration/arming flowchart, EEPROM layout, code, evidence o
 ## Submission and Checkoff
 
 Create a GitHub repository for this assignment and push the complete work before instructor checkoff. Use the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md) for the lab-book and submission rules.
-
-Suggested repository structure:
-
-```text
-RCET3375-Lab09-EEPROM/
-├── README.md
-├── .gitignore
-├── source/
-│   └── pic/
-│       └── Lab09-EEPROM.X/
-├── schematics/
-├── documentation/
-├── evidence/
-│   └── oscilloscope/
-└── lab-book/
-    └── Lab09-Lab-Book.pdf
-```
 
 Submit Parts 1–4 and any attempted Mastery work, the PIC source and native project, editable schematic and export, flowcharts, SFR documentation, measurements, and the readable lab-book PDF. Verify that a fresh clone contains what is needed to rebuild your project.
 
