@@ -15,7 +15,7 @@ PIC16F883 | pic-as | Data EEPROM | Nonvolatile Storage | Embedded Applications
 - [Part 2 - Reusable EEPROM Read/Write Routines and Timed Selection](#part-2)
 - [Part 3 - Four-Digit Electronic Lock](#part-3)
 - [Part 4 - Authenticated PIN Change](#part-4)
-- [Part 5 - Mastery: Servo Calibration and Safe Start](#part-5)
+- [Part 5 - Mastery: EEPROM Servo Calibration](#part-5)
 - [Submission and checkoff](#submission)
 
 <a id="purpose"></a>
@@ -442,22 +442,43 @@ The EEPROM PIN-valid marker selects normal locked mode or invalid PIN mode. Inva
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-5"></a>
-## Part 5 - Mastery: Servo Calibration and Safe Start
+## Part 5 - Mastery: EEPROM Servo Calibration
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
+Extend your **Lab 08 Part 4 PIC firmware and GUI** using the EEPROM routines from this lab. Keep the ID, ADC/LM34, communication, logging, and 20 ms servo timing.
 
-**Optional Mastery:** Extend the working **single-servo** UART/CCP application from Lab 08 Part 4. Preserve its normal measurement and communication behavior while adding persistent calibration and an explicit safe startup state. This is a separate application from the electronic lock.
+### Requirements
 
-- Save minimum and maximum permitted pulse widths and a neutral/safe command to EEPROM. Reject invalid calibration data rather than silently using it.
-- Change calibration in RAM while testing; only an explicit **Save** action commits it to EEPROM.
-- On reset, load calibration but keep the actuator **disarmed** until an explicit arming action. Do not resume the previous commanded position/throttle automatically.
-- Map an abstract position/throttle request to the saved pulse-width limits on the PIC. Preserve the timing of the existing 20 ms servo signal.
-- Resolve the Lab 08 GUI's initial centered commands so startup commands do not accidentally arm this application.
-- Demonstrate a power-cycle recovery and explain whether signal LOW, a neutral pulse, or a separate hardware enable is actually safe **for the tested controller**.
+- Store each servo's **minimum, maximum, and startup pulse widths** in EEPROM as three 16-bit values in microseconds. Document the EEPROM address map. Valid ranges are **minimum: 250–750 µs**, **maximum: 2250–2500 µs**, and **startup: minimum–maximum**, inclusive.
+- On reset, load and validate the EEPROM settings. Start at the saved startup pulse width. If the settings are invalid, keep that servo output LOW until valid settings are written and the PIC is reset.
+- Accept servo commands only within the saved limits. Keep the last accepted pulse width when rejecting a command. The host sends the same absolute CCP match values as Lab 08; the PIC uses the stored pulse-width limits for validation.
+- Extend the GUI to read and update each servo's three calibration values. Map its 0°–180° slider to the active minimum–maximum pulse widths. Do not send Lab 08's automatic centered servo command when connecting. Saved calibration changes take effect after reset.
+- Keep EEPROM writes nonblocking. Complete and verify each write before reusing the EEPROM address/data registers for another operation.
 
-A LOW pulse line is **not** a universal motor-off guarantee. Use a simulated or otherwise safe test load, and verify the actual servo/ESC behavior before allowing motor power.
+### UART packets
 
-Submit the updated calibration/arming flowchart, EEPROM layout, code, evidence of saved settings, scope timing, and safe-start test results. Successful Mastery earns the lab's standard optional +5 percentage points.
+Keep the Lab 08 packet framing. Add the servo channel byte, even when using only one servo. Use channel `01` for the required servo; the eight-servo version uses channels `01`–`08`.
+
+```text
+Servo command (S):   24 53 03 CH MATCH_H MATCH_L      (no reply if valid)
+Calibration update:  24 50 04 CH SETTING PW_H PW_L    (no reply if valid)
+Calibration read:    24 43 01 CH
+Calibration reply:   24 43 07 CH MIN_H MIN_L MAX_H MAX_L START_H START_L
+EEPROM read:         24 52 01 ADDR                   -> 24 52 02 ADDR DATA
+EEPROM write:        24 57 02 ADDR DATA              (no reply on success)
+EEPROM write error:  24 45 02 04 ADDR
+Invalid servo:       24 45 02 03 CH
+Invalid calibration: 24 45 03 05 CH SETTING
+```
+
+`SETTING` is `00` for minimum, `01` for maximum, and `02` for startup. Pulse widths in calibration packets are 16-bit microsecond values, high byte first. The calibration read reply returns all three **stored** values for the requested channel. Reject minimum/maximum values outside their ranges; accept a startup update only when it falls between the stored minimum and maximum. A complete, valid set is required at reset before the servo output is enabled.
+
+`R` and `W` work with **any data EEPROM byte address** (`00`–`FF`). Direct `W` writes the supplied byte without checking its value or any calibration limits. Both EEPROM write commands still verify the completed write; a failed byte sends the same write-error packet with its EEPROM address. Successful writes have no reply. Preserve the existing Lab 08 ID, ADC, and receive-error packets.
+
+### Verify
+
+Demonstrate EEPROM reads/writes at multiple addresses, calibration updates and full readback for a servo channel, saved calibration after a power cycle, startup pulse width, servo limit rejection, and a controlled write-verification error. Capture the UART packets and servo timing. Submit the updated PIC/GUI source, EEPROM map, and test evidence.
+
+**Extra credit:** One servo completes Mastery (**+5 percentage points**). Implement all **eight 2.5 ms servo time slots** from Lab 08 Part 5, with independent channel commands and EEPROM settings, for **double Mastery credit (+10 percentage points total)**.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
