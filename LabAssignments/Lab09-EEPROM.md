@@ -474,7 +474,7 @@ Invalid calibration: 24 45 03 05 CH SETTING
 
 `SETTING` is `00` for minimum, `01` for maximum, and `02` for startup. Pulse widths in calibration packets are 16-bit microsecond values, high byte first. The calibration read reply returns all three **stored** values for the requested channel. Reject minimum/maximum values outside their ranges; accept a startup update only when it falls between the stored minimum and maximum. A complete, valid set is required at reset before the servo output is enabled.
 
-`R` and `W` work with **any data EEPROM byte address** (`00`–`FF`). Both EEPROM write commands use verification; a failed byte sends the same write-error packet with its EEPROM address. Successful writes have no reply. Preserve the existing Lab 08 ID, ADC, and receive-error packets.
+`R` and `W` work with **any data EEPROM byte address** (`00`–`FF`). Direct `W` writes the supplied byte without checking its value or any calibration limits. Both EEPROM write commands still verify the completed write; a failed byte sends the same write-error packet with its EEPROM address. Successful writes have no reply. Preserve the existing Lab 08 ID, ADC, and receive-error packets.
 
 ### Verify
 
