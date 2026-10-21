@@ -389,8 +389,6 @@ For an error after the marker has been invalidated, leave the marker invalid, ke
 
 A power loss during the update stops the sequence. On the next startup, an invalid marker enters first-run setup, requiring two new matching PIN entries. The RAM `PIN_UPDATE` flag prevents other application actions during the approximately 30 ms update; the EEPROM marker determines whether the PIN is valid after reset. If EEPROM cannot complete a PIN update, it cannot save a new valid PIN.
 
-**First-write failure:** If the invalidation write fails and the old marker remains `0xC4`, no PIN digits have been changed. Show the PIN error and keep the solenoid OFF until power is cycled. The next startup can use the unchanged old PIN. No additional recovery mechanism is required for this case.
-
 ### Before Lab
 
 Update the Part 3 state diagram for startup marker checking, first-run setup, authenticated PIN change, confirmation, the `PIN_UPDATE` flag, and error handling. Prepare flowcharts showing when EEPROM writing may start, the six writes in order, and the checks between writes. Document the five EEPROM addresses, the `0xC4` marker, the selected PORTA error pin and its loading, and the display feedback.
