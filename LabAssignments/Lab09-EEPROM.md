@@ -348,13 +348,13 @@ Before the first Part 4 run, use the programmer to set the marker to an invalid 
 
 ### Main-loop modes
 
-Read the PIN-valid marker from EEPROM in `MainLoop` to select invalid PIN mode or normal locked mode. Pressing `C` in normal locked mode enters PIN change mode.
+When the lock starts, it checks whether a valid PIN is stored. The keypad behavior depends on the current mode:
 
-- **Invalid PIN mode (any value other than `0xC4`):** Keep the solenoid OFF. Use `NewPINMatch` to collect and compare two new PIN entries. If they match, call `PINWrite`. The current PIN is not required. This mode also handles startup after an interrupted write that left the marker invalid.
-- **Normal locked mode (`0xC4`):** Keep the Part 3 unlock behavior. Use `CurrentPINMatch` to check an entered four-digit PIN followed by `#`. A correct PIN activates the simulated solenoid for one second. Pressing `C` enters PIN change mode.
-- **PIN change mode:** First use `CurrentPINMatch` to check the current PIN. If correct, use `NewPINMatch` to collect and compare two entries for the new PIN. Call `PINWrite` only when both checks pass. An incorrect current PIN returns to normal locked mode without unlocking or writing EEPROM.
+- **Invalid PIN mode:** Enter a new four-digit PIN followed by `#`, then enter it again followed by `#`. If both entries match, the new PIN is saved and the lock enters normal locked mode. The solenoid remains OFF until a valid PIN has been saved. This mode is used on first startup and after an interrupted PIN write leaves the stored PIN invalid.
+- **Normal locked mode:** Enter the current four-digit PIN followed by `#` to unlock. A correct PIN activates the simulated solenoid for approximately one second. Press `C` to enter PIN change mode.
+- **PIN change mode:** Enter the current four-digit PIN followed by `#`. If correct, enter a new four-digit PIN followed by `#`, then enter the new PIN again followed by `#`. If both new entries match, the new PIN is saved and the lock returns to normal locked mode. An incorrect current PIN returns to normal locked mode without unlocking or changing the stored PIN.
 
-After `PINWrite` succeeds, the next marker read selects normal locked mode. `PINWrite` blocks the main loop while EEPROM writing and verification are in progress.
+The lock does not respond to keypad input or activate the solenoid while saving a PIN.
 
 ### Reusable PIN-matching routines
 
