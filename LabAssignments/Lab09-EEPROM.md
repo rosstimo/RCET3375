@@ -15,7 +15,7 @@ PIC16F883 | pic-as | Data EEPROM | Nonvolatile Storage | Embedded Applications
 - [Part 2 - Reusable EEPROM Read/Write Routines and Timed Selection](#part-2)
 - [Part 3 - Four-Digit Electronic Lock](#part-3)
 - [Part 4 - Authenticated PIN Change](#part-4)
-- [Part 5 - Mastery: Servo Calibration and Safe Start](#part-5)
+- [Part 5 - Mastery: EEPROM Servo Calibration](#part-5)
 - [Submission and checkoff](#submission)
 
 <a id="purpose"></a>
@@ -458,7 +458,7 @@ Extend your **Lab 08 Part 4 PIC firmware and GUI** using the EEPROM routines fro
 
 ### UART packets
 
-Keep the Lab 08 packet framing. Add the servo channel byte, even when using only one servo.
+Keep the Lab 08 packet framing. Add the servo channel byte, even when using only one servo. Use channel `01` for the required servo; the eight-servo version uses channels `01`–`08`.
 
 ```text
 Servo command:       24 53 03 CH MATCH_H MATCH_L   (no reply if valid)
