@@ -335,51 +335,66 @@ The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the
 
 ### Goal
 
-Extend the Part 3 lock so a user can change the PIN only after entering the current PIN, and the new PIN remains effective after a power cycle.
+Extend the Part 3 lock to set its own PIN on first use and allow the user to change it from the keypad. Save the PIN in EEPROM so it works after a power cycle.
 
-### Required behavior
+### First-time PIN setup
 
-Use a momentary **Change PIN** button to enter change mode. The keypad is used to enter the current PIN, the new PIN, and confirmation of the new PIN.
+When Part 4 starts for the first time without a configured PIN, keep the simulated solenoid output OFF and require the user to:
 
-1. Require the current four-digit PIN. Incorrect authentication exits change mode without changing EEPROM.
-2. After authentication, collect a new four-digit PIN and then collect it again for confirmation.
-3. If confirmation fails or the user cancels before committing, keep the existing PIN.
-4. If the entries match, save the new PIN deliberately. Do not write to EEPROM on each digit press.
-5. Verify the saved record and report success or failure on the display.
-6. After a power cycle, the new PIN must unlock and the old PIN must not.
+1. Enter a new four-digit PIN followed by `#`.
+2. Enter the same new PIN followed by `#` to confirm it.
+3. If the entries match, save and verify the PIN in EEPROM before starting normal locked operation. If they do not match, restart the new-PIN entry.
 
-### Interrupted-update recovery
+Do not write a PIN to EEPROM until both entries match. After successful setup, a reset or power cycle must start in normal locked operation without asking for a new PIN.
 
-An EEPROM write completes one byte at a time. A power failure during a four-digit update must **not** accidentally authorize a partial new PIN.
+### Change the PIN
 
-A simple draft approach is to **invalidate the record marker first**, write and verify the four digit bytes, then write the valid marker **last**. If an update is interrupted, treat the record as invalid and keep the lock inactive until it is explicitly reprovisioned. Do not silently revert to an accessible factory default.
+Keep the Part 3 keypad rules, one-second solenoid output, display feedback, and buzzer feedback for all 16 keys. Use the keypad's **`C` key** to start a PIN change. No additional button is needed.
 
-> **Instructor review needed:** confirm whether this fail-locked, re-provision-on-interruption policy is preferable to a more complex two-record recovery that preserves the old PIN.
+1. Press `C` during normal locked operation.
+2. Enter the **current PIN** (four digits followed by `#`). If it is incorrect, exit change mode without modifying EEPROM or activating the solenoid.
+3. Enter a **new PIN** (four digits followed by `#`).
+4. Enter the **new PIN again** (four digits followed by `#`) to confirm it.
+5. If the new entries match, save and verify the new PIN in EEPROM. Otherwise, exit change mode and keep the existing PIN.
+
+Use `*` to cancel a PIN change before saving. During first-time setup, `*` clears the current entry but cannot exit setup. Apply the Part 3 rules for short entries and a fifth digit in every PIN-entry step.
+
+The current PIN is used only to authorize the change. Entering it in change mode must not activate the solenoid. Choose one-character display feedback so the user can tell which PIN is being requested and whether saving succeeded or failed.
+
+### EEPROM storage and recovery
+
+Use the Part 2 EEPROM routines without changing their interfaces. Write only after two matching new-PIN entries, not after each key press. Wait for each non-blocking write to finish and be verified before starting the next byte.
+
+Reserve an EEPROM status byte to distinguish **not yet configured**, **valid PIN**, and **interrupted or invalid update**. The four PIN digits alone cannot establish whether Part 4 has completed its first-time setup, particularly if they were manually programmed during Part 3.
+
+When saving a PIN, mark the record as being updated before writing the four digits. Write and verify each digit, then mark the record valid **last**. The simulated solenoid must remain OFF during setup and saving.
+
+If an update fails or is interrupted, start locked and do not accept the partial PIN. An invalid or interrupted record must not trigger first-time setup on the next reset; it requires deliberate EEPROM reinitialization with the programmer.
 
 ### Before Lab
 
-Update the keypad/lock state diagram with change mode, authentication, new entry, confirmation, write, verify, cancellation, and errors. Draw the order of EEPROM changes and predict the consequences of interruption at each step. Document how the user knows which PIN-entry phase is active using the single-character display.
+Update the Part 3 state diagram for first-time setup, change mode, current-PIN authentication, new PIN entry, confirmation, saving, and errors. Prepare flowcharts for the new behavior and document the EEPROM storage layout and write order. Explain how the display identifies each entry step.
 
 ### In the Lab
 
-1. Verify change mode rejects an incorrect current PIN.
-2. Verify mismatched confirmation and cancellation leave the original PIN active.
-3. Change the PIN successfully and verify both the new and old codes.
-4. Power-cycle the PIC and repeat verification.
-5. Deliberately invalidate the stored record under controlled test conditions. Verify the simulated solenoid stays inactive, including after a reset.
-6. Explain the endurance tradeoff of writing one record only when a deliberate, authenticated change occurs.
+1. Prepare the EEPROM status byte for an unused Part 4 device. Power up and verify that two matching new PIN entries are required before normal operation. Test mismatched entries and `*` cancellation during setup.
+2. Finish setup, reset the PIC, and confirm that setup is skipped. Verify that the saved PIN unlocks using the Part 3 rules.
+3. Press `C` and enter an incorrect current PIN. Verify that the lock remains inactive and the stored PIN does not change.
+4. Test `*` cancellation and mismatched new-PIN confirmation. Verify that the original PIN still works.
+5. Change the PIN successfully, then verify that the old PIN fails and the new PIN unlocks. Remove and restore power and repeat.
+6. Use the debugger or programmer to test an interrupted/invalid EEPROM record. Verify that the lock remains inactive and does not enter first-time setup. Explain the EEPROM write and verification sequence.
 
 ### Evidence
 
-Include updated flowcharts/state diagrams, EEPROM transaction order, code, results for correct/incorrect current PIN, mismatched confirmation, successful update, power-cycle verification, and invalid-record recovery.
+Include updated flowcharts and state diagram, the EEPROM storage layout and write order, final source code, and a table of first-time setup and PIN-change tests. Document successful saving, failed authentication, cancellation, mismatched confirmation, power-cycle persistence, and invalid-record behavior.
 
 ### Demonstrate
 
-Change the PIN in front of the instructor. Show that incorrect current-PIN or confirmation attempts leave the existing code in place. Demonstrate that the new PIN survives power removal and the system remains locked on invalid storage.
+Set a PIN on first startup, then reset and unlock with it. Change the PIN using `C`, the current PIN, and two matching new entries. Demonstrate a rejected current PIN, mismatched confirmation, cancellation, and successful use of the new PIN after a power cycle. Show that an invalid EEPROM record leaves the lock inactive.
 
 ### Complete When
 
-PIN changes require the old code and matching new entries, persist correctly, and never cause an unexpected unlock after reset or invalid storage.
+First-time setup requires two matching PIN entries, PIN changes require the current PIN and two matching new entries, and saved PINs survive power removal. Failed or canceled changes preserve the existing PIN, and invalid storage cannot unlock the output or start unauthenticated setup.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
