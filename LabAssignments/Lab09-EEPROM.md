@@ -360,7 +360,7 @@ After `PINWrite` succeeds, the next marker read selects normal locked mode. `PIN
 Consider two application subroutines:
 
 - **`CurrentPINMatch:`** Compare an entered four-digit PIN with the four digits stored in EEPROM. Use it both for normal unlocking and to authenticate a PIN change. The calling code decides whether to activate the solenoid.
-- **`NewPINMatch:`** Collect a new four-digit PIN and its confirmation, then compare the two entries in RAM. Use it whenever a new PIN is needed. It does not write EEPROM.
+- **`NewPINMatch:`** Collect a new four-digit PIN and its confirmation, then compare the two entries in RAM. Consider using eight consecutive GPR locations, four for each PIN, and indirect addressing with `FSR` and `INDF` to store and compare the digits. Use it whenever a new PIN is needed. It does not write EEPROM.
 
 **Normal locked mode PIN change:** Press `C`, pass `CurrentPINMatch` with the existing PIN, then pass `NewPINMatch` with two matching new entries. Call `PINWrite` only after both checks pass. An incorrect current PIN exits change mode without unlocking or writing EEPROM.
 
