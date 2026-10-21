@@ -331,8 +331,6 @@ The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the
 <a id="part-4"></a>
 ## Part 4 - Authenticated PIN Change
 
-> **Under revision:** This part is still being edited. Refresh the page and check with the instructor before continuing.
-
 ### Goal
 
 Extend the Part 3 lock so the user can set a PIN on first use and change it with the keypad. Store the PIN and its validity in EEPROM.
