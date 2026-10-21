@@ -429,11 +429,13 @@ Update the Part 3 state diagram to show invalid PIN mode, normal locked mode, PI
 
 ### Evidence
 
-Include the three-mode state diagram, PIN-matching and `PINWrite` flowcharts, five-address EEPROM map, final source, and test results. Show debugger evidence of the write order, `PIN_UPDATE`, and verification. Document the power-cycle, cancellation, incorrect PIN, confirmation, and error tests, along with the measured keypad servicing interval.
+Include the three-mode state diagram, PIN-matching and `PINWrite` flowcharts, five-address EEPROM map, final source, and test results. Provide oscilloscope captures of keypad scanning during normal operation, during the one-second solenoid activation, and during EEPROM PIN writing. Label the normal keypad servicing interval and the time scanning is blocked in each case. Document the power-cycle, cancellation, incorrect PIN, confirmation, held-key, and error tests.
 
 ### Demonstrate
 
-Show first-run PIN setup, normal unlocking, and a successful PIN change using `C` followed by `#`. Demonstrate that canceled or rejected entries do not write EEPROM. Show the six-step `PINWrite` sequence, an interrupted sequence returning to first-run setup, and the PIN-error indicators after a failed verification.
+Demonstrate all three service modes and their keypad functions: first-run PIN setup, correct and incorrect PIN entries, new PIN confirmation and mismatch, `*` cancellation, and `C` followed by `#` to enter PIN change mode. Show that incomplete or unexpected entries are rejected, holding a key produces only one press, and all 16 keys produce buzzer feedback. Demonstrate normal unlocking, a successful PIN change, and operation after a power cycle.
+
+Show that canceled or rejected entries do not write EEPROM. Demonstrate an interrupted PIN write returning to invalid PIN mode and the error indicators after a failed verification. Use the oscilloscope to show normal keypad scanning and measure how long scanning stops during solenoid activation and EEPROM PIN writing.
 
 ### Complete When
 
