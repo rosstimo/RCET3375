@@ -453,7 +453,7 @@ Extend your **Lab 08 Part 4 PIC firmware and GUI** using the EEPROM routines fro
 - Store each servo's **minimum, maximum, and startup pulse widths** in EEPROM as three 16-bit values in microseconds. Document the EEPROM address map. Valid ranges are **minimum: 250–750 µs**, **maximum: 2250–2500 µs**, and **startup: minimum–maximum**, inclusive.
 - On reset, load and validate the EEPROM settings. Start at the saved startup pulse width. If the settings are invalid, keep that servo output LOW until valid settings are written and the PIC is reset.
 - Accept servo commands only within the saved limits. Keep the last accepted pulse width when rejecting a command. The host sends the same absolute CCP match values as Lab 08; the PIC uses the stored pulse-width limits for validation.
-- Extend the GUI to read and update each servo's three calibration values. Do not send Lab 08's automatic centered servo command when connecting. Saved calibration changes take effect after reset.
+- Extend the GUI to read and update each servo's three calibration values. Map its 0°–180° slider to the active minimum–maximum pulse widths. Do not send Lab 08's automatic centered servo command when connecting. Saved calibration changes take effect after reset.
 - Keep EEPROM writes nonblocking. Complete and verify each write before reusing the EEPROM address/data registers for another operation.
 
 ### UART packets
@@ -472,7 +472,7 @@ Invalid servo:       24 45 02 03 CH
 Invalid calibration: 24 45 03 05 CH SETTING
 ```
 
-`SETTING` is `00` for minimum, `01` for maximum, and `02` for startup. Pulse widths in calibration packets are 16-bit microsecond values, high byte first. The calibration read reply returns all three **stored** values for the requested channel. Reject updates outside the allowed ranges or that would put startup outside minimum–maximum.
+`SETTING` is `00` for minimum, `01` for maximum, and `02` for startup. Pulse widths in calibration packets are 16-bit microsecond values, high byte first. The calibration read reply returns all three **stored** values for the requested channel. Reject minimum/maximum values outside their ranges; accept a startup update only when it falls between the stored minimum and maximum. A complete, valid set is required at reset before the servo output is enabled.
 
 `R` and `W` work with **any data EEPROM byte address** (`00`–`FF`). Both EEPROM write commands use verification; a failed byte sends the same write-error packet with its EEPROM address. Successful writes have no reply. Preserve the existing Lab 08 ID, ADC, and receive-error packets.
 
