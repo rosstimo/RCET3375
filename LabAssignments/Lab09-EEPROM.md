@@ -335,85 +335,83 @@ The lock accepts exactly four digits followed by `#`, `*` cancels entry, and the
 
 ### Goal
 
-Extend the Part 3 lock to set a PIN on first use and allow the user to change it with the keypad. Store the PIN and its validity in EEPROM.
+Extend the Part 3 lock so the user can set a PIN on first use and change it with the keypad. Store the PIN and its validity in EEPROM.
 
-### EEPROM PIN storage
+### PIN storage and startup
 
-Use five consecutive EEPROM locations: four for the decimal PIN digits and a fifth for the **PIN-valid marker**. Choose and document the addresses.
+Use **five consecutive EEPROM addresses**: four for the PIN digits (0–9) and one for a validity marker. Choose and document the addresses.
 
-- A marker value of **`0xC4`** means the stored PIN is valid.
-- **Any other value** means the PIN is invalid. The solenoid must not activate while the marker is invalid.
-- Before the first Part 4 power-up, initialize the marker to a value other than `0xC4` (for example, `0xFF`) using the programmer. The four digits manually programmed for Part 3 do not count as an initialized Part 4 PIN.
+- Marker = `0xC4`: the stored PIN is valid.
+- Any other marker value: the PIN is invalid.
 
-On every startup or reset, read the marker first. If it is `0xC4`, start in normal locked operation using the stored PIN. Otherwise, enter **first-run PIN setup**. Keep the solenoid output OFF during setup and EEPROM updates.
+Before the first Part 4 run, use the programmer to set the marker to an invalid value, such as `0xFF`. On every reset, read the marker. A valid marker starts normal locked operation; an invalid marker starts **first-run PIN setup**. Keep the simulated solenoid OFF during setup and EEPROM PIN writing.
 
 ### First-run PIN setup
 
-When the PIN marker is invalid:
+With an invalid marker, enter a new four-digit PIN followed by `#`, then enter the same PIN followed by `#` again. If they match, start `PINWrite`, described below.
 
-1. Enter a new four-digit PIN followed by `#`.
-2. Enter the same PIN again followed by `#`.
-3. If the entries match, save the PIN using the EEPROM update sequence below. If they differ, clear the entries and start again.
-
-Do not start an EEPROM update for an incomplete, canceled, or mismatched entry. Discard the entered digits and remain in setup with the marker invalid. After a successful save, enter normal locked operation. If an update is interrupted after the marker becomes invalid, the next power-up returns to setup.
+A canceled, incomplete, or mismatched entry must **not** start EEPROM PIN writing. Clear the entry and allow another attempt. `*` clears the current entry but cannot exit first-run setup.
 
 ### Change the PIN
 
-Keep the Part 3 lock, display, keypad debouncing, and 100–250 ms buzzer feedback on all 16 keys. Use **`C` on the keypad** to start a PIN change; no separate button is needed.
+Use **`C` on the keypad** to change the PIN. No additional button is needed.
 
 1. Press `C` during normal locked operation.
-2. Enter the **current PIN** (four digits followed by `#`). An incorrect PIN exits change mode without writing EEPROM.
-3. Enter a **new PIN** (four digits followed by `#`).
-4. Enter the **new PIN again** (four digits followed by `#`). If the entries do not match, exit change mode without writing EEPROM.
-5. With the current PIN verified and both new entries matching, run the EEPROM update sequence.
+2. Enter the **current PIN** followed by `#`. An incorrect PIN exits change mode without writing EEPROM or activating the solenoid.
+3. Enter a **new four-digit PIN** followed by `#`.
+4. Enter the new PIN again followed by `#`. If both entries match, start `PINWrite`.
 
-Use `*` to cancel a PIN change **before the EEPROM update starts**. In first-run setup, `*` clears the current entry but does not exit setup. Apply the Part 3 rules for incomplete entries and a fifth digit throughout. Entering the current PIN in change mode must not activate the solenoid. Once the update starts, keypad input cannot cancel or interrupt it.
+An incorrect, incomplete, or mismatched entry does not change the stored PIN. Use `*` to cancel before EEPROM PIN writing begins. Apply the Part 3 rules for exactly four digits, `#`, fifth-digit rejection, debouncing, and 100–250 ms buzzer feedback on all 16 keys.
 
-Use the DLG7137 to distinguish normal entry, current-PIN entry, new PIN, confirmation, and the result of saving. Document the chosen characters.
+Use the DLG7137 to show which PIN is being requested and whether saving succeeds or fails. Choose and document the display characters.
 
-### EEPROM update sequence
+### EEPROM PIN write sequence (`PINWrite:`)
 
-Use the three EEPROM routines from Part 2 without changing their interfaces. Do not write EEPROM for individual keypad presses. Start the update only after the required PIN entries have been verified.
+Create an application subroutine named **`PINWrite:`** to manage the six EEPROM write steps below. Use the Part 2 `EEPROMWrite` and `EEPROMVerifyWrite` routines without changing their interfaces.
 
-Set a RAM `PIN_UPDATE` flag **before the first EEPROM write**. While it is set, ignore all keypad actions, keep the simulated solenoid OFF, and suspend normal lock operation. Continue servicing EEPROM write completion, `EEPROMVerifyWrite`, and the status display. Keep interrupts available as required by the EEPROM routines; do not disable them for the entire update.
+Start `PINWrite` **only after** the required PIN entries have been checked. Set a RAM `PIN_UPDATE` flag before the first write. While it is set, ignore keypad actions, keep the solenoid OFF, and suspend normal lock operation. The main loop must continue servicing EEPROM write completion and verification.
 
-Perform these **six EEPROM writes in order**:
+| Step | EEPROM location | Value to write |
+| --- | --- | --- |
+| 1 | PIN-valid marker | `0x00` (invalid) |
+| 2 | PIN digit 1 | First new digit |
+| 3 | PIN digit 2 | Second new digit |
+| 4 | PIN digit 3 | Third new digit |
+| 5 | PIN digit 4 | Fourth new digit |
+| 6 | PIN-valid marker | `0xC4` (valid) |
 
-1. **Invalidate:** Write a value other than `0xC4` (for example, `0x00`) to the fifth EEPROM location. Confirm that the stored marker is invalid before writing any PIN digits.
-2. **Save:** Write PIN digits 1, 2, 3, and 4 to their EEPROM locations, one byte at a time, verifying each completed write.
-3. **Validate:** Write `0xC4` to the marker location **last**. Verify it before clearing `PIN_UPDATE` and returning to normal locked operation.
+**Complete and verify each step before starting the next.** Check `EEPROM_ERROR` after verification. `EEPROMWrite` may skip a byte that already contains the requested value; confirm that the byte is correct before advancing.
 
-Start each write only after the preceding one is complete and verified. Check `EEPROM_ERROR` after verification. If a write or verification fails, **stop the sequence immediately**. Do not write any remaining digits or the valid marker.
+`PINWrite` may run across successive main-loop iterations while the EEPROM hardware is busy. Do not replace the Part 2 non-blocking write routine with a 30 ms delay or disable interrupts for the entire PIN write sequence.
 
-For an error after the marker has been invalidated, leave the marker invalid, keep the simulated solenoid OFF, set a **PIN-error output on an available PORTA pin**, and display an error character on the DLG7137. Stop normal operation and require a **power cycle before another PIN setup attempt**. The same error indication and power-cycle requirement apply if the initial invalidation write fails.
-
-A power loss during the update stops the sequence. On the next startup, an invalid marker enters first-run setup, requiring two new matching PIN entries. The RAM `PIN_UPDATE` flag prevents other application actions during the approximately 30 ms update; the EEPROM marker determines whether the PIN is valid after reset. If EEPROM cannot complete a PIN update, it cannot save a new valid PIN.
+- **Success:** After step 6 is verified, clear `PIN_UPDATE` and return to normal locked operation with the new PIN.
+- **Write or verification error:** Stop the sequence. Do not write any remaining bytes. Keep the solenoid OFF, activate a PIN-error indicator on an available PORTA output, and display an error character. Do not accept another PIN attempt until power is cycled.
+- **Power interruption:** On the next startup, check the marker normally. If it is invalid, require two matching PIN entries before trying `PINWrite` again.
 
 ### Before Lab
 
-Update the Part 3 state diagram for startup marker checking, first-run setup, authenticated PIN change, confirmation, the `PIN_UPDATE` flag, and error handling. Prepare flowcharts showing when EEPROM writing may start, the six writes in order, and the checks between writes. Document the five EEPROM addresses, the `0xC4` marker, the selected PORTA error pin and its loading, and the display feedback.
+Update the Part 3 state diagram for first-run setup, PIN change, `PINWrite`, success, and error handling. Draw a flowchart for `PINWrite` showing all six EEPROM steps and the verification/error decisions. Document the five EEPROM addresses, `PIN_UPDATE`, display characters, and the PORTA error indicator with its loading calculation.
 
 ### In the Lab
 
-1. Initialize the fifth EEPROM location to a value other than `0xC4`. Power up and verify that the lock requires two matching PIN entries before normal operation. Check mismatched entries, incomplete entries, and `*`.
-2. Complete first-run setup, reset the PIC, and verify that the saved PIN unlocks without repeating setup.
-3. Press `C`, submit an incorrect current PIN, and verify that no EEPROM update or solenoid activation occurs.
-4. Test cancellation and mismatched confirmation during a PIN change. Confirm that the old PIN still works.
-5. Change the PIN successfully. Use the debugger to verify the marker is invalidated first, the four digits are saved next, and `0xC4` is written last. Verify the old PIN fails and the new PIN works after a power cycle.
-6. While `PIN_UPDATE` is set, press keypad keys and verify they cannot unlock, cancel, or restart the update. Check that EEPROM completion and verification continue.
-7. Interrupt an update after the marker has been invalidated. Power-cycle and confirm that first-run setup is required. Simulate a write-verification error after invalidation and verify that the update stops, the PORTA error output activates, the display shows an error, and the solenoid stays OFF. Verify that another setup attempt requires a power cycle.
+1. Program an invalid PIN marker. Verify that first-run setup requires two matching PIN entries. Test `*`, incomplete entries, and mismatched confirmation without EEPROM writes.
+2. Complete setup, reset the PIC, and unlock using the stored PIN.
+3. Press `C` and test an incorrect current PIN, cancellation, and mismatched new-PIN confirmation. Verify that the stored PIN remains unchanged.
+4. Change the PIN successfully. Use the debugger to confirm the six `PINWrite` steps occur in order, with each step verified before the next. Confirm the old PIN fails and the new PIN works after a power cycle.
+5. While `PIN_UPDATE` is set, verify that keypad presses cannot unlock or cancel the EEPROM PIN write sequence.
+6. Interrupt the sequence after the marker becomes invalid. Power-cycle and verify that first-run setup is required. Simulate a verification error and demonstrate the PORTA and display error indicators, inactive solenoid, and required power cycle before another attempt.
 
 ### Evidence
 
-Include the updated state diagram and flowcharts, EEPROM address map, final source code, and a table of startup and PIN-change test results. Show debugger evidence of `PIN_UPDATE`, the six EEPROM writes in order, and their verification. Document canceled entries before writing, blocked keypad actions during writing, successful PIN changes, power-cycle recovery after interruption, and the PORTA/display error indicators.
+Include the updated state diagram, `PINWrite` flowchart, five-address EEPROM map, final source, and test results. Show debugger evidence of the write order, `PIN_UPDATE`, and verification. Document the power-cycle, cancellation, incorrect PIN, confirmation, and error tests.
 
 ### Demonstrate
 
-Program an invalid marker and show first-run setup. Set a PIN, reset, and unlock with it. Use `C` to change the PIN, including current-PIN authentication and two matching new entries. Demonstrate incorrect authentication and mismatched confirmation without EEPROM writes. Show the six-write sequence with `PIN_UPDATE` blocking keypad actions, the error indication and required power cycle after a write failure, and first-run setup after an interrupted update.
+Show first-run PIN setup, normal unlocking, and a successful PIN change using `C`. Demonstrate that canceled or rejected entries do not write EEPROM. Show the six-step `PINWrite` sequence, an interrupted sequence returning to first-run setup, and the PIN-error indicators after a failed verification.
 
 ### Complete When
 
-An invalid EEPROM marker starts first-run PIN setup; `0xC4` allows normal PIN operation. Changing the PIN requires the current PIN and matching new entries. No EEPROM update begins for incomplete or canceled PIN entries. During the six-write update, `PIN_UPDATE` prevents other lock actions. Errors stop the update and keep the solenoid inactive, with PORTA and display error indications and a required power cycle before another attempt.
+First-run setup and authenticated PIN changes work as specified. `PINWrite` follows the six-step EEPROM sequence, verifies each step, and blocks lock operations while writing. A failed write stops the sequence and keeps the solenoid OFF until reset. A valid saved PIN survives power removal.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
