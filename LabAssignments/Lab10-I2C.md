@@ -114,12 +114,51 @@ I_{\mathrm{LOW}} &= \frac{V_{\mathrm{DD}}-V_{\mathrm{OL}}}{R_{\mathrm{P}}}\\
 \end{aligned}
 ```
 
-Estimate the rise time between 30% and 70% of the supply using the I2C-bus RC approximation. The **100 pF** bus capacitance below is an example assumption, not a measured value.
+**I2C rise-time calculation:** Begin with the RC charging equation used in class. Let \(V_i\) be the initial line voltage, \(V_f\) the final voltage, and \(\tau=R_{\mathrm{P}}C_{\mathrm{bus}}\) the time constant.
 
 ```math
 \begin{aligned}
-t_{\mathrm{r}} &\approx 0.8473R_{\mathrm{P}}C_{\mathrm{bus}}\\
-&\approx 0.8473(4.7\ \mathrm{k}\Omega)(100\ \mathrm{pF})\\
+V(t) &= V_f-(V_f-V_i)e^{-t/\tau}\\
+\tau &= R_{\mathrm{P}}C_{\mathrm{bus}}
+\end{aligned}
+```
+
+For the pull-up estimate, assume the line starts at \(V_i=0\ \mathrm{V}\) and rises toward \(V_f=V_{\mathrm{DD}}\). Solve the charging equation for the time at which the line reaches a chosen fraction of \(V_{\mathrm{DD}}\):
+
+```math
+\begin{aligned}
+V(t) &= V_{\mathrm{DD}}(1-e^{-t/\tau})\\
+\frac{V(t)}{V_{\mathrm{DD}}} &= 1-e^{-t/\tau}\\
+e^{-t/\tau} &= 1-\frac{V(t)}{V_{\mathrm{DD}}}\\
+t &= -\tau\ln\left(1-\frac{V(t)}{V_{\mathrm{DD}}}\right)
+\end{aligned}
+```
+
+I2C rise time is measured from **30% to 70%** of the bus voltage. Calculate the time to reach each threshold, then subtract:
+
+```math
+\begin{aligned}
+t_{30\%} &= -\tau\ln(1-0.30)\\
+&= -\tau\ln(0.70)\\
+&\approx 0.356675\tau\\[6pt]
+t_{70\%} &= -\tau\ln(1-0.70)\\
+&= -\tau\ln(0.30)\\
+&\approx 1.203973\tau\\[6pt]
+t_{\mathrm{r}} &= t_{70\%}-t_{30\%}\\
+&\approx (1.203973-0.356675)\tau\\
+&\approx 0.8473\tau\\
+&\approx 0.8473R_{\mathrm{P}}C_{\mathrm{bus}}
+\end{aligned}
+```
+
+**Worked example:** Assume a nominal 4.7 kΩ pull-up and 100 pF bus capacitance. The capacitance is an example assumption, not a measured value.
+
+```math
+\begin{aligned}
+\tau &= R_{\mathrm{P}}C_{\mathrm{bus}}\\
+&=(4.7\ \mathrm{k}\Omega)(100\ \mathrm{pF})\\
+&=470\ \mathrm{ns}\\[6pt]
+t_{\mathrm{r}} &\approx 0.8473(470\ \mathrm{ns})\\
 &\approx 398.231\ \mathrm{ns}
 \end{aligned}
 ```
