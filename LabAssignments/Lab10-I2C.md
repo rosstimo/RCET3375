@@ -214,7 +214,7 @@ AddressProbe:
 
 ### In the Lab
 
-1. Build the circuit then verify the 5 V supply, common ground, SDA/SCL pull-ups, and connections before applying power. Leave the bus without a slave.
+1. Build the circuit. Check the supply setting, ground, SDA/SCL pull-ups, and connections before applying power, then measure 5 V at the PIC. Leave the bus without a slave.
 2. Connect **CH1 = SDA**, **CH2 = SCL**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. Trigger on the **rising edge of CH4**.
 3. Measure the interval between **RA1 rising edges** and compare it with your calculated timer interval.
 4. With power off, remove one pull-up at a time and observe the effect. Restore both resistors and verify normal operation.
@@ -251,6 +251,8 @@ A PIC16F883 master repeatedly sends the specified address with no slave, detects
 <a id="part-2"></a>
 ## Part 2 - Sensor Communication and Reusable Master Routines
 
+> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
+
 ### Goal
 
 Communicate with the supplied I2C sensor and control transactions through a minimal UART host GUI. Complete reusable I2C master routines with error handling.
@@ -279,6 +281,8 @@ The GUI can command and read the sensor through a reusable master I2C interface,
 
 <a id="part-3"></a>
 ## Part 3 - Reusable PIC I2C Slave Routines
+
+> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
 
 ### Goal
 
@@ -309,6 +313,8 @@ The slave's reusable interrupt routines reliably support master reads, writes, s
 <a id="part-4"></a>
 ## Part 4 - UART-to-I2C System Integration
 
+> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
+
 ### Goal
 
 Finish the host GUI and multi-device communication system. The master communicates with both the external sensor and the PIC slave; the PIC slave provides an ADC channel and one servo.
@@ -337,6 +343,8 @@ The complete system runs with both slaves, correctly reports errors, preserves s
 
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Axis Servo Control
+
+> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
 
 ### Goal
 
