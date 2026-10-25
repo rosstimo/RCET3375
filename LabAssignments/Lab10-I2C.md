@@ -211,11 +211,11 @@ AddressProbe:
 
 1. Build the circuit from your checked schematic. Verify the 5 V supply, common ground, SDA/SCL pull-ups, and connections before applying power. Leave the bus without a slave.
 2. Connect **CH1 = SCL**, **CH2 = SDA**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. Trigger on the **rising edge of CH4**. Verify that RA1 rises before START and falls after STOP.
-3. Configure **7-bit I2C decoding** and capture START, the seven address bits (`0x20`), R/W = 0, the ninth-clock NACK, and STOP. Verify RA0 indicates NACK. Note if your decoder displays the 8-bit address/R-W byte (`0x40`) instead.
-4. With nominal pull-ups installed, measure the **SCL period/frequency**, clock HIGH/LOW times, **SDA/SCL rise times (30% to 70%)**, idle HIGH and driven LOW voltages, and supply voltage.
-5. Repeat the measurements for **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10** resistance targets. Use one selected standard resistor per line, with no combinations. **Power off before changing resistors** and measure each resistor's actual value. Check electrical limits before powering each configuration. Calculate idle and LOW pull-up currents from measured voltages and resistances. Compare predicted and measured values for both lines; note if idle current is below measurement resolution.
-6. Measure the interval between **RA1 rising edges**. Compare it with the calculated timer interval and confirm a clear idle gap between transactions.
-7. Restore nominal pull-ups. With power off, remove one pull-up at a time and observe the effect. Restore both resistors and verify normal operation.
+3. With power off, remove one pull-up at a time and observe the effect. Restore both resistors and verify normal operation.
+4. Configure **7-bit I2C decoding** and capture START, the seven address bits (`0x20`), R/W = 0, the ninth-clock NACK, and STOP. Verify RA0 indicates NACK. Note if your decoder displays the 8-bit address/R-W byte (`0x40`) instead.
+5. With nominal pull-ups installed, measure the **SCL period/frequency**, clock HIGH/LOW times, **SDA/SCL rise times (30% to 70%)**, idle HIGH and driven LOW voltages, and supply voltage.
+6. Repeat the measurements for **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10** resistance targets. Use one selected standard resistor per line, with no combinations. **Power off before changing resistors** and measure each resistor's actual value. Check electrical limits before powering each configuration. Calculate idle and LOW pull-up currents from measured voltages and resistances. Compare predicted and measured values for both lines; note if idle current is below measurement resolution.
+7. Measure the interval between **RA1 rising edges**. Compare it with the calculated timer interval and confirm a clear idle gap between transactions.
 
 ### Evidence
 
