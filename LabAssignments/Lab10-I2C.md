@@ -135,6 +135,7 @@ t &= -\tau\ln\left(1-\frac{V(t)}{V_{\mathrm{DD}}}\right)
 \end{aligned}
 ```
 
+<!-- add capacitor charge image showing 30% and 70% points here -->
 I2C rise time is measured from **30% to 70%** of the bus voltage. Calculate the time to reach each threshold, then subtract:
 
 ```math
@@ -164,7 +165,7 @@ t_{\mathrm{r}} &\approx 0.8473(470\ \mathrm{ns})\\
 \end{aligned}
 ```
 
-Standard-mode I2C specifies a **maximum 1 µs rise time**, and its LOW-level current specification is based on **3 mA**. The lowest-resistance test can require substantially more LOW-state current. Check whether each chosen resistor meets the PIC pin current/voltage limits and I2C electrical requirements; explain any out-of-specification prediction. Do not power a circuit that exceeds the PIC's electrical limits. The circuit has wiring, pin, and oscilloscope-probe capacitance even with no slave. Actual idle pull-up current may be too small for the instruments to resolve.
+Standard-mode I2C specifies a **maximum 1 µs rise time**, and its LOW-level current specification is based on **3 mA**. The lowest-resistance test can require substantially more LOW-state current. Check whether each chosen resistor meets the PIC pin current/voltage limits and I2C electrical requirements; explain any out-of-specification prediction. Do not power a circuit that exceeds the PIC's electrical limits. The circuit has wiring, pin, and oscilloscope-probe capacitance even with no slave connected.
 
 ### Required setup
 
@@ -209,11 +210,11 @@ AddressProbe:
 
 ### In the Lab
 
-1. Build the circuit from your checked schematic. Verify the 5 V supply, common ground, SDA/SCL pull-ups, and connections before applying power. Leave the bus without a slave.
+1. Build the circuit then verify the 5 V supply, common ground, SDA/SCL pull-ups, and connections before applying power. Leave the bus without a slave.
 2. Connect **CH1 = SDA**, **CH2 = SCL**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. Trigger on the **rising edge of CH4**.
 3. Measure the interval between **RA1 rising edges** and compare it with your calculated timer interval.
 4. With power off, remove one pull-up at a time and observe the effect. Restore both resistors and verify normal operation.
-5. Configure **7-bit I2C decoding** and capture START, the seven address bits (`0x20`), R/W = 0, the ninth-clock NACK, and STOP. Verify RA0 indicates NACK. Note if your decoder displays the 8-bit address/R-W byte (`0x40`) instead. Verify that RA1 rises before START and falls after STOP, with a clear idle gap between transactions.
+5. Configure **7-bit I2C decoding** and capture START, the seven address bits (`0x20`), R/W = 0, the ninth-clock NACK, and STOP. Verify RA0 indicates NACK. Note if your decoder displays the 8-bit address/R-W byte (`0x40`) instead and verify oscilloscope decode setup. Verify that RA1 rises before START and falls after STOP, with a clear idle gap between transactions.
 6. With nominal pull-ups installed, measure the **SCL period/frequency**, clock HIGH/LOW times, **SDA/SCL rise times (30% to 70%)**, idle HIGH and driven LOW voltages, and supply voltage.
 7. Repeat the measurements for **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10** resistance targets. Use one selected standard resistor per line, with no combinations. **Power off before changing resistors** and measure each resistor's actual value. Check electrical limits before powering each configuration. Calculate idle and LOW pull-up currents from measured voltages and resistances. Compare predicted and measured values for both lines; note if idle current is below measurement resolution.
 
