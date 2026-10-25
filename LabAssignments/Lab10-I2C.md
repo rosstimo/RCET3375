@@ -114,7 +114,7 @@ I_{\mathrm{LOW}} &= \frac{V_{\mathrm{DD}}-V_{\mathrm{OL}}}{R_{\mathrm{P}}}\\
 \end{aligned}
 ```
 
-**I2C rise-time calculation:** Begin with the RC charging equation used in class. Let \(V_i\) be the initial line voltage, \(V_f\) the final voltage, and \(\tau=R_{\mathrm{P}}C_{\mathrm{bus}}\) the time constant.
+**I2C rise-time calculation:** Begin with the RC charging equation used in class. Let $V_i$ be the initial line voltage, $V_f$ the final voltage, and $\tau=R_{\mathrm{P}}C_{\mathrm{bus}}$ the time constant.
 
 ```math
 \begin{aligned}
@@ -123,7 +123,7 @@ V(t) &= V_f-(V_f-V_i)e^{-t/\tau}\\
 \end{aligned}
 ```
 
-For the pull-up estimate, assume the line starts at \(V_i=0\ \mathrm{V}\) and rises toward \(V_f=V_{\mathrm{DD}}\). Solve the charging equation for the time at which the line reaches a chosen fraction of \(V_{\mathrm{DD}}\):
+For the pull-up estimate, assume the line starts at $V_i=0\ \mathrm{V}$ and rises toward $V_f=V_{\mathrm{DD}}$. Solve the charging equation for the time at which the line reaches a chosen fraction of $V_{\mathrm{DD}}$:
 
 ```math
 \begin{aligned}
