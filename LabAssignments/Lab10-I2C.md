@@ -135,7 +135,11 @@ t &= -\tau\ln\left(1-\frac{V(t)}{V_{\mathrm{DD}}}\right)
 \end{aligned}
 ```
 
-<!-- add capacitor charge image showing 30% and 70% points here -->
+<p align="center">
+  <img src="images/Lab10-I2C-Rise-Time.svg" alt="RC charging curve showing 30% and 70% crossings and rise time equal to 0.8473 times the RC time constant." width="75%">
+</p>
+
+
 I2C rise time is measured from **30% to 70%** of the bus voltage. Calculate the time to reach each threshold, then subtract:
 
 ```math
