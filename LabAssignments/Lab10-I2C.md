@@ -85,6 +85,7 @@ Prepare the following in the lab book before constructing the circuit:
 - Predicted SCL clock period and frequency and the interval between transactions based on the selected timer.
 - **Pull-up resistor investigation:** Starting with the nominal **4.7 kΩ** resistor, calculate the target resistance for **nominal**, **nominal × 10**, **nominal ÷ 2**, and **nominal ÷ 10**. For each target, select and document a nearby common resistor value that is actually available. Use **one resistor per bus line** for each test; do not combine resistors. Record the calculated target, chosen standard value, resistor rating, and predicted electrical results for each test.
 - For **both SDA and SCL** at every selected resistance, predict the **idle HIGH voltage**, **current through the pull-up with the bus idle and with the line driven LOW**, and **30%-to-70% rise time**. State the assumed bus capacitance and LOW voltage. Compare predictions with the I2C Standard-mode electrical requirements and PIC16F883 pin limits before applying power.
+- Compile the Part 1 source and program the PIC **before starting the In the Lab steps**.
 
 **MSSP timing example:** For a 4 MHz oscillator and 100 kHz I2C clock, find the master baud-rate value using the data sheet equation.
 
@@ -208,14 +209,13 @@ AddressProbe:
 
 ### In the Lab
 
-1. Build the circuit from the checked schematic. Verify 5 V supply, common ground, SDA/SCL connections, and both pull-ups before programming the PIC. No other I2C device should be connected.
-2. Compile, program, and run the master firmware. Connect **CH1 = SCL**, **CH2 = SDA**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. **First, trigger on the rising edge of CH4** to capture the entire transaction without configuring I2C decoding. Confirm that CH4 rises before START and falls after STOP.
-3. Configure the oscilloscope's I2C decoder for **7-bit addressing**, then capture a complete transaction using either the CH4 trigger or the decoder's START trigger. Label START, the **seven address bits**, R/W, all **nine SCL pulses**, the HIGH SDA level during NACK, and STOP. Verify RA0 indicates NACK. If the decoder displays raw 8-bit address/R-W values, identify the distinction in your evidence.
-4. With the **nominal pull-ups** installed, zoom into the clocks and measure **SCL frequency/period**, HIGH and LOW durations, and **SDA and SCL rise times**. Measure rise time from **30% to 70%** of the signal swing. Measure the **idle HIGH voltage after STOP** and the **LOW voltage during transmission** on both lines.
-5. Repeat the electrical measurements for all four resistor tests: **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10**. Turn power off before changing resistors. For each test, use a **single selected standard resistor on SDA and a single resistor of the same chosen value on SCL**. Measure each resistor's actual resistance with the circuit unpowered, then record both lines' idle voltage, LOW voltage, and rise time. Check loading and PIC electrical limits before powering each new configuration.
-6. Measure the supply voltage. For each SDA/SCL resistor, use its **measured resistance** and the voltage difference between the supply and the measured line voltage to determine pull-up current in the idle and LOW states. This is an **indirect current measurement** derived from measured voltage and resistance. If idle current is below your instrument's resolution, record that limit. Compare each value with its prelab prediction and the I2C/PIC specifications.
-7. Measure the interval between **consecutive rising edges of RA1** and compare it with the interval calculated for your chosen timer. Verify that a clear idle gap separates complete transactions. Explain any difference between predicted and measured timing.
-8. Restore the nominal resistors. With power off, remove **one pull-up resistor at a time**, restore power, and observe the affected line. Record any unreliable HIGH level or missing/failed transaction. Restore both resistors with power off and confirm the normal NACK transaction returns. A floating line that appears to work is not a valid I2C connection.
+1. Build the circuit from your checked schematic. Verify the 5 V supply, common ground, SDA/SCL pull-ups, and connections before applying power. Leave the bus without a slave.
+2. Connect **CH1 = SCL**, **CH2 = SDA**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. Trigger on the **rising edge of CH4**. Verify that RA1 rises before START and falls after STOP.
+3. Configure **7-bit I2C decoding** and capture START, the seven address bits (`0x20`), R/W = 0, the ninth-clock NACK, and STOP. Verify RA0 indicates NACK. Note if your decoder displays the 8-bit address/R-W byte (`0x40`) instead.
+4. With nominal pull-ups installed, measure the **SCL period/frequency**, clock HIGH/LOW times, **SDA/SCL rise times (30% to 70%)**, idle HIGH and driven LOW voltages, and supply voltage.
+5. Repeat the measurements for **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10** resistance targets. Use one selected standard resistor per line, with no combinations. **Power off before changing resistors** and measure each resistor's actual value. Check electrical limits before powering each configuration. Calculate idle and LOW pull-up currents from measured voltages and resistances. Compare predicted and measured values for both lines; note if idle current is below measurement resolution.
+6. Measure the interval between **RA1 rising edges**. Compare it with the calculated timer interval and confirm a clear idle gap between transactions.
+7. Restore nominal pull-ups. With power off, remove one pull-up at a time and observe the effect. Restore both resistors and verify normal operation.
 
 ### Evidence
 
