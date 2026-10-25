@@ -53,7 +53,7 @@ Use the PIC16F883 data sheet for device-specific register settings and limits. T
 <a id="equipment"></a>
 ## Equipment and materials
 
-**Part 1:** One PIC16F883 minimum circuit with a 4 MHz crystal, 5 V supply, PICkit 3 (or equivalent), MPLAB X/pic-as, two 4.7 kΩ I2C pull-up resistors, breadboard components, multimeter, and an oscilloscope with I2C decoding. Provide scope access to RC3/SCL, RC4/SDA, RA0, and RA1.
+**Part 1:** One PIC16F883 minimum circuit with a 4 MHz crystal, 5 V supply, PICkit 3 (or equivalent), MPLAB X/pic-as, single I2C pull-up resistors in common values near the four calculated test targets (two of each chosen value, one per bus line), breadboard components, multimeter, and an oscilloscope with I2C decoding. Provide scope access to RC3/SCL, RC4/SDA, RA0, and RA1.
 
 **Later parts:** A second PIC16F883 circuit, supplied I2C sensor breakout and input source, Lab 08 UART host application and serial adapter, ADC sensor and servo components, and optional Mastery hardware.
 
@@ -82,7 +82,9 @@ Prepare the following in the lab book before constructing the circuit:
 - A schematic with the PIC power, reset, oscillator, programming connections, separate SDA/SCL pull-ups, and RA0/RA1 diagnostic connections. Account for every used pin and component as required by the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md).
 - PIC16F883 SFR documentation for MSSP master setup, START/STOP control, address transmission, completion and ACK status, the selected timer's setup and event indication, and the I/O configuration used here. Include the relevant register maps and the values you plan to use.
 - Flowcharts for the main loop and **AddressProbe** subroutine. Show the timer event, RA1 diagnostic signal, START, address transmission, NACK decision, STOP, and return.
-- Predicted SCL clock period and frequency, the interval between transactions based on the selected timer, bus LOW current, and SDA/SCL rise time. Use a stated bus-capacitance estimate and compare the expected timing with Standard-mode limits.
+- Predicted SCL clock period and frequency and the interval between transactions based on the selected timer.
+- **Pull-up resistor investigation:** Starting with the nominal **4.7 kΩ** resistor, calculate the target resistance for **nominal**, **nominal × 10**, **nominal ÷ 2**, and **nominal ÷ 10**. For each target, select and document a nearby common resistor value that is actually available. Use **one resistor per bus line** for each test; do not combine resistors. Record the calculated target, chosen standard value, resistor rating, and predicted electrical results for each test.
+- For **both SDA and SCL** at every selected resistance, predict the **idle HIGH voltage**, **current through the pull-up with the bus idle and with the line driven LOW**, and **30%-to-70% rise time**. State the assumed bus capacitance and LOW voltage. Compare predictions with the I2C Standard-mode electrical requirements and PIC16F883 pin limits before applying power.
 
 **MSSP timing example:** For a 4 MHz oscillator and 100 kHz I2C clock, find the master baud-rate value using the data sheet equation.
 
@@ -90,21 +92,25 @@ Prepare the following in the lab book before constructing the circuit:
 \begin{aligned}
 f_{\mathrm{SCL}} &= \frac{F_{\mathrm{OSC}}}{4(\mathrm{SSPADD}+1)}\\
 \mathrm{SSPADD} &= \frac{F_{\mathrm{OSC}}}{4f_{\mathrm{SCL}}}-1\\
-&=\frac{4{,}000{,}000\ \mathrm{Hz}}{4(100{,}000\ \mathrm{Hz})}-1\\
+&=\frac{4\ \mathrm{MHz}}{4(100\ \mathrm{kHz})}-1\\
 &=10-1=9\\
-T_{\mathrm{SCL}} &= \frac{1}{100{,}000\ \mathrm{Hz}}
+T_{\mathrm{SCL}} &= \frac{1}{100\ \mathrm{kHz}}
 =10\ \mu\mathrm{s}
 \end{aligned}
 ```
 
-**Pull-up example:** Estimate the current in one 4.7 kΩ pull-up when its bus line is LOW. For the example, assume a 5 V supply and a 0.4 V LOW level. Compare with the applicable device sink-current limit.
+**Pull-up voltage and current example:** With neither SDA nor SCL driven LOW, each line should be close to the 5 V supply and the ideal pull-up current is zero. For a LOW line, estimate the current through one nominal 4.7 kΩ resistor using an assumed 0.4 V LOW level.
 
 ```math
 \begin{aligned}
-I_{\mathrm{pullup}} &= \frac{V_{\mathrm{DD}}-V_{\mathrm{OL}}}{R_{\mathrm{P}}}\\
-&=\frac{5.0\ \mathrm{V}-0.4\ \mathrm{V}}{4{,}700\ \Omega}\\
-&=\frac{4.6\ \mathrm{V}}{4{,}700\ \Omega}\\
-&=0.000979\ \mathrm{A}\approx 0.98\ \mathrm{mA}
+V_{\mathrm{idle}} &\approx V_{\mathrm{DD}}=5.0\ \mathrm{V}\\
+I_{\mathrm{idle}} &= \frac{V_{\mathrm{DD}}-V_{\mathrm{idle}}}{R_{\mathrm{P}}}\\
+&=\frac{5.0\ \mathrm{V}-5.0\ \mathrm{V}}{4.7\ \mathrm{k}\Omega}\\
+&=0\ \mathrm{mA}\\
+I_{\mathrm{LOW}} &= \frac{V_{\mathrm{DD}}-V_{\mathrm{OL}}}{R_{\mathrm{P}}}\\
+&=\frac{5.0\ \mathrm{V}-0.4\ \mathrm{V}}{4.7\ \mathrm{k}\Omega}\\
+&=\frac{4.6\ \mathrm{V}}{4.7\ \mathrm{k}\Omega}\\
+&\approx 0.979\ \mathrm{mA}
 \end{aligned}
 ```
 
@@ -113,13 +119,12 @@ Estimate the rise time between 30% and 70% of the supply using the I2C-bus RC ap
 ```math
 \begin{aligned}
 t_{\mathrm{r}} &\approx 0.8473R_{\mathrm{P}}C_{\mathrm{bus}}\\
-&\approx 0.8473(4{,}700\ \Omega)(100\times10^{-12}\ \mathrm{F})\\
-&=3.98231\times10^{-7}\ \mathrm{s}\\
-&\approx 398\ \mathrm{ns}
+&\approx 0.8473(4.7\ \mathrm{k}\Omega)(100\ \mathrm{pF})\\
+&\approx 398.231\ \mathrm{ns}
 \end{aligned}
 ```
 
-Standard-mode I2C specifies a **maximum 1000 ns rise time**. Use your actual resistor values and a justified capacitance estimate for the prelab prediction. Check the bus electrical limits and compare the rise-time prediction with what you measure. A bus with no slave still has wiring, pin, and probe capacitance.
+Standard-mode I2C specifies a **maximum 1 µs rise time**, and its LOW-level current specification is based on **3 mA**. The lowest-resistance test can require substantially more LOW-state current. Check whether each chosen resistor meets the PIC pin current/voltage limits and I2C electrical requirements; explain any out-of-specification prediction. Do not power a circuit that exceeds the PIC's electrical limits. The circuit has wiring, pin, and oscilloscope-probe capacitance even with no slave. Actual idle pull-up current may be too small for the instruments to resolve.
 
 ### Required setup
 
@@ -167,31 +172,35 @@ AddressProbe:
 1. Build the circuit from the checked schematic. Verify 5 V supply, common ground, SDA/SCL connections, and both pull-ups before programming the PIC. No other I2C device should be connected.
 2. Compile, program, and run the master firmware. Connect **CH1 = SCL**, **CH2 = SDA**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. **First, trigger on the rising edge of CH4** to capture the entire transaction without configuring I2C decoding. Confirm that CH4 rises before START and falls after STOP.
 3. Configure the oscilloscope's I2C decoder for **7-bit addressing**, then capture a complete transaction using either the CH4 trigger or the decoder's START trigger. Label START, the **seven address bits**, R/W, all **nine SCL pulses**, the HIGH SDA level during NACK, and STOP. Verify RA0 indicates NACK. If the decoder displays raw 8-bit address/R-W values, identify the distinction in your evidence.
-4. Zoom into the clocks and measure **SCL frequency/period, HIGH and LOW durations, and SDA and SCL rise times**. Measure rise time from **30% to 70%** of the signal swing. Record bus HIGH and LOW voltage levels. Compare timing and levels with your calculations and the device and I2C specifications.
-5. Measure the interval between **consecutive rising edges of RA1** and compare it with the interval calculated for your chosen timer. Verify that a clear idle gap separates complete transactions. Explain any difference between predicted and measured timing.
-6. With power off, remove **one pull-up resistor at a time**, restore power, and observe the affected line. Record what changes, including any unreliable or missing HIGH level or failed transaction. Restore both resistors with power off and confirm the normal NACK transaction returns. Do not treat a seemingly working floating line as a valid I2C connection.
+4. With the **nominal pull-ups** installed, zoom into the clocks and measure **SCL frequency/period**, HIGH and LOW durations, and **SDA and SCL rise times**. Measure rise time from **30% to 70%** of the signal swing. Measure the **idle HIGH voltage after STOP** and the **LOW voltage during transmission** on both lines.
+5. Repeat the electrical measurements for all four resistor tests: **nominal, nominal × 10, nominal ÷ 2, and nominal ÷ 10**. Turn power off before changing resistors. For each test, use a **single selected standard resistor on SDA and a single resistor of the same chosen value on SCL**. Measure each resistor's actual resistance with the circuit unpowered, then record both lines' idle voltage, LOW voltage, and rise time. Check loading and PIC electrical limits before powering each new configuration.
+6. Measure the supply voltage. For each SDA/SCL resistor, use its **measured resistance** and the voltage difference between the supply and the measured line voltage to determine pull-up current in the idle and LOW states. This is an **indirect current measurement** derived from measured voltage and resistance. If idle current is below your instrument's resolution, record that limit. Compare each value with its prelab prediction and the I2C/PIC specifications.
+7. Measure the interval between **consecutive rising edges of RA1** and compare it with the interval calculated for your chosen timer. Verify that a clear idle gap separates complete transactions. Explain any difference between predicted and measured timing.
+8. Restore the nominal resistors. With power off, remove **one pull-up resistor at a time**, restore power, and observe the affected line. Record any unreliable HIGH level or missing/failed transaction. Restore both resistors with power off and confirm the normal NACK transaction returns. A floating line that appears to work is not a valid I2C connection.
 
 ### Evidence
 
 Include the schematic and component/loading checks, complete MSSP/chosen-timer/I/O SFR documentation, flowcharts, final pic-as source, and the calculation steps and predictions.
 
+Include a **four-configuration comparison table** showing the calculated resistance target, the selected common single-resistor value, actual measured resistance on each line, predicted and measured idle HIGH voltage, predicted and measured **idle/LOW pull-up current** (current derived from measured voltage/resistance), and predicted and measured rise time **for both SDA and SCL**. Note any current below measurement resolution and any I2C specification limits not met.
+
 Provide labeled scope captures showing:
 
 - A complete address-only transaction captured by **triggering on RA1**, before using I2C decoding. Include SDA, SCL, RA0, and RA1.
 - A decoded transaction showing START, address `0x20`, R/W = 0, ninth-bit NACK, and STOP.
-- Expanded SCL/SDA timing with measured frequency, clock HIGH/LOW times, rise times, and voltage levels.
+- Expanded SCL/SDA timing with measured frequency and clock HIGH/LOW times, plus rise-time and idle/LOW voltage captures for each of the **four pull-up configurations**.
 - Consecutive RA1 pulses with a measured **rising-edge-to-rising-edge interval**, compared with the chosen timer's predicted interval.
 - The pull-up removal observations and the restored normal waveform.
 
-For each measurement, record the predicted value, measured value, and an explanation of any significant difference. Include the I2C decoder setting so that `0x20` (7-bit address) and `0x40` (address/R-W byte) are not confused.
+For each measurement, record the predicted value, measured value, and an explanation of any significant difference. Distinguish the **calculated target resistance**, **chosen standard resistor**, and **measured installed resistance**. Include the I2C decoder setting so that `0x20` (7-bit address) and `0x40` (address/R-W byte) are not confused.
 
 ### Demonstrate
 
-Trigger the oscilloscope from **RA1 before enabling I2C decoding**, then show the START/address/NACK/STOP sequence with the decoder and explain the nine clock pulses. Demonstrate RA0's NACK indication, compare the measured SCL clock and RA1 repeat interval with your calculations, and explain how the pull-up resistors produce HIGH levels on an open-drain bus.
+Trigger the oscilloscope from **RA1 before enabling I2C decoding**, then show the START/address/NACK/STOP sequence with the decoder and explain the nine clock pulses. Demonstrate RA0's NACK indication, compare the measured SCL clock and RA1 repeat interval with your calculations, and explain the effects of all four pull-up values on idle voltage, LOW-state current, rise time, and I2C specification compliance.
 
 ### Complete When
 
-A PIC16F883 master repeatedly sends the specified address with no slave, detects NACK, and completes STOP. RA1 can trigger the oscilloscope and shows a clear idle interval between transactions. The waveforms, electrical calculations, timing comparisons, pull-up observations, source code, and lab-book evidence are complete and ready for instructor checkoff.
+A PIC16F883 master repeatedly sends the specified address with no slave, detects NACK, and completes STOP. RA1 can trigger the oscilloscope and shows a clear idle interval between transactions. The four resistor tests have predicted/measured SDA and SCL voltages, pull-up currents, rise times, and documented specification comparisons. The waveforms, timing comparisons, pull-up removal observations, source code, and lab-book evidence are complete and ready for instructor checkoff.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
