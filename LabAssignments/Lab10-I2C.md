@@ -25,7 +25,7 @@ PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 
 Use the PIC16F883 MSSP peripheral for I2C communication. Begin with an address-only master transaction and measurements of the two-wire bus. Later parts add an external sensor, a second PIC operating as a slave, and UART integration.
 
-**Repository setup:** Create one Git repository for Lab 10. Add the [student lab ``.gitignore` template](https://github.com/rosstimo/RCET3375/blob/main/HowTo/Student-Lab-Repository.gitignore) before staging project files. Keep complete MPLAB X projects and follow the [Lab Standard's repository rules](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md#assignment-repository-standard).
+**Repository setup:** Create one Git repository for Lab 10. Add the [student lab `.gitignore` template](https://github.com/rosstimo/RCET3375/blob/main/HowTo/Student-Lab-Repository.gitignore) before staging project files. Keep complete MPLAB X projects and follow the [Lab Standard's repository rules](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md#assignment-repository-standard).
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
@@ -34,7 +34,7 @@ Use the PIC16F883 MSSP peripheral for I2C communication. Begin with an address-o
 
 - [RCET 3375 Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md): lab book, SFR maps, schematics, electrical checks, measurements, and submission.
 - [RCET PIC-AS Style Guide](https://github.com/rosstimo/RCET3375/blob/main/Notes/RCET_PIC-AS_Style_Guide.md) and [PIC-AS project setup](https://github.com/rosstimo/RCET3375/blob/main/HowTo/PIC-AS-Project-Setup.md).
-- [PIC16F882/883/884/886/887 data sheet (DS40001291H)](https://ww1.microchip.com/downloads/en/DeviceDoc/40001291H.pdf): PIC16F883 pinout, MSSP/I2C master registers (Section 13), Timer1 (Section 6), and electrical limits.
+- [PIC16F882/883/884/886/887 data sheet (DS40001291H)](https://ww1.microchip.com/downloads/en/DeviceDoc/40001291H.pdf): PIC16F883 pinout, MSSP/I2C master registers (Section 13), timers, and electrical limits.
 - [PIC16F88X silicon errata](https://ww1.microchip.com/downloads/aemDocuments/documents/MCU08/ProductDocuments/Errata/PIC16F88X-Family-Si-Errata-Data-Sheet-Clarifications-DS80000302.pdf): device-revision limitations and MSSP clarifications.
 - [PICmicro Mid-Range MCU Family Reference Manual (DS33023A)](https://ww1.microchip.com/downloads/en/DeviceDoc/33023a.pdf), especially [Section 17: MSSP](https://ww1.microchip.com/downloads/en/DeviceDoc/31017a.pdf): I2C timing, START/STOP sequences, electrical connections, and master/slave operation.
 - [AN735: Using the PICmicro MSSP Module for Master I2C Communications](https://ww1.microchip.com/downloads/en/AppNotes/00735a.pdf) ([application note and source-code downloads](https://www.microchip.com/en-us/application-notes/an735)): master setup and transmission examples.
@@ -53,7 +53,7 @@ Use the PIC16F883 data sheet for device-specific register settings and limits. T
 <a id="equipment"></a>
 ## Equipment and materials
 
-**Part 1:** One PIC16F883 minimum circuit with a 4 MHz crystal, 5 V supply, PICkit 3 (or equivalent), MPLAB X/pic-as, two 4.7 kΩ I2C pull-up resistors, breadboard components, multimeter, and an oscilloscope with I2C decoding. Provide scope access to RC3/SCL, RC4/SDA, and RA0.
+**Part 1:** One PIC16F883 minimum circuit with a 4 MHz crystal, 5 V supply, PICkit 3 (or equivalent), MPLAB X/pic-as, two 4.7 kΩ I2C pull-up resistors, breadboard components, multimeter, and an oscilloscope with I2C decoding. Provide scope access to RC3/SCL, RC4/SDA, RA0, and RA1.
 
 **Later parts:** A second PIC16F883 circuit, supplied I2C sensor breakout and input source, Lab 08 UART host application and serial adapter, ADC sensor and servo components, and optional Mastery hardware.
 
@@ -71,17 +71,18 @@ Use one PIC16F883 as a 100 kHz I2C master. Send a periodic address-only write tr
 - Use a **4 MHz crystal** and a **5 V** PIC16F883 circuit. Connect **RC3/SCL (pin 14)** and **RC4/SDA (pin 15)** to 5 V through **separate 4.7 kΩ pull-up resistors**. Leave the I2C bus without a slave for this part. Configure the pins for MSSP open-drain operation.
 - Configure the MSSP for **7-bit I2C master mode at 100 kHz**. Address **`0x20`** with **R/W = 0**. The address and R/W bit form the transmitted byte **`0x40`** (`0100 0000` binary).
 - For every probe, generate **START**, send the address/R-W byte, read the **ACK/NACK** result, and generate **STOP**. With no slave, the ninth clock pulse must show a NACK (SDA HIGH).
-- Use **Timer1 with the internal instruction clock and a 1:8 prescaler**, polling its overflow flag to start a new probe about every **524 ms**. No Timer1 interrupt is needed.
+- Use a hardware timer to start repeated address transmissions. Choose a timer interval that leaves a clear idle gap between the STOP of one transaction and the START of the next. Calculate the expected interval from your chosen timer settings.
 - Use **RA0 (pin 2)** as a NACK indicator. Clear RA0 at the beginning of each probe; make it HIGH if the slave does not acknowledge. Leave it LOW for ACK. Complete the transaction with STOP in either case.
+- Use **RA1 (pin 3)** as a timer diagnostic. Set RA1 HIGH when the timer event starts a new transaction, just before calling **AddressProbe**. Set it LOW after **AddressProbe** returns, following STOP. Each RA1 rising edge marks the start of a new transaction and provides an oscilloscope trigger without I2C decoding.
 
 ### Before Lab
 
 Prepare the following in the lab book before constructing the circuit:
 
-- A schematic with the PIC power, reset, oscillator, programming connections, separate SDA/SCL pull-ups, and RA0 diagnostic connection. Account for every used pin and component as required by the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md).
-- PIC16F883 SFR documentation for MSSP master setup, START/STOP control, address transmission, completion and ACK status, Timer1 overflow, and the I/O configuration used here. Include the relevant register maps and the values you plan to use.
-- Natural-language flowcharts for the main loop and **AddressProbe** subroutine. Show the timer trigger, START, address transmission, NACK decision, STOP, and return.
-- Predicted SCL clock period and frequency, Timer1 probe interval, bus LOW current, and SDA/SCL rise time. Use a stated bus-capacitance estimate and compare the expected timing with Standard-mode limits.
+- A schematic with the PIC power, reset, oscillator, programming connections, separate SDA/SCL pull-ups, and RA0/RA1 diagnostic connections. Account for every used pin and component as required by the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md).
+- PIC16F883 SFR documentation for MSSP master setup, START/STOP control, address transmission, completion and ACK status, the selected timer's setup and event indication, and the I/O configuration used here. Include the relevant register maps and the values you plan to use.
+- Flowcharts for the main loop and **AddressProbe** subroutine. Show the timer event, RA1 diagnostic signal, START, address transmission, NACK decision, STOP, and return.
+- Predicted SCL clock period and frequency, the interval between transactions based on the selected timer, bus LOW current, and SDA/SCL rise time. Use a stated bus-capacitance estimate and compare the expected timing with Standard-mode limits.
 
 **MSSP timing example:** For a 4 MHz oscillator and 100 kHz I2C clock, find the master baud-rate value using the data sheet equation.
 
@@ -93,21 +94,6 @@ f_{\mathrm{SCL}} &= \frac{F_{\mathrm{OSC}}}{4(\mathrm{SSPADD}+1)}\\
 &=10-1=9\\
 T_{\mathrm{SCL}} &= \frac{1}{100{,}000\ \mathrm{Hz}}
 =10\ \mu\mathrm{s}
-\end{aligned}
-```
-
-**Timer1 interval example:** With the internal instruction clock, a 1:8 prescaler, and no preload, calculate the period of one 16-bit Timer1 rollover.
-
-```math
-\begin{aligned}
-f_{\mathrm{instruction}} &= \frac{4{,}000{,}000\ \mathrm{Hz}}{4}
-=1{,}000{,}000\ \mathrm{Hz}\\
-T_{\mathrm{instruction}} &= \frac{1}{1{,}000{,}000\ \mathrm{Hz}}
-=1\ \mu\mathrm{s}\\
-T_{\mathrm{tick}} &= 8(1\ \mu\mathrm{s})=8\ \mu\mathrm{s}\\
-T_{\mathrm{overflow}} &= 65{,}536(8\ \mu\mathrm{s})\\
-&=524{,}288\ \mu\mathrm{s}
-=524.288\ \mathrm{ms}
 \end{aligned}
 ```
 
@@ -142,25 +128,28 @@ MSSP:
     Set up I2C master operation at 100 kHz
     Enable the peripheral for SDA and SCL
 
-Timer1:
-    Use the internal instruction clock with an eight-to-one prescaler
-    Clear the timer and its overflow indication, then start it
+Timer:
+    Configure a hardware timer for a repeat interval that separates address transactions
+    Clear its event indication and start it
 
 I/O:
     Set RA0 as a digital output for the NACK indicator
+    Set RA1 as a digital output for the timer diagnostic
     Configure the other used pins for their required functions
 
 Startup:
-    Initialize the NACK indicator LOW
+    Initialize both diagnostic outputs LOW
 ```
 
 ### Program structure
 
 ```text
 Main:
-    Wait for a Timer1 overflow
-    Clear the overflow indication
+    Wait for the chosen timer's event
+    Clear the timer event indication
+    Set RA1 HIGH
     Call AddressProbe
+    Set RA1 LOW
     Repeat
 
 AddressProbe:
@@ -176,32 +165,33 @@ AddressProbe:
 ### In the Lab
 
 1. Build the circuit from the checked schematic. Verify 5 V supply, common ground, SDA/SCL connections, and both pull-ups before programming the PIC. No other I2C device should be connected.
-2. Compile, program, and run the master firmware. Probe **CH1 = SCL**, **CH2 = SDA**, and **CH3 = RA0**. Configure the oscilloscope's I2C decoder for **7-bit addressing** and trigger on START. If the decoder displays raw 8-bit address/R-W values, identify the distinction in your evidence.
-3. Capture one complete transaction. Label START, the **seven address bits**, R/W, all **nine SCL pulses**, the HIGH SDA level during NACK, and STOP. Verify that RA0 indicates NACK and the next transaction starts after the Timer1 interval.
+2. Compile, program, and run the master firmware. Connect **CH1 = SCL**, **CH2 = SDA**, **CH3 = RA0 (NACK)**, and **CH4 = RA1 (timer diagnostic)**. **First, trigger on the rising edge of CH4** to capture the entire transaction without configuring I2C decoding. Confirm that CH4 rises before START and falls after STOP.
+3. Configure the oscilloscope's I2C decoder for **7-bit addressing**, then capture a complete transaction using either the CH4 trigger or the decoder's START trigger. Label START, the **seven address bits**, R/W, all **nine SCL pulses**, the HIGH SDA level during NACK, and STOP. Verify RA0 indicates NACK. If the decoder displays raw 8-bit address/R-W values, identify the distinction in your evidence.
 4. Zoom into the clocks and measure **SCL frequency/period, HIGH and LOW durations, and SDA and SCL rise times**. Measure rise time from **30% to 70%** of the signal swing. Record bus HIGH and LOW voltage levels. Compare timing and levels with your calculations and the device and I2C specifications.
-5. Measure the interval between consecutive START conditions and explain any difference from the calculated Timer1 rollover period.
+5. Measure the interval between **consecutive rising edges of RA1** and compare it with the interval calculated for your chosen timer. Verify that a clear idle gap separates complete transactions. Explain any difference between predicted and measured timing.
 6. With power off, remove **one pull-up resistor at a time**, restore power, and observe the affected line. Record what changes, including any unreliable or missing HIGH level or failed transaction. Restore both resistors with power off and confirm the normal NACK transaction returns. Do not treat a seemingly working floating line as a valid I2C connection.
 
 ### Evidence
 
-Include the schematic and component/loading checks, complete MSSP/Timer1/I/O SFR documentation, flowcharts, final pic-as source, and the calculation steps and predictions.
+Include the schematic and component/loading checks, complete MSSP/chosen-timer/I/O SFR documentation, flowcharts, final pic-as source, and the calculation steps and predictions.
 
 Provide labeled scope captures showing:
 
-- A complete decoded address-only transaction (START, address `0x20`, R/W = 0, ninth-bit NACK, STOP) with RA0.
+- A complete address-only transaction captured by **triggering on RA1**, before using I2C decoding. Include SDA, SCL, RA0, and RA1.
+- A decoded transaction showing START, address `0x20`, R/W = 0, ninth-bit NACK, and STOP.
 - Expanded SCL/SDA timing with measured frequency, clock HIGH/LOW times, rise times, and voltage levels.
-- Consecutive transactions with a measured START-to-START interval.
+- Consecutive RA1 pulses with a measured **rising-edge-to-rising-edge interval**, compared with the chosen timer's predicted interval.
 - The pull-up removal observations and the restored normal waveform.
 
 For each measurement, record the predicted value, measured value, and an explanation of any significant difference. Include the I2C decoder setting so that `0x20` (7-bit address) and `0x40` (address/R-W byte) are not confused.
 
 ### Demonstrate
 
-Show the periodic START/address/NACK/STOP sequence with the oscilloscope decoder and explain the nine clock pulses. Demonstrate RA0's NACK indication, compare the measured bus clock and probe interval with your calculations, and explain how the pull-up resistors produce HIGH levels on an open-drain bus.
+Trigger the oscilloscope from **RA1 before enabling I2C decoding**, then show the START/address/NACK/STOP sequence with the decoder and explain the nine clock pulses. Demonstrate RA0's NACK indication, compare the measured SCL clock and RA1 repeat interval with your calculations, and explain how the pull-up resistors produce HIGH levels on an open-drain bus.
 
 ### Complete When
 
-A PIC16F883 master repeatedly sends the specified address with no slave, detects NACK, and completes STOP. The waveforms, electrical calculations, timing comparisons, pull-up observations, source code, and lab-book evidence are complete and ready for instructor checkoff.
+A PIC16F883 master repeatedly sends the specified address with no slave, detects NACK, and completes STOP. RA1 can trigger the oscilloscope and shows a clear idle interval between transactions. The waveforms, electrical calculations, timing comparisons, pull-up observations, source code, and lab-book evidence are complete and ready for instructor checkoff.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
