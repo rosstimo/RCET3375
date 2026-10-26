@@ -268,7 +268,7 @@ Extend the Part 1 address probe to communicate with an ADS1115 analog-to-digital
 - Read the **Conversion register (`0x00`)** as two bytes, most significant byte first. Store both bytes in RAM.
 - On an **address or write-data NACK**, send no further bytes, generate STOP, and record the NACK. A failed hardware operation that leaves bus ownership uncertain requires recovery before further transfers.
 - When receiving the conversion result, the **master sends ACK after the first byte** and **NACK after the second (last) byte**, then generates STOP. That final master NACK is normal and must not set RA0.
-- Keep the latest complete ADC result unchanged when a transaction fails.
+- Treat the received bytes as a valid ADC result only after both bytes and STOP complete successfully.
 
 ### ADS1115 transactions
 
@@ -325,8 +325,8 @@ Prepare the following in the lab book:
 ### Required RAM
 
 ```text
-adc_high:          most significant byte of the latest successful ADC result
-adc_low:           least significant byte of the latest successful ADC result
+adc_high:          most significant byte received from the ADS1115
+adc_low:           least significant byte received from the ADS1115
 ads_configured:    indicates that ADS1115 setup completed successfully
 i2c_status:        result of the current hardware I2C operation
 ```
@@ -369,7 +369,7 @@ Main:
 
     Otherwise
         Call ReadADS1115
-        If successful, save the new ADC bytes
+        If successful, use the new ADC bytes as a valid result
 
     Set the transaction diagnostic LOW
     Repeat
@@ -389,8 +389,8 @@ ReadADS1115:
     Write the Conversion register pointer and check ACK
     Generate repeated START
     Send the read address and check ACK
-    Receive the high byte and send master ACK
-    Receive the low byte and send master NACK
+    Receive the high byte into adc_high and send master ACK
+    Receive the low byte into adc_low and send master NACK
     Generate STOP
     Return both bytes and success
 
