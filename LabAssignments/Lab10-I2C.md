@@ -44,7 +44,8 @@ Use the PIC16F883 MSSP peripheral for I2C communication. Begin with an address-o
 - [AN736: An I2C Network Protocol for Environmental Monitoring](https://www.microchip.com/en-us/application-notes/an736): application-level communication example for later parts.
 - [I2C-bus specification (NXP UM10204)](https://www.nxp.com/docs/en/user-guide/UM10204.pdf): Standard-mode electrical timing, pull-up calculations, and waveform definitions.
 - [Lab 08 - UART](https://github.com/rosstimo/RCET3375/blob/main/LabAssignments/Lab08-UART.md): UART packets, host GUI, ADC, and servo integration in later parts.
-- Manufacturer's data sheet for the supplied I2C sensor module (later parts).
+- [Texas Instruments ADS1115 data sheet (SBAS444E)](https://www.ti.com/lit/ds/symlink/ads1115.pdf): device addressing, Config and Conversion registers, read/write transactions, and conversion timing.
+- Breakout-board schematic or manufacturer documentation for its power, pull-up resistors, and signal-level connections.
 
 Use the PIC16F883 data sheet for device-specific register settings and limits. The application notes and family manual provide implementation examples.
 
