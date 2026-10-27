@@ -6,7 +6,7 @@
 
 PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 
-> **Release status:** Part 1 is the current assignment. Parts 2–5 are draft outlines; their requirements may change before they are assigned.
+> **Release status:** Part 1 is the current assignment. Part 2 is being developed and is not released. Parts 3–5 remain draft outlines.
 
 ## Contents
 
@@ -14,7 +14,7 @@ PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 - [Standards and references](#references)
 - [Equipment and materials](#equipment)
 - [Part 1 - I2C Master and Bus Timing](#part-1)
-- [Part 2 - Sensor Communication and Reusable Master Routines](#part-2)
+- [Part 2 - I2C Master with an ADS1115 Sensor Slave](#part-2)
 - [Part 3 - Reusable PIC I2C Slave Routines](#part-3)
 - [Part 4 - UART-to-I2C System Integration](#part-4)
 - [Part 5 - Mastery: Three-Axis Servo Control](#part-5)
@@ -44,7 +44,8 @@ Use the PIC16F883 MSSP peripheral for I2C communication. Begin with an address-o
 - [AN736: An I2C Network Protocol for Environmental Monitoring](https://www.microchip.com/en-us/application-notes/an736): application-level communication example for later parts.
 - [I2C-bus specification (NXP UM10204)](https://www.nxp.com/docs/en/user-guide/UM10204.pdf): Standard-mode electrical timing, pull-up calculations, and waveform definitions.
 - [Lab 08 - UART](https://github.com/rosstimo/RCET3375/blob/main/LabAssignments/Lab08-UART.md): UART packets, host GUI, ADC, and servo integration in later parts.
-- Manufacturer's data sheet for the supplied I2C sensor module (later parts).
+- [Texas Instruments ADS1115 data sheet (SBAS444E)](https://www.ti.com/lit/ds/symlink/ads1115.pdf): device addressing, Config and Conversion registers, read/write transactions, and conversion timing.
+- Breakout-board schematic or manufacturer documentation for its power, pull-up resistors, and signal-level connections.
 
 Use the PIC16F883 data sheet for device-specific register settings and limits. The application notes and family manual provide implementation examples.
 
@@ -249,33 +250,153 @@ A PIC16F883 master repeatedly sends the specified address with no slave, detects
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-2"></a>
-## Part 2 - Sensor Communication and Reusable Master Routines
+## Part 2 - I2C Master with an ADS1115 Sensor Slave
 
 > **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
-
 ### Goal
 
-Communicate with the supplied I2C sensor and control transactions through a minimal UART host GUI. Complete reusable I2C master routines with error handling.
+Use the Part 1 I2C master to identify an ADS1115, inspect and change its configuration, and read its ADC results. Observe the conversion-ready signal to choose a suitable reading interval.
 
 ### Before Lab
 
-Document the sensor's address and register protocol, proposed structured UART request/result/error packets, master routine flowcharts, and expected bus transactions. Plan the parallel pull-up resistor experiment.
+- Bring your **working Part 1 address-probe program**, compiled and programmed into the PIC.
+- Skim the [ADS1115 data sheet](https://www.ti.com/lit/ds/symlink/ads1115.pdf). Find the pin descriptions, supply/input limits, and I2C address selection. You will investigate the registers and configure the ADC as you work through the lab.
+
+Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md) for the lab book, schematic, SFR documentation, flowcharts, and source code. Add each new piece of documentation as you reach it in the procedure.
+
+### Required setup
+
+> **Draft placeholder:** Setup pseudocode will be added after review.
+
+### Program structure
+
+> **Draft placeholder:** Program-flow pseudocode will be added after review.
 
 ### In the Lab
 
-Read and write the sensor as supported by its data sheet, including multi-byte and repeated-START transactions where needed. Display results and transactions in the GUI. Abort failed I2C operations and return their status to the host. Add pull-up resistors in parallel, calculate equivalent resistance and LOW-state current, and measure SDA/SCL rise time and LOW voltage. Account for pull-ups already installed on breakout boards.
+**1. Find the ADS1115 address.** Connect the breakout to the Part 1 SDA/SCL bus. Before applying power, check the board's supply and I2C logic levels against the PIC circuit. Document the connections in your schematic.
+
+> **Pull-up hint:** With power **off** and the breakout disconnected from the PIC and external pull-ups, measure resistance with a DMM from SDA and SCL to the board's supply rail. Check ADDR and ALERT/RDY the same way. These measurements can reveal installed pull-ups; inspect the board markings or schematic to confirm because other onboard components may affect an in-circuit resistance reading.
+
+Find the **four possible 7-bit ADS1115 addresses** in the data sheet. With **ADDR tied to GND**, use the Part 1 probe to try **all four addresses**, recording ACK or NACK for each. **Power off before moving ADDR to VDD**, then probe **all four addresses again**. Modify the probe so each trial runs **once after MCLR reset**, then enters a **do-nothing loop** instead of repeating. For each scope capture, arm the oscilloscope in **Single Sequence** mode, then press and release MCLR.
+
+```text
+For each candidate: START → [address + Write bit] → ACK or NACK → STOP
+```
+
+Record all **eight results** in a table:
+
+| 7-bit address from data sheet | Transmitted write byte | ADDR = GND | ADDR = VDD |
+| --- | --- | --- | --- |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+
+Save a decoded ACK capture for each ADDR condition. For the remaining steps, **choose either ADDR connection that produced an ACK** and use its confirmed address. In the sequences below, `ADDR+W` and `ADDR+R` mean the transmitted address byte formed from your chosen **7-bit address** with the write bit (`0`) or read bit (`1`).
+
+**2. Read the Config register.** Find the ADS1115 register-pointer table. The one-byte pointer `0x01` selects Config; it does **not** overwrite Config. On a freshly powered ADS1115, the expected Config value is **`0x8583`**. Select the pointer, then read the 16-bit register with a new START.
+
+```text
+Select Config (once):
+START → ADDR+W → ACK → 0x01 → ACK → STOP
+
+Read Config (once):
+START → ADDR+R → ACK → Config MSB → PIC ACK → Config LSB → PIC NACK → STOP
+```
+
+Run the pointer write and Config read **once after MCLR reset**, then enter a **do-nothing loop**. Arm the oscilloscope in **Single Sequence** mode before releasing MCLR. Combine the two bytes and explain the observed Config fields using the data sheet. **MCLR resets the PIC, not the ADS1115**; to check the ADS1115's power-up value, power-cycle the ADC before this test. The ACKs after address/pointer bytes come from the ADS1115; **PIC ACK** and **PIC NACK** are sent by the master after received bytes.
+
+**3. Configure the ADC.** Now use the Config register descriptions to determine the two bytes required for:
+
+- AIN0 relative to GND
+- ±6.144 V full-scale range
+- Continuous conversion mode
+- 128 samples per second
+- Comparator disabled
+
+Document each chosen field and derive the complete 16-bit value yourself. Write it using this transaction:
+
+```text
+Configure ADC (once at startup):
+START → ADDR+W → ACK → 0x01 → ACK → [Config MSB] → ACK → [Config LSB] → ACK → STOP
+```
+
+Run the Config write **once after MCLR reset**, then enter a **do-nothing loop** for its Single Sequence capture. Read Config again to verify the settings, also **once**, using the read transaction from Step 2; the write already selected Config. **Do not repeat the Config write on every ADC read.**
+
+**4. Read ADC conversions.** Connect a potentiometer across ADS1115 VDD and GND, with its wiper at AIN0. Do not exceed the ADC's supply voltage at its analog input.
+
+The ADS1115 now converts **continuously on its own**. The PIC reads the latest completed result only when it requests it. If the ADS1115 has lost power since Step 3, configure it **once** before starting the read loop. Start with the timer interval from Part 1; you will choose a final interval in Step 5.
+
+Each PIC polling cycle repeats **both** transactions:
+
+```text
+Select Conversion:
+START → ADDR+W → ACK → 0x00 → ACK → STOP
+
+Read Conversion:
+START → ADDR+R → ACK → ADC MSB → PIC ACK → ADC LSB → PIC NACK → STOP
+
+Repeat both transactions at the PIC timer interval.
+```
+
+The ADS1115 retains its register pointer, but for this lab **send pointer `0x00` on every polling cycle**. If an address or write-data byte is NACKed, stop the transaction and do not send further data bytes. The master's NACK after the final *received* byte is normal.
+
+Combine the ADC bytes as a signed 16-bit result. For the assigned full-scale range:
+
+```math
+\begin{aligned}
+\mathrm{ADC}_{16} &= (\mathrm{MSB}\ll8)\;|\;\mathrm{LSB}\\
+V_{\mathrm{AIN0}} &= \frac{\mathrm{signed\ ADC}_{16}}{32768}(6.144\ \mathrm{V})
+\end{aligned}
+```
+
+For example, a positive result of `0x2000` = 8192 counts gives:
+
+```math
+V_{\mathrm{AIN0}}=\frac{8192}{32768}(6.144\ \mathrm{V})=1.536\ \mathrm{V}
+```
+
+The ±6.144 V range determines ADC scaling; it does **not** raise the allowable input voltage above ADS1115 VDD.
+
+**5. Observe ALERT/RDY and choose a polling interval.** Find **Conversion Ready Pin** in the ADS1115 data sheet. Configure ALERT/RDY for conversion-ready pulses using the threshold registers and Config fields. The output is open-drain; ensure it has a pull-up to a compatible supply.
+
+```text
+Set low threshold (once):
+START → ADDR+W → ACK → 0x02 → ACK → [Lo MSB] → ACK → [Lo LSB] → ACK → STOP
+
+Set high threshold (once):
+START → ADDR+W → ACK → 0x03 → ACK → [Hi MSB] → ACK → [Hi LSB] → ACK → STOP
+
+Enable conversion-ready output (once):
+START → ADDR+W → ACK → 0x01 → ACK → [Updated Config MSB] → ACK → [Updated Config LSB] → ACK → STOP
+```
+
+Perform the ALERT/RDY setup writes only once, then leave the PIC in a **do-nothing loop** while the ADS1115 converts on its own. Trigger the oscilloscope on ALERT/RDY. Measure the interval between pulses and calculate the observed conversion rate. Compare it with the configured data rate. **Choose and justify a PIC timer interval** for repeated I2C reads. Explain whether that interval will retrieve every conversion or skip some. Confirm the actual interval between I2C read cycles on the scope.
+
+**6. Capture continuous reading.** With your selected PIC timer interval, capture **multiple consecutive** Conversion-pointer/write and Conversion-read transactions at **each potentiometer extreme**. Measure AIN0 with a DMM at each setting and compare the measured voltage with the ADC result. Use **CH1 = SDA** and **CH2 = SCL** for decoding; connect another scope channel to ALERT/RDY for the timing test.
 
 ### Evidence
 
-Provide the UART packet definitions, working master routines, sensor transactions and labeled I2C captures, an error test, and pull-up resistance/current/rise-time calculations compared with measurements.
+Include labeled scope captures or decode records for these **five I2C checks**:
+
+| Capture | Expected activity |
+| --- | --- |
+| Address probe with ACK | Table of all four data-sheet addresses tested with ADDR at GND and VDD (**eight ACK/NACK results**), plus one decoded ACK capture for each condition |
+| Config pointer | Write `0x01`, ACK, STOP |
+| Config read | Two bytes (expected power-up value `0x8583`), PIC ACK after MSB and PIC NACK after LSB |
+| Config write | Pointer and both student-calculated Config bytes, with ACKs |
+| Repeating ADC reads | **Two captures**, one at each potentiometer extreme, showing multiple consecutive pointer-write/read cycles |
+
+For the one-shot address, pointer, Config read, and Config write captures, use **Single Sequence** acquisition after **MCLR reset** and show that firmware then idles. Also include the ALERT/RDY waveform and measured conversion period; PIC polling interval calculation and measurement; signed ADC values and DMM voltage comparisons; updated schematic; relevant register documentation, flowcharts, and final PIC-AS source. Label addresses, data, START/STOP, and which device produces each ACK/NACK.
 
 ### Demonstrate
 
-Show working sensor communications and error reporting. Explain how additional breakout-board pull-ups and bus capacitance affect electrical timing and loading.
+Show both ADDR settings, the initial Config read, Config write and readback, repeated ADC readings at both potentiometer extremes, and the ALERT/RDY waveform. Explain which transactions run only during setup and which repeat in the PIC polling loop.
 
 ### Complete When
 
-The GUI can command and read the sensor through a reusable master I2C interface, and the pull-up investigation is documented.
+The ADS1115 is correctly addressed and configured; the PIC repeatedly reads valid 16-bit ADC results at a justified interval; and all required captures, calculations, documentation, and checkoff are complete.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
