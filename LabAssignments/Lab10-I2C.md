@@ -325,7 +325,7 @@ Run the Config write **once after MCLR reset**, then enter a **do-nothing loop**
 
 **4. Read ADC conversions.** Connect a potentiometer across ADS1115 VDD and GND, with its wiper at AIN0. Do not exceed the ADC's supply voltage at its analog input.
 
-The ADS1115 now converts **continuously on its own**. The PIC reads the latest completed result only when it requests it. Start with the timer interval from Part 1; you will choose a final interval in Step 5.
+The ADS1115 now converts **continuously on its own**. The PIC reads the latest completed result only when it requests it. If the ADS1115 has lost power since Step 3, configure it **once** before starting the read loop. Start with the timer interval from Part 1; you will choose a final interval in Step 5.
 
 Each PIC polling cycle repeats **both** transactions:
 
