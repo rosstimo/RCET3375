@@ -252,6 +252,7 @@ A PIC16F883 master repeatedly sends the specified address with no slave, detects
 <a id="part-2"></a>
 ## Part 2 - I2C Master with an ADS1115 Sensor Slave
 
+> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
 ### Goal
 
 Use the Part 1 I2C master to identify an ADS1115, inspect and change its configuration, and read its ADC results. Observe the conversion-ready signal to choose a suitable reading interval.
