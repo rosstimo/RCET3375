@@ -264,13 +264,9 @@ Use the Part 1 I2C master to identify an ADS1115, inspect and change its configu
 
 Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md) for the lab book, schematic, SFR documentation, flowcharts, and source code. Add each new piece of documentation as you reach it in the procedure.
 
-### Required setup
+### Suggested implementation (optional)
 
-> **Draft placeholder:** Setup pseudocode will be added after review.
-
-### Program structure
-
-> **Draft placeholder:** Program-flow pseudocode will be added after review.
+The [three-level I²C software design guide](support/Lab10-I2C-Three-Level-Student-Guide.md) offers **one possible implementation** with flowcharts, pseudocode, and I²C transaction sequences. It is a reference, **not required program structure**. You may adapt it or develop your own implementation that meets the lab requirements; no particular routine layout or number of source files is required.
 
 ### In the Lab
 
@@ -340,7 +336,7 @@ START → ADDR+R → ACK → ADC MSB → PIC ACK → ADC LSB → PIC NACK → ST
 Repeat both transactions at the PIC timer interval.
 ```
 
-The ADS1115 retains its register pointer, but for this lab **send pointer `0x00` on every polling cycle**. If an address or write-data byte is NACKed, stop the transaction and do not send further data bytes. The master's NACK after the final *received* byte is normal.
+The ADS1115 retains its register pointer, but for this lab **send pointer `0x00` on every polling cycle**. If an address or write-data byte is NACKed, stop sending data, attempt STOP, and preserve/report the error. On a timeout or bus-low error, report the failure and do not assume STOP or bus recovery will succeed; do not continue the transaction. The master's NACK after the final *received* byte is normal.
 
 Combine the ADC bytes as a signed 16-bit result. For the assigned full-scale range:
 
