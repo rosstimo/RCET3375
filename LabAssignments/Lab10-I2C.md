@@ -275,7 +275,7 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 **1. Find the ADS1115 address.** Connect the breakout to the Part 1 SDA/SCL bus. Before applying power, check the board's supply and I2C logic levels against the PIC circuit. Document the connections in your schematic.
 
-**Pull-up hint:** With power **off** and the breakout disconnected from the PIC and external pull-ups, measure resistance with a DMM from SDA and SCL to the board's supply rail. Check ALERT/RDY the same way. These measurements can reveal installed pull-ups; inspect the board markings or schematic to confirm because other onboard components may affect an in-circuit resistance reading.
+> **Pull-up hint:** With power **off** and the breakout disconnected from the PIC and external pull-ups, measure resistance with a DMM from SDA and SCL to the board's supply rail. Check ADDR and ALERT/RDY the same way. These measurements can reveal installed pull-ups; inspect the board markings or schematic to confirm because other onboard components may affect an in-circuit resistance reading.
 
 Find the **four possible 7-bit ADS1115 addresses** in the data sheet. With **ADDR tied to GND**, use the Part 1 probe to try **all four addresses**, recording ACK or NACK for each. **Power off before moving ADDR to VDD**, then probe **all four addresses again**. Modify the probe so each trial runs **once after MCLR reset**, then enters a **do-nothing loop** instead of repeating. For each scope capture, arm the oscilloscope in **Single Sequence** mode, then press and release MCLR.
 
