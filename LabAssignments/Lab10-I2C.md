@@ -14,7 +14,7 @@ PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 - [Standards and references](#references)
 - [Equipment and materials](#equipment)
 - [Part 1 - I2C Master and Bus Timing](#part-1)
-- [Part 2 - Sensor Communication and Reusable Master Routines](#part-2)
+- [Part 2 - ADS1115 Configuration and Continuous ADC Reading](#part-2)
 - [Part 3 - Reusable PIC I2C Slave Routines](#part-3)
 - [Part 4 - UART-to-I2C System Integration](#part-4)
 - [Part 5 - Mastery: Three-Axis Servo Control](#part-5)
@@ -250,183 +250,187 @@ A PIC16F883 master repeatedly sends the specified address with no slave, detects
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-2"></a>
-## Part 2 - Sensor Communication and Reusable Master Routines
-
-> **Update in progress:** This part is being revised. The first development step below covers direct ADC communication. Additional host-interface requirements are still being developed. Do not begin this part until the updated instructions are released.
+## Part 2 - ADS1115 Configuration and Continuous ADC Reading
 
 ### Goal
 
-Extend the Part 1 address probe to communicate with an ADS1115 analog-to-digital converter. Check each transmitted byte for ACK, stop a transaction on NACK, and receive a 16-bit ADC result. Keep the Part 1 timer and diagnostic outputs.
-
-### Required behavior: first extension
-
-- Connect an **ADS1115 breakout** to the existing 100 kHz I2C bus. Connect **ADDR to GND** to select the 7-bit address `0x48`. The address with write bit is `0x90`; with read bit it is `0x91`.
-- Retain **RA0 as the NACK indicator** and **RA1 as the transaction-timing output**. Set RA1 HIGH before each transaction and LOW after it completes. Clear RA0 before a transaction; set it HIGH if the ADS1115 does not acknowledge an address or write-data byte.
-- Use the same **4 MHz PIC16F883** and 5 V circuit as Part 1. Verify the supplied breakout's power, logic-level, and pull-up connections before connecting it to the 5 V bus. Identify any pull-up resistors already installed on the breakout.
-- Connect an adjustable analog voltage to **ADS1115 AIN0**, referenced to the common ground. Keep its voltage between GND and the ADS1115 supply voltage.
-- Configure the ADS1115 for **AIN0 relative to GND**, **±6.144 V full-scale setting**, **continuous conversion**, **128 samples per second**, and **comparator disabled**. This full-scale setting does not permit an input above the device supply.
-- After a successful configuration, allow at least **20 ms** before the first conversion read. A suitable Part 1 timer interval can provide this delay.
-- Read the **Conversion register (`0x00`)** as two bytes, most significant byte first. Store both bytes in RAM.
-- On an **address or write-data NACK**, send no further bytes, generate STOP, and record the NACK. A failed hardware operation that leaves bus ownership uncertain requires recovery before further transfers.
-- When receiving the conversion result, the **master sends ACK after the first byte** and **NACK after the second (last) byte**, then generates STOP. That final master NACK is normal and must not set RA0.
-- Treat the received bytes as a valid ADC result only after both bytes and STOP complete successfully.
-
-### ADS1115 transactions
-
-The ADS1115 powers up in single-shot power-down mode. Configure it before expecting new measurements. The following config value is **`0xC083`**: OS = 1, MUX = 100 (AIN0/GND), PGA = 000 (±6.144 V), MODE = 0 (continuous), DR = 100 (128 SPS), and comparator queue = 11 (disabled).
-
-**Configure ADS1115 (write to register `0x01`)**
-
-```text
-START
-    0x90  Address + Write      check slave ACK
-    0x01  Config register      check slave ACK
-    0xC0  Config high byte     check slave ACK
-    0x83  Config low byte      check slave ACK
-STOP
-```
-
-**Read one conversion (register `0x00`)**
-
-```text
-START
-    0x90  Address + Write      check slave ACK
-    0x00  Conversion pointer   check slave ACK
-REPEATED START
-    0x91  Address + Read       check slave ACK
-    Read result high byte      master sends ACK
-    Read result low byte       master sends NACK
-STOP
-```
-
-Each slave NACK in these sequences ends that transaction with STOP. The ACK/NACK after a received byte comes from the **master**, not the ADS1115.
-
-At ±6.144 V full scale, the signed 16-bit result represents **0.1875 mV per count**. For AIN0 relative to GND, calculate:
-
-```math
-\begin{aligned}
-V_{\mathrm{AIN0}} &= \mathrm{ADC}_{\mathrm{signed}}\frac{6.144\ \mathrm{V}}{32768} \\
-                 &= \mathrm{ADC}_{\mathrm{signed}}(0.1875\ \mathrm{mV})
-\end{aligned}
-```
-
-The input voltage is still limited by the ADS1115's physical supply and input specifications.
+Extend the Part 1 I2C master to communicate with an ADS1115 ADC. Verify the device address, read and write its configuration, measure an analog input, and use the ALERT/RDY output to investigate conversion timing.
 
 ### Before Lab
 
-Prepare the following in the lab book:
+Use the **[ADS1115 data sheet](https://www.ti.com/lit/ds/symlink/ads1115.pdf)**, particularly its I2C address selection, register map, Config register, data-conversion, and conversion-ready sections.
 
-- An updated Part 1 schematic showing ADS1115 power, ground, ADDR, SDA, SCL, AIN0, and any pull-ups already present on the breakout. Include the variable analog input source.
-- ADS1115 data-sheet documentation for the address selection, pointer register, Config register, and Conversion register. Show how `0xC083` is obtained from the Config register fields.
-- PIC16F883 MSSP SFR documentation for repeated START, master receive, master ACK/NACK, and STOP. Identify the hardware indications for completed operations.
-- Flowcharts for **ConfigureADS1115** and **ReadADS1115**, including the ACK decisions, error exits, repeated START, two received bytes, and STOP.
-- Expected bus bytes and ACK/NACK positions for both transactions. Calculate the nominal conversion period from 128 samples per second and predict ADC results for selected input voltages.
-- Compile the firmware and program the PIC before starting the bench measurements.
+Prepare these items in your lab book before lab:
 
-### Required RAM
+- Updated schematic showing the PIC16F883, ADS1115 breakout, SDA/SCL pull-ups, ADDR connection, a potentiometer connected to AIN0, common ground, and the ALERT/RDY diagnostic connection. Identify pull-ups already installed on the breakout board. Confirm that the PIC and ADC digital levels and the ADC input-voltage range are compatible. Do not apply voltages outside the ADS1115 supply rails to its analog inputs.
+- Address table for ADDR connected to GND and to VDD, including the **7-bit address** and the complete transmitted address byte for read and write.
+- ADS1115 register-pointer table identifying the **Conversion**, **Config**, **Lo_thresh**, and **Hi_thresh** registers. Explain the difference between selecting a register with its pointer and writing data to that register. Note the number and order of bytes used for 16-bit registers.
+- Decode the Config register's fields and documented reset value. Determine a **16-bit configuration word** for **AIN0 measured relative to GND, ±6.144 V full-scale range, continuous conversions, 128 samples/s, and comparator disabled**. Show the selected value of each field and how you combine them into two transmitted bytes. **Determine the configuration word from the data sheet. It is not supplied here.**
+- Determine what additional register writes and Config changes are required to use **ALERT/RDY as a conversion-ready output**. Explain why an open-drain output needs a pull-up, and select a safe pull-up value if the breakout does not provide one.
+- Flowcharts for the main loop and I2C transactions, including ACK/NACK checking, two-byte reads, failure handling, and periodic reads. Document any new PIC16F883 SFRs following the Lab Standard. Calculate the ADC voltage scale and prepare a timer-based method for initiating repeated reads. The final polling interval will be selected from your measurements.
+- Compile and program your initial Part 2 code before starting the bench steps.
 
-```text
-adc_high:          most significant byte received from the ADS1115
-adc_low:           least significant byte received from the ADS1115
-ads_configured:    indicates that ADS1115 setup completed successfully
-i2c_status:        result of the current hardware I2C operation
-```
-
-Retain any RAM already required by the Part 1 timer and I2C routines.
+All transaction examples below assume **ADDR connected to GND**, giving the ADS1115 seven-bit address `0x48`. Therefore `0x90` is the transmitted write-address byte and `0x91` is the transmitted read-address byte. `ACK` after a transmitted address or write-data byte is from the **ADS1115**; `PIC ACK` and `PIC NACK` after received data are generated by the **master**.
 
 ### Required setup
 
 ```text
-MSSP:
-    retain 100 kHz I2C master operation
-    enable master transmission and reception
+I2C master:
+    Reuse the working Part 1 MSSP setup.
+    Detect ACK/NACK and stop unsuccessful transactions.
+
+ADS1115:
+    Select the Config register and read its initial value.
+    Write the selected ADC configuration once during startup.
+    Select the Conversion register for each repeated ADC read.
 
 Timer:
-    retain a periodic transaction trigger
-    allow at least 20 ms between configuration and the first read
-
-Diagnostic outputs:
-    RA0 indicates an address or write-data NACK
-    RA1 marks the duration of an I2C transaction
-
-Startup:
-    clear the ADC result and configured state
-    initialize the diagnostic outputs LOW
+    Initiate periodic ADC reads using a hardware timer.
+    Determine the final read interval from conversion-ready measurements.
 ```
 
 ### Program structure
 
 ```text
 Main:
-    Wait for the timer event
-    Clear the timer event
-    Clear the NACK indicator
-    Set the transaction diagnostic HIGH
+    Initialize the PIC and I2C master.
+    Read and record the initial ADC configuration.
+    Configure the ADC for continuous conversions.
+    Read back its configuration and check the result.
+    Repeat:
+        Wait for the selected timer interval.
+        Select the ADC Conversion register.
+        Read and save the two conversion bytes.
+        Report or indicate a communication failure when detected.
 
-    If the ADS1115 has not been configured
-        Call ConfigureADS1115
-        If successful, mark it configured
-        Finish this timer interval without reading
+Select register:
+    Start a write transaction to the ADC.
+    Send the selected register pointer.
+    Check each acknowledge result.
+    Stop the transaction.
 
-    Otherwise
-        Call ReadADS1115
-        If successful, use the new ADC bytes as a valid result
+Read two bytes:
+    Start a read transaction to the ADC.
+    Read the most significant byte and send PIC ACK.
+    Read the least significant byte and send PIC NACK.
+    Stop the transaction and save the two bytes.
 
-    Set the transaction diagnostic LOW
-    Repeat
-
-ConfigureADS1115:
-    Send the write address and check ACK
-    Write the Config register pointer and check ACK
-    Write the configuration high byte and check ACK
-    Write the configuration low byte and check ACK
-    Generate STOP and return success
-
-    On a slave NACK, generate STOP and return NACK
-    On a hardware failure, return the failure for recovery
-
-ReadADS1115:
-    Send the write address and check ACK
-    Write the Conversion register pointer and check ACK
-    Generate repeated START
-    Send the read address and check ACK
-    Receive the high byte into adc_high and send master ACK
-    Receive the low byte into adc_low and send master NACK
-    Generate STOP
-    Return both bytes and success
-
-    On a slave NACK, generate STOP and return NACK
-    On a hardware failure, return the failure for recovery
+Write configuration:
+    Start a write transaction to the ADC.
+    Send the Config pointer and two configuration bytes.
+    Check each acknowledge result.
+    Stop the transaction.
 ```
-
-These transaction routines call smaller MSSP routines for sending or receiving one byte, checking status, and generating START, repeated START, STOP, or master ACK/NACK. Keep the application-level sequence separate from the register operations.
 
 ### In the Lab
 
-1. Connect the ADS1115 and analog input source. Before power-up, verify the supply, ground, address selection, and actual SDA/SCL pull-up connections.
-2. Begin with the Part 1 address probe changed to `0x48`. Use **CH1 = SDA**, **CH2 = SCL**, **CH3 = RA0**, and **CH4 = RA1**. Trigger on RA1 and verify that the ADS1115 acknowledges `0x90`. Confirm that RA0 remains LOW.
-3. Add the four-byte configuration transaction and check for ACK after **each** transmitted byte. Capture the decoded transaction and confirm STOP.
-4. Add the Conversion-register pointer write, repeated START, read address, and two-byte read. Verify the master's ACK after the first received byte and NACK after the last byte.
-5. Measure the analog input with a multimeter. Record the two received bytes, the combined signed ADC value, and the calculated voltage. Repeat at **three distinct analog input voltages**. Inspect the saved RAM bytes with the debugger or another direct display method.
-6. Test the NACK path by disconnecting the ADS1115 with power off, then running the probe. Verify that RA0 indicates NACK, no data bytes follow, and STOP occurs. Reconnect with power off and demonstrate normal readings.
+**1. Identify the device address.** Connect the ADS1115 to the Part 1 master and reuse the Part 1 address probe. With power off before changing ADDR wiring, test ADDR at GND and at VDD. Verify ACK at the corresponding address with the oscilloscope I2C decoder. You may also test the breakout with ADDR disconnected and record its behavior, but do not use a floating address pin for the finished circuit. Return ADDR to GND.
+
+```text
+ADDR = GND:  START → 0x90 → ACK → STOP
+ADDR = VDD:  START → 0x92 → ACK → STOP
+```
+
+These probes are **address-discovery tests**, not part of the continuous conversion loop.
+
+**2. Select and read the Config register.** The ADS1115 uses a one-byte register pointer. Sending the pointer selects the register for a later read; it does not by itself modify the register contents. After a fresh power-up, read Config before writing your own settings.
+
+```text
+Select Config (one-time checkpoint):
+START → 0x90 → ACK → 0x01 → ACK → STOP
+
+Read Config (one-time checkpoint):
+START → 0x91 → ACK → Config MSB → PIC ACK → Config LSB → PIC NACK → STOP
+```
+
+Combine the two received bytes into one 16-bit value. Record the value, decode its fields, and compare it with the power-on defaults in the data sheet. If it differs, document the observed configuration instead of assuming the chip was reset.
+
+**3. Write the ADC configuration.** Use the word you calculated before lab. Send the Config pointer, most significant byte, and least significant byte in a single write transaction.
+
+```text
+Configure ADC (once at setup, not every sample):
+START → 0x90 → ACK → 0x01 → ACK → [Config MSB] → ACK → [Config LSB] → ACK → STOP
+```
+
+Read Config again to verify the settings using the read transaction in Step 2. The Config pointer remains selected after the write, so no extra pointer write is needed immediately before this verification read. Explain each configured field, including the selected input, voltage range, operating mode, and sample rate.
+
+**4. Read the Conversion register.** With the potentiometer connected across **ADS1115 VDD and GND** and its wiper connected to **AIN0**, read the 16-bit Conversion register. The ADS1115 continuously performs conversions on its own. The PIC only retrieves the most recently completed result when it initiates an I2C read.
+
+For the initial communication test, you may continue using the Part 1 timer interval. You will choose the final interval after measuring ALERT/RDY in Step 5. Each **PIC polling cycle** must perform both complete transactions:
+
+```text
+Select Conversion:
+START → 0x90 → ACK → 0x00 → ACK → STOP
+
+Read Conversion:
+START → 0x91 → ACK → ADC MSB → PIC ACK → ADC LSB → PIC NACK → STOP
+
+Repeat both transactions at the selected PIC timer interval.
+```
+
+The ADS1115 retains the pointer selection, but repeat the `0x00` pointer write **each polling cycle** for this assignment. **Do not repeat the Config write.** Stop an unsuccessful transaction, preserve/report its error, and do not continue sending application bytes after NACK.
+
+Reconstruct the signed 16-bit result from the received bytes and calculate the input voltage using the selected PGA range. With the assigned ±6.144 V range:
+
+```math
+\begin{aligned}
+\mathrm{Code} &= (\mathrm{MSB}\ll 8)\,|\,\mathrm{LSB}\\
+V_{\mathrm{AIN0}} &= \frac{\mathrm{signed\ Code}}{32768}(6.144\ \mathrm{V})
+\end{aligned}
+```
+
+**Worked example:** A positive result of `0x2000` is 8192 decimal. Multiply the signed count by the voltage per count:
+
+```math
+\begin{aligned}
+V_{\mathrm{AIN0}} &= \frac{8192}{32768}(6.144\ \mathrm{V})\\
+&=0.25(6.144\ \mathrm{V})\\
+&=1.536\ \mathrm{V}
+\end{aligned}
+```
+
+The ±6.144 V range is an ADC scaling setting, **not permission to apply more than ADS1115 VDD** at an analog input.
+
+**5. Investigate conversion timing with ALERT/RDY.** Consult the ADS1115 data sheet's **Conversion Ready Pin** section. The initial configuration has the comparator output disabled. For this diagnostic, configure ALERT/RDY as a conversion-ready signal by writing the appropriate low and high threshold values and changing the relevant Config bits while retaining continuous-conversion mode and the same data rate. Provide a pull-up to a compatible voltage if one is not already fitted.
+
+```text
+Set low threshold (once for this diagnostic):
+START → 0x90 → ACK → 0x02 → ACK → [Lo MSB] → ACK → [Lo LSB] → ACK → STOP
+
+Set high threshold (once for this diagnostic):
+START → 0x90 → ACK → 0x03 → ACK → [Hi MSB] → ACK → [Hi LSB] → ACK → STOP
+
+Enable conversion-ready output (once for this diagnostic):
+START → 0x90 → ACK → 0x01 → ACK → [Updated Config MSB] → ACK → [Updated Config LSB] → ACK → STOP
+```
+
+Measure the period between consecutive ALERT/RDY pulses with the oscilloscope. Calculate the observed conversions per second and compare with the selected data rate. Determine a **PIC polling interval** based on the observation and explain whether your chosen interval retrieves every conversion or skips intermediate results. Calculate the expected timer interval from the timer settings and compare it with the measured interval between I2C read cycles.
+
+**6. Capture repeated ADC reads.** Run the repeating two-transaction polling loop using the interval you selected. Capture multiple consecutive read cycles with the potentiometer at **minimum** and then **maximum**. Measure the actual AIN0 voltage at each extreme with a multimeter; record and compare each received ADC code and calculated voltage. Use **CH1 = SDA**, **CH2 = SCL** for I2C decoding. Move another channel to ALERT/RDY for the timing measurement; use a spare PIC diagnostic pin if needed to compare PIC polling against ADC conversion timing.
 
 ### Evidence
 
-Provide the updated schematic; register maps and configuration-bit calculations; both flowcharts; final pic-as source; and labeled scope captures of the successful configuration and read transactions. Identify START, repeated START, STOP, each address, every slave ACK, the two result bytes, and both master ACK/NACK decisions.
+Provide labeled scope captures or exported I2C decode records for **all five** of these categories:
 
-Include a table with **three analog input settings** showing multimeter voltage, ADC high/low bytes, decimal result, calculated voltage, and difference from the measured input. Include one decoded NACK/abort capture and a brief explanation of how it differs from the deliberate master NACK at the end of a successful read.
+| Required I2C evidence | Run frequency | Capture requirement |
+| --- | --- | --- |
+| **Address probe with ACK** | Address-discovery step only | Correct acknowledged address with ADDR at GND and VDD |
+| **Config pointer write** | Once to select the initial Config register | `0x01` pointer and ACK, ending with STOP |
+| **Config register read** | Initial checkpoint and after configuration | Two bytes, PIC ACK after the first, PIC NACK after the second; decoded 16-bit word |
+| **Config register write** | Once during ADC setup; repeated only when intentionally changing configuration | Pointer, calculated configuration MSB/LSB, and ACK for each transmitted byte |
+| **Repeated ADC reads at both potentiometer extremes** | Every PIC polling cycle | **Two separate captures**, one at minimum and one at maximum, each showing multiple consecutive complete pointer-write/read cycles and their byte values |
+
+Also include the **ALERT/RDY pulse capture**, measured conversion interval and rate, selected PIC timer interval with calculations and measurements, input-voltage comparisons, schematic, register/flowchart documentation, and final PIC-AS source. Annotate the I2C decode so the 7-bit address is not confused with the transmitted address/R-W byte, and identify whether ACK/NACK came from the ADS1115 or PIC.
+
+For each major measurement, record what you expected, what you measured, and explain significant differences.
 
 ### Demonstrate
 
-Show a successful address ACK, the configuration write, and a complete 16-bit conversion read. Change the analog input and show that the stored conversion result changes accordingly. Explain the ACK/NACK decisions and demonstrate a missing-device NACK followed by STOP.
+Show the two ADDR settings with ACK, the initial Config read, successful Config write/readback, and continuous conversion reads at both potentiometer extremes. Explain the one-time transactions versus the repeating polling loop, and use ALERT/RDY timing measurements to justify your selected polling interval.
 
 ### Complete When
 
-The master configures the ADS1115, obtains two valid conversion bytes through I2C, and stops sending on slave NACK. Three input settings agree reasonably with their calculated ADC values, and labeled scope captures and the lab book document the communication.
-
-### Remaining Part 2 development
-
-The complete Part 2 will extend this working master into reusable transaction helpers and the Lab 08 UART host GUI, with transaction results and error reporting. The parallel pull-up investigation remains part of the planned Part 2.
+The ADS1115 responds at the expected addresses; its Config register can be selected, read, written, and verified; the PIC repeatedly reads and interprets conversion results at a justified timer interval; and all specified I2C and ALERT/RDY captures, calculations, documentation, and instructor checkoff are complete.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
