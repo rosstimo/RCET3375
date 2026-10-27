@@ -277,14 +277,22 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 **Pull-up hint:** With power **off** and the breakout disconnected from the PIC and external pull-ups, measure resistance with a DMM from SDA and SCL to the board's supply rail. Check ALERT/RDY the same way. These measurements can reveal installed pull-ups; inspect the board markings or schematic to confirm because other onboard components may affect an in-circuit resistance reading.
 
-Reuse the Part 1 address probe. Consult the data sheet, connect ADDR first to GND and then to VDD, and verify the address that receives ACK in each case. **Power off before moving the ADDR connection.** Leave ADDR connected to GND for the rest of this part.
+Find the **four possible 7-bit ADS1115 addresses** in the data sheet. With **ADDR tied to GND**, use the Part 1 probe to try **all four addresses**, recording ACK or NACK for each. **Power off before moving ADDR to VDD**, then probe **all four addresses again**.
 
 ```text
-ADDR = GND: START → 0x90 → ACK → STOP
-ADDR = VDD: START → 0x92 → ACK → STOP
+For each candidate: START → [address + Write bit] → ACK or NACK → STOP
 ```
 
-Record the **7-bit address**, transmitted address/R-W byte, and oscilloscope decode. The following transactions use ADDR = GND, so `0x90` means write and `0x91` means read.
+Record all **eight results** in a table:
+
+| 7-bit address from data sheet | Transmitted write byte | ADDR = GND | ADDR = VDD |
+| --- | --- | --- | --- |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+| | | ACK / NACK | ACK / NACK |
+
+Save a decoded ACK capture for each ADDR condition. Leave ADDR at GND for the rest of this part. The remaining examples use `0x90` for write and `0x91` for read.
 
 **2. Read the Config register.** Find the ADS1115 register-pointer table. The one-byte pointer `0x01` selects Config; it does **not** overwrite Config. After powering up the ADS1115, select that pointer, then read the 16-bit register with a new START.
 
@@ -373,7 +381,7 @@ Include labeled scope captures or decode records for these **five I2C checks**:
 
 | Capture | Expected activity |
 | --- | --- |
-| Address probe with ACK | Correct address for ADDR at GND and VDD |
+| Address probe with ACK | Table of all four data-sheet addresses tested with ADDR at GND and VDD (**eight ACK/NACK results**), plus one decoded ACK capture for each condition |
 | Config pointer | Write `0x01`, ACK, STOP |
 | Config read | Two bytes, PIC ACK after MSB and PIC NACK after LSB |
 | Config write | Pointer and both student-calculated Config bytes, with ACKs |
