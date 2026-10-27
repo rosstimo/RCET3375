@@ -14,7 +14,7 @@ PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 - [Standards and references](#references)
 - [Equipment and materials](#equipment)
 - [Part 1 - I2C Master and Bus Timing](#part-1)
-- [Part 2 - ADS1115 Configuration and Continuous ADC Reading](#part-2)
+- [Part 2 - I2C Master with an ADS1115 Sensor Slave](#part-2)
 - [Part 3 - Reusable PIC I2C Slave Routines](#part-3)
 - [Part 4 - UART-to-I2C System Integration](#part-4)
 - [Part 5 - Mastery: Three-Axis Servo Control](#part-5)
@@ -250,7 +250,7 @@ A PIC16F883 master repeatedly sends the specified address with no slave, detects
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-2"></a>
-## Part 2 - ADS1115 Configuration and Continuous ADC Reading
+## Part 2 - I2C Master with an ADS1115 Sensor Slave
 
 ### Goal
 
