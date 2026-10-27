@@ -277,7 +277,7 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 **Pull-up hint:** With power **off** and the breakout disconnected from the PIC and external pull-ups, measure resistance with a DMM from SDA and SCL to the board's supply rail. Check ALERT/RDY the same way. These measurements can reveal installed pull-ups; inspect the board markings or schematic to confirm because other onboard components may affect an in-circuit resistance reading.
 
-Find the **four possible 7-bit ADS1115 addresses** in the data sheet. With **ADDR tied to GND**, use the Part 1 probe to try **all four addresses**, recording ACK or NACK for each. **Power off before moving ADDR to VDD**, then probe **all four addresses again**.
+Find the **four possible 7-bit ADS1115 addresses** in the data sheet. With **ADDR tied to GND**, use the Part 1 probe to try **all four addresses**, recording ACK or NACK for each. **Power off before moving ADDR to VDD**, then probe **all four addresses again**. Modify the probe so each trial runs **once after MCLR reset**, then enters a **do-nothing loop** instead of repeating. For each scope capture, arm the oscilloscope in **Single Sequence** mode, then press and release MCLR.
 
 ```text
 For each candidate: START → [address + Write bit] → ACK or NACK → STOP
@@ -292,19 +292,19 @@ Record all **eight results** in a table:
 | | | ACK / NACK | ACK / NACK |
 | | | ACK / NACK | ACK / NACK |
 
-Save a decoded ACK capture for each ADDR condition. Leave ADDR at GND for the rest of this part. The remaining examples use `0x90` for write and `0x91` for read.
+Save a decoded ACK capture for each ADDR condition. For the remaining steps, **choose either ADDR connection that produced an ACK** and use its confirmed address. In the sequences below, `ADDR+W` and `ADDR+R` mean the transmitted address byte formed from your chosen **7-bit address** with the write bit (`0`) or read bit (`1`).
 
-**2. Read the Config register.** Find the ADS1115 register-pointer table. The one-byte pointer `0x01` selects Config; it does **not** overwrite Config. After powering up the ADS1115, select that pointer, then read the 16-bit register with a new START.
+**2. Read the Config register.** Find the ADS1115 register-pointer table. The one-byte pointer `0x01` selects Config; it does **not** overwrite Config. On a freshly powered ADS1115, the expected Config value is **`0x8583`**. Select the pointer, then read the 16-bit register with a new START.
 
 ```text
 Select Config (once):
-START → 0x90 → ACK → 0x01 → ACK → STOP
+START → ADDR+W → ACK → 0x01 → ACK → STOP
 
 Read Config (once):
-START → 0x91 → ACK → Config MSB → PIC ACK → Config LSB → PIC NACK → STOP
+START → ADDR+R → ACK → Config MSB → PIC ACK → Config LSB → PIC NACK → STOP
 ```
 
-Combine the two bytes. Use the Config bit descriptions in the data sheet to explain the value you observed and compare it with the reset value. The ACKs after address/pointer bytes come from the ADS1115; **PIC ACK** and **PIC NACK** are sent by the master after received bytes.
+Run the pointer write and Config read **once after MCLR reset**, then enter a **do-nothing loop**. Arm the oscilloscope in **Single Sequence** mode before releasing MCLR. Combine the two bytes and explain the observed Config fields using the data sheet. **MCLR resets the PIC, not the ADS1115**; to check the ADS1115's power-up value, power-cycle the ADC before this test. The ACKs after address/pointer bytes come from the ADS1115; **PIC ACK** and **PIC NACK** are sent by the master after received bytes.
 
 **3. Configure the ADC.** Now use the Config register descriptions to determine the two bytes required for:
 
@@ -318,10 +318,10 @@ Document each chosen field and derive the complete 16-bit value yourself. Write 
 
 ```text
 Configure ADC (once at startup):
-START → 0x90 → ACK → 0x01 → ACK → [Config MSB] → ACK → [Config LSB] → ACK → STOP
+START → ADDR+W → ACK → 0x01 → ACK → [Config MSB] → ACK → [Config LSB] → ACK → STOP
 ```
 
-Read the Config register again to confirm your settings. The write already selected Config, so you can use the read transaction from Step 2 without writing the pointer again. **Do not repeat the Config write on every ADC read.**
+Run the Config write **once after MCLR reset**, then enter a **do-nothing loop** for its Single Sequence capture. Read Config again to verify the settings, also **once**, using the read transaction from Step 2; the write already selected Config. **Do not repeat the Config write on every ADC read.**
 
 **4. Read ADC conversions.** Connect a potentiometer across ADS1115 VDD and GND, with its wiper at AIN0. Do not exceed the ADC's supply voltage at its analog input.
 
@@ -331,10 +331,10 @@ Each PIC polling cycle repeats **both** transactions:
 
 ```text
 Select Conversion:
-START → 0x90 → ACK → 0x00 → ACK → STOP
+START → ADDR+W → ACK → 0x00 → ACK → STOP
 
 Read Conversion:
-START → 0x91 → ACK → ADC MSB → PIC ACK → ADC LSB → PIC NACK → STOP
+START → ADDR+R → ACK → ADC MSB → PIC ACK → ADC LSB → PIC NACK → STOP
 
 Repeat both transactions at the PIC timer interval.
 ```
@@ -362,16 +362,16 @@ The ±6.144 V range determines ADC scaling; it does **not** raise the allowable 
 
 ```text
 Set low threshold (once):
-START → 0x90 → ACK → 0x02 → ACK → [Lo MSB] → ACK → [Lo LSB] → ACK → STOP
+START → ADDR+W → ACK → 0x02 → ACK → [Lo MSB] → ACK → [Lo LSB] → ACK → STOP
 
 Set high threshold (once):
-START → 0x90 → ACK → 0x03 → ACK → [Hi MSB] → ACK → [Hi LSB] → ACK → STOP
+START → ADDR+W → ACK → 0x03 → ACK → [Hi MSB] → ACK → [Hi LSB] → ACK → STOP
 
 Enable conversion-ready output (once):
-START → 0x90 → ACK → 0x01 → ACK → [Updated Config MSB] → ACK → [Updated Config LSB] → ACK → STOP
+START → ADDR+W → ACK → 0x01 → ACK → [Updated Config MSB] → ACK → [Updated Config LSB] → ACK → STOP
 ```
 
-Trigger the oscilloscope on ALERT/RDY. Measure the interval between pulses and calculate the observed conversion rate. Compare it with the configured data rate. **Choose and justify a PIC timer interval** for repeated I2C reads. Explain whether that interval will retrieve every conversion or skip some. Confirm the actual interval between I2C read cycles on the scope.
+Perform the ALERT/RDY setup writes only once, then leave the PIC in a **do-nothing loop** while the ADS1115 converts on its own. Trigger the oscilloscope on ALERT/RDY. Measure the interval between pulses and calculate the observed conversion rate. Compare it with the configured data rate. **Choose and justify a PIC timer interval** for repeated I2C reads. Explain whether that interval will retrieve every conversion or skip some. Confirm the actual interval between I2C read cycles on the scope.
 
 **6. Capture continuous reading.** With your selected PIC timer interval, capture **multiple consecutive** Conversion-pointer/write and Conversion-read transactions at **each potentiometer extreme**. Measure AIN0 with a DMM at each setting and compare the measured voltage with the ADC result. Use **CH1 = SDA** and **CH2 = SCL** for decoding; connect another scope channel to ALERT/RDY for the timing test.
 
@@ -383,11 +383,11 @@ Include labeled scope captures or decode records for these **five I2C checks**:
 | --- | --- |
 | Address probe with ACK | Table of all four data-sheet addresses tested with ADDR at GND and VDD (**eight ACK/NACK results**), plus one decoded ACK capture for each condition |
 | Config pointer | Write `0x01`, ACK, STOP |
-| Config read | Two bytes, PIC ACK after MSB and PIC NACK after LSB |
+| Config read | Two bytes (expected power-up value `0x8583`), PIC ACK after MSB and PIC NACK after LSB |
 | Config write | Pointer and both student-calculated Config bytes, with ACKs |
 | Repeating ADC reads | **Two captures**, one at each potentiometer extreme, showing multiple consecutive pointer-write/read cycles |
 
-Also include the ALERT/RDY waveform and measured conversion period; PIC polling interval calculation and measurement; signed ADC values and DMM voltage comparisons; updated schematic; relevant register documentation, flowcharts, and final PIC-AS source. Label addresses, data, START/STOP, and which device produces each ACK/NACK.
+For the one-shot address, pointer, Config read, and Config write captures, use **Single Sequence** acquisition after **MCLR reset** and show that firmware then idles. Also include the ALERT/RDY waveform and measured conversion period; PIC polling interval calculation and measurement; signed ADC values and DMM voltage comparisons; updated schematic; relevant register documentation, flowcharts, and final PIC-AS source. Label addresses, data, START/STOP, and which device produces each ACK/NACK.
 
 ### Demonstrate
 
