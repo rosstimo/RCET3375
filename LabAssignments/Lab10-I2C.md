@@ -262,7 +262,7 @@ Use the **[ADS1115 data sheet](https://www.ti.com/lit/ds/symlink/ads1115.pdf)**,
 
 Prepare these items in your lab book before lab:
 
-- Updated schematic showing the PIC16F883, ADS1115 breakout, SDA/SCL pull-ups, ADDR connection, a potentiometer connected to AIN0, common ground, and the ALERT/RDY diagnostic connection. Identify pull-ups already installed on the breakout board. Confirm that the PIC and ADC digital levels and the ADC input-voltage range are compatible. Do not apply voltages outside the ADS1115 supply rails to its analog inputs.
+- Updated schematic showing the PIC16F883, ADS1115 breakout, SDA/SCL pull-ups, ADDR connection, a potentiometer connected to AIN0, common ground, and the ALERT/RDY diagnostic connection. Identify pull-ups already installed on the breakout board. **DMM hint:** With all power disconnected, isolate the breakout from the PIC and any external pull-ups. Measure resistance from each breakout SDA/SCL pin to its supply (VDD/VIN as appropriate for the board) to estimate fitted pull-ups. Check ALERT/RDY the same way. Compare against the board schematic or resistor markings; in-circuit components can affect readings, so a resistance reading alone may not prove the exact resistor value. Record the measured values before reconnecting the bus. Confirm that the PIC and ADC digital levels and the ADC input-voltage range are compatible. Do not apply voltages outside the ADS1115 supply rails to its analog inputs.
 - Address table for ADDR connected to GND and to VDD, including the **7-bit address** and the complete transmitted address byte for read and write.
 - ADS1115 register-pointer table identifying the **Conversion**, **Config**, **Lo_thresh**, and **Hi_thresh** registers. Explain the difference between selecting a register with its pointer and writing data to that register. Note the number and order of bytes used for 16-bit registers.
 - Decode the Config register's fields and documented reset value. Determine a **16-bit configuration word** for **AIN0 measured relative to GND, ±6.144 V full-scale range, continuous conversions, 128 samples/s, and comparator disabled**. Show the selected value of each field and how you combine them into two transmitted bytes. **Determine the configuration word from the data sheet. It is not supplied here.**
@@ -274,53 +274,11 @@ All transaction examples below assume **ADDR connected to GND**, giving the ADS1
 
 ### Required setup
 
-```text
-I2C master:
-    Reuse the working Part 1 MSSP setup.
-    Detect ACK/NACK and stop unsuccessful transactions.
-
-ADS1115:
-    Select the Config register and read its initial value.
-    Write the selected ADC configuration once during startup.
-    Select the Conversion register for each repeated ADC read.
-
-Timer:
-    Initiate periodic ADC reads using a hardware timer.
-    Determine the final read interval from conversion-ready measurements.
-```
+> **Draft placeholder:** Setup pseudocode will be added after review.
 
 ### Program structure
 
-```text
-Main:
-    Initialize the PIC and I2C master.
-    Read and record the initial ADC configuration.
-    Configure the ADC for continuous conversions.
-    Read back its configuration and check the result.
-    Repeat:
-        Wait for the selected timer interval.
-        Select the ADC Conversion register.
-        Read and save the two conversion bytes.
-        Report or indicate a communication failure when detected.
-
-Select register:
-    Start a write transaction to the ADC.
-    Send the selected register pointer.
-    Check each acknowledge result.
-    Stop the transaction.
-
-Read two bytes:
-    Start a read transaction to the ADC.
-    Read the most significant byte and send PIC ACK.
-    Read the least significant byte and send PIC NACK.
-    Stop the transaction and save the two bytes.
-
-Write configuration:
-    Start a write transaction to the ADC.
-    Send the Config pointer and two configuration bytes.
-    Check each acknowledge result.
-    Stop the transaction.
-```
+> **Draft placeholder:** Program-flow pseudocode will be added after review.
 
 ### In the Lab
 
