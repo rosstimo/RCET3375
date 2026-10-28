@@ -300,7 +300,7 @@ STOP
 <a id="level-1-shared-wait"></a>
 ### Shared wait
 
-MSSP operations take time to complete. In i2c master mode `SSPIF` is set after various operations, including START, STOP, end of receive, and ACK/NACK, however; simply waiting for `SSPIF` to be set can lead to indefinite blocking and may be irecoverable without a device reset. This common routine polls `SSPIF` with a 255-count limit and checks SCL only if the limit expires. It avoids a separate polling loop in every Level 1 routine.
+MSSP operations take time to complete. In I²C master mode `SSPIF` is set after various operations, including START, STOP, end of receive, and ACK/NACK, however; simply waiting for `SSPIF` to be set can lead to indefinite blocking and may be irecoverable without a device reset. This common routine polls `SSPIF` with a 255-count limit and checks SCL only if the limit expires. It avoids a separate polling loop in every Level 1 routine.
 
 **Use:** Called internally by level 1 routines after requesting an MSSP operation. **Input:** Caller starts operation, clears `SSPIF`, and initializes `i2c_status`. **Output:** Status is unchanged on completion; on timeout `i2c_status` becomes TIMEOUT or SCL_LOW.
 
