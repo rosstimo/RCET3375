@@ -352,7 +352,7 @@ Wait
 
 Level 2 assembles whole I²C transactions using [Level 1 MSSP operations](#level-1-mssp-operations). It encodes a seven-bit address, sends or receives bytes, decides which response to send after a received byte, and finishes the transaction.
 
-Level 2 does not touch MSSP registers or interpret ADS1115 register values. Level 3 chooses the device, data, destination buffer, and when to communicate.
+Level 2 does not touch MSSP registers or MSSP bits/flags directly.
 
 | Subroutine | Action |
 | --- | --- |
@@ -368,7 +368,7 @@ Level 2 does not touch MSSP registers or interpret ADS1115 register values. Leve
 | `i2c_count` | `0x38` | Input: number of data bytes; decreases after each completed data byte |
 | `i2c_result` | `0x39` | Output: transaction status |
 
-`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. These interfaces work whether the routines are kept in one source file or split into several. Buffers must fit in contiguous bank 0 GPRs without overlapping working variables. The caller supplies a valid buffer and count. Level 2 changes W, STATUS, bank selection, FSR, and IRP; it is not reentrant.
+`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. Buffers must fit in contiguous bank GPRs without overlapping working variables. The caller supplies a valid buffer and count. Level 2 changes W, STATUS, bank selection, FSR.
 
 The seven-bit address `0x48` is sent as `0x90` for write or `0x91` for read. Level 1 sends these already encoded bytes unchanged.
 
