@@ -3,7 +3,7 @@
 
 **Optional design example | PIC16F883 and ADS1115 | Lab10, through Part 2**
 
-This is **one suggested way** to organize an I²C master, not a required implementation or a complete walkthrough of Part 2. Students may use, adapt, or replace this design; the lab instructions define the required work. The guide illustrates MSSP operations, I²C transactions, and selected ADS1115 application operations through descriptions, flowcharts, pseudocode, and bus sequences. **PIC-AS source code is intentionally omitted.**
+This is **one suggested way** to organize an I²C master, not a required implementation or a complete walkthrough of Part 2. Students may use, adapt, or replace this design; the lab instructions define the required work. The guide illustrates MSSP operations, I²C transactions, and selected ADS1115 application operations through descriptions, flowcharts, pseudocode, and bus sequences. 
 
 ## Table of contents
 
