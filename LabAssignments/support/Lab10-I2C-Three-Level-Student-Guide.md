@@ -39,7 +39,7 @@ This is **one suggested way** to organize an I²C master, not a required impleme
     - [Read conversion: `ReadConversion`](#read-conversion-readconversion)
       - [I²C transaction sequence](#ic-transaction-sequence-1)
     - [Display result: `ShowResult`](#display-result-showresult)
-    - [Limits and verification](#limits-and-verification-1)
+    - [Limits and verification](#timits-and-verification-1)
   - [References](#references)
 
 ## Philosophy: why three levels?
