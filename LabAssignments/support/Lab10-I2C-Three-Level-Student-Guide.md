@@ -549,19 +549,6 @@ Finish Transaction
         If i2c_status is not I2C_OK, set i2c_result = i2c_status.
     Return.
 ```
-
-
-[Back to top](#top)
-
-[Back to top](#top)
-
-<a id="level-2-application-and-verification"></a>
-### Application and verification
-
-Level 3 chooses ADS1115 register pointers, Config bytes, when to read, and how to handle the result. In this example, it writes the Config pointer `0x01` and the two student-selected Config bytes once at startup, then writes the Conversion pointer `0x00` and performs a separate two-byte read. Level 2 does not know those values or combine the two transactions.
-
-Check buffer addresses, ACK/NACK handling, timing, and error cases against the flowcharts and pseudocode. A successful address probe alone does not verify an entire transaction.
-
 [Back to top](#top)
 
 ---
@@ -573,6 +560,14 @@ Check buffer addresses, ACK/NACK handling, timing, and error cases against the f
 ### Boundary and interface
 
 Level 3 is the application. It decides **which ADS1115 register to access, which bytes to send, where readings are stored, when to take readings, and what to do with transaction results**. It calls [Level 2 transaction routines](#level-2-transactions), never [Level 1 MSSP routines](#level-1-mssp-operations).
+
+
+<a id="level-2-application-and-verification"></a>
+### Application and verification
+
+Level 3 chooses ADS1115 register pointers, Config bytes, when to read, and how to handle the result. In this example, it writes the Config pointer `0x01` and the two student-selected Config bytes once at startup, then writes the Conversion pointer `0x00` and performs a separate two-byte read. Level 2 does not know those values or combine the two transactions.
+
+Check buffer addresses, ACK/NACK handling, timing, and error cases against the flowcharts and pseudocode. A successful address probe alone does not verify an entire transaction.
 
 | Entry / routine | Purpose |
 | --- | --- |
@@ -867,8 +862,6 @@ Show Result
     Return.
 ~~~
 
-
-[Back to top](#top)
 
 [Back to top](#top)
 
