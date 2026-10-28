@@ -346,7 +346,7 @@ Level 2 does not touch MSSP registers or MSSP bits/flags directly.
 | `i2c_count` | `0x38` | Input: number of data bytes; decreases after each completed data byte |
 | `i2c_result` | `0x39` | Output: transaction status |
 
-`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. Buffers must fit in contiguous bank GPRs without overlapping working variables. The caller supplies a valid buffer and count. Level 2 changes W, STATUS, bank selection, FSR.
+`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. Buffers must fit in contiguous bank GPRs without overlapping working variables.
 
 The seven-bit address `0x48` is sent as `0x90` for write or `0x91` for read. Level 1 sends these already encoded bytes unchanged.
 
@@ -365,7 +365,7 @@ Level 2 exposes the four RAM locations and public result values `I2C_RESULT_OK` 
 <a id="level-2-initialize-through-level-2-i2ctransactioninit"></a>
 ### Initialize through Level 2: `I2CTransactionInit`
 
-The application needs to initialize the MSSP without knowing a Level 1 routine name. This one-call wrapper preserves the direction of dependencies: Level 3 calls Level 2, and Level 2 calls Level 1.
+The application needs to initialize the MSSP without knowing a Level 1 routine name. This one-call wrapper preserves the direction of dependencies: Level 3 calls Level 2, and Level 2 calls Level 1. The trade off is stack depth and a few extra instructions for the wrapper.
 
 **Use:** Call once after configuring the application's analog/digital pins, before any transaction. **Input:** None. **Output:** MSSP initialized by Level 1; `i2c_result` remains unchanged.
 
@@ -549,19 +549,6 @@ Finish Transaction
         If i2c_status is not I2C_OK, set i2c_result = i2c_status.
     Return.
 ```
-
-
-[Back to top](#top)
-
-[Back to top](#top)
-
-<a id="level-2-application-and-verification"></a>
-### Application and verification
-
-Level 3 chooses ADS1115 register pointers, Config bytes, when to read, and how to handle the result. In this example, it writes the Config pointer `0x01` and the two student-selected Config bytes once at startup, then writes the Conversion pointer `0x00` and performs a separate two-byte read. Level 2 does not know those values or combine the two transactions.
-
-Check buffer addresses, ACK/NACK handling, timing, and error cases against the flowcharts and pseudocode. A successful address probe alone does not verify an entire transaction.
-
 [Back to top](#top)
 
 ---
@@ -573,6 +560,14 @@ Check buffer addresses, ACK/NACK handling, timing, and error cases against the f
 ### Boundary and interface
 
 Level 3 is the application. It decides **which ADS1115 register to access, which bytes to send, where readings are stored, when to take readings, and what to do with transaction results**. It calls [Level 2 transaction routines](#level-2-transactions), never [Level 1 MSSP routines](#level-1-mssp-operations).
+
+
+<a id="level-2-application-and-verification"></a>
+### Application and verification
+
+Level 3 chooses ADS1115 register pointers, Config bytes, when to read, and how to handle the result. In this example, it writes the Config pointer `0x01` and the two student-selected Config bytes once at startup, then writes the Conversion pointer `0x00` and performs a separate two-byte read. Level 2 does not know those values or combine the two transactions.
+
+Check buffer addresses, ACK/NACK handling, timing, and error cases against the flowcharts and pseudocode. A successful address probe alone does not verify an entire transaction.
 
 | Entry / routine | Purpose |
 | --- | --- |
@@ -867,8 +862,6 @@ Show Result
     Return.
 ~~~
 
-
-[Back to top](#top)
 
 [Back to top](#top)
 
