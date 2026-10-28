@@ -3,38 +3,62 @@
 
 **Optional design example | PIC16F883 and ADS1115 | Lab10, through Part 2**
 
-This is **one suggested way** to organize an I²C master, not a required implementation or a complete walkthrough of Part 2. Students may use, adapt, or replace this design; the lab instructions define the required work. The guide illustrates MSSP operations, I²C transactions, and selected ADS1115 application operations through descriptions, flowcharts, pseudocode, and bus sequences. **PIC-AS source code is intentionally omitted.**
+This is **one suggested way** to organize an I²C master, not a required implementation or a complete walkthrough of Part 2. Students may use, adapt, or replace this design; the lab instructions define the required work. The guide illustrates MSSP operations, I²C transactions, and selected ADS1115 application operations through descriptions, flowcharts, pseudocode, and bus sequences. 
 
 ## Table of contents
 
-- [Philosophy: why three levels?](#philosophy-why-three-levels)
-- [Reading flowcharts and pseudocode](#reading-flowcharts-and-pseudocode)
-- [Level 1: MSSP operations](#level-1-mssp-operations)
-  - [Boundary](#level-1-boundary)
-  - [Initialize MSSP](#level-1-initialize-mssp)
-  - [START](#level-1-start)
-  - [Send one byte](#level-1-send-one-byte)
-  - [Receive one byte](#level-1-receive-one-byte)
-  - [ACK or NACK a received byte](#level-1-ack-or-nack-a-received-byte)
-  - [STOP](#level-1-stop)
-  - [Shared wait](#level-1-shared-wait)
-  - [Limits and verification](#level-1-limits-and-verification)
-- [Level 2: Transactions](#level-2-transactions)
-  - [Boundary and interface](#level-2-boundary-and-interface)
-  - [Initialize through Level 2: I2CTransactionInit](#level-2-initialize-through-level-2-i2ctransactioninit)
-  - [Write transaction: I2CWriteTransaction](#level-2-write-transaction-i2cwritetransaction)
-  - [Read transaction: I2CReadTransaction](#level-2-read-transaction-i2creadtransaction)
-  - [Finish transaction: I2CFinishTransaction](#level-2-finish-transaction-i2cfinishtransaction)
-  - [Application and verification](#level-2-application-and-verification)
-- [Level 3: ADS1115 application](#level-3-ads1115-application)
-  - [Boundary and interface](#level-3-boundary-and-interface)
-  - [Startup: Setup](#level-3-startup-setup)
-  - [Main loop and configuration failure](#level-3-main-loop-and-configuration-failure)
-  - [Configure ADS1115: ConfigureADS1115](#level-3-configure-ads1115-configureads1115)
-  - [Read conversion: ReadConversion](#level-3-read-conversion-readconversion)
-  - [Display result: ShowResult](#level-3-display-result-showresult)
-  - [Limits and verification](#level-3-limits-and-verification)
-- [References](#references)
+- [Lab10: Three-level I²C software design](#lab10-three-level-ic-software-design)
+  - [Table of contents](#table-of-contents)
+  - [Philosophy: why three levels?](#philosophy-why-three-levels)
+  - [Reading flowcharts and pseudocode](#reading-flowcharts-and-pseudocode)
+  - [Level 1: MSSP operations](#level-1-mssp-operations)
+    - [Boundary](#boundary)
+    - [Initialize MSSP](#initialize-mssp)
+    - [START](#start)
+    - [Send one byte](#send-one-byte)
+    - [Receive one byte](#receive-one-byte)
+    - [ACK or NACK a received byte](#ack-or-nack-a-received-byte)
+    - [STOP](#stop)
+    - [Shared wait](#shared-wait)
+    - [Limits and verification](#limits-and-verification)
+  - [Level 2: Transactions](#level-2-transactions)
+    - [Boundary and interface](#boundary-and-interface)
+      - [Shared RAM interface](#shared-ram-interface)
+    - [Initialize through Level 2: `I2CTransactionInit`](#initialize-through-level-2-i2ctransactioninit)
+      - [Flowchart](#flowchart)
+      - [Pseudocode](#pseudocode)
+    - [Write transaction: `I2CWriteTransaction`](#write-transaction-i2cwritetransaction)
+      - [Flowchart](#flowchart-1)
+      - [Pseudocode](#pseudocode-1)
+    - [Read transaction: `I2CReadTransaction`](#read-transaction-i2creadtransaction)
+      - [Flowchart](#flowchart-2)
+      - [Pseudocode](#pseudocode-2)
+    - [Finish transaction: `I2CFinishTransaction`](#finish-transaction-i2cfinishtransaction)
+      - [Flowchart](#flowchart-3)
+      - [Pseudocode](#pseudocode-3)
+    - [Application and verification](#application-and-verification)
+  - [Level 3: ADS1115 application](#level-3-ads1115-application)
+    - [Boundary and interface](#boundary-and-interface-1)
+      - [Hardware and memory setup](#hardware-and-memory-setup)
+    - [Startup: `Setup`](#startup-setup)
+      - [Flowchart](#flowchart-4)
+      - [Pseudocode](#pseudocode-4)
+    - [Main loop and configuration failure](#main-loop-and-configuration-failure)
+      - [Flowchart](#flowchart-5)
+      - [Pseudocode](#pseudocode-5)
+    - [Configure ADS1115: `ConfigureADS1115`](#configure-ads1115-configureads1115)
+      - [Flowchart](#flowchart-6)
+      - [Pseudocode](#pseudocode-6)
+      - [I²C transaction sequence](#ic-transaction-sequence)
+    - [Read conversion: `ReadConversion`](#read-conversion-readconversion)
+      - [Flowchart](#flowchart-7)
+      - [Pseudocode](#pseudocode-7)
+      - [I²C transaction sequence](#ic-transaction-sequence-1)
+    - [Display result: `ShowResult`](#display-result-showresult)
+      - [Flowchart](#flowchart-8)
+      - [Pseudocode](#pseudocode-8)
+    - [Limits and verification](#limits-and-verification-1)
+  - [References](#references)
 
 ## Philosophy: why three levels?
 
@@ -53,7 +77,7 @@ flowchart TD
     C --> D["PIC16F883 MSSP and SCL/SDA bus"]
 ```
 
-Each level calls the **next lower level**, not a lower level two steps away. The application uses Level 2 rather than manipulating MSSP registers. Level 1 knows nothing about the ADS1115. Status values travel upward so the application can respond to errors. Level 2 uses a shared finish routine, and the Level 3 conversion-read routine has one common return path.
+Each level calls the **next lower level**, not a lower level two steps away. The application uses Level 2 rather than manipulating MSSP registers directly. Level 1 knows nothing about the ADS1115. Status values travel upward so the application can respond to errors.
 
 **Levels are logical divisions, not required source-file divisions.** All three levels may be implemented in one PIC-AS source file or organized into multiple source files. What matters is keeping each routine's responsibility and interface clear.
 
@@ -63,9 +87,9 @@ This example favors small, direct routines for a single master. Its operations w
 
 ## Reading flowcharts and pseudocode
 
-Each routine follows the same sequence: **description and interface, flowchart, pseudocode**. Follow the diagrams from Level 3 down through the calls into Level 2 and Level 1. A predefined-process node, written as `[[Call routine]]` in Mermaid, identifies a shared routine. The flowcharts describe which routine is invoked, not whether students implement that invocation with a PIC-AS `CALL` or another control-flow technique. A diamond asks a question. Each routine’s pseudocode should match its flowchart.
+Each routine follows the same sequence: **description and interface, flowchart, pseudocode**. Follow the diagrams from Level 3 down through the calls into Level 2 and Level 1.
 
-Keep two types of acknowledgment distinct: the **target** ACKs a byte transmitted by the PIC; the **PIC** ACKs a received byte when it wants more data and NACKs the final byte. An address such as `0x48` is a seven-bit target address, while `0x90` and `0x91` are the corresponding eight-bit write and read bus bytes.
+Keep two types of acknowledgment distinct: the **target** ACKs a byte transmitted by the PIC (master); the **PIC** ACKs a received byte when it wants more data and NACKs the final byte. An address such as `0x48` is a seven-bit target address, while the raw bytes `0x90` and `0x91` are the corresponding eight-bit write and read bus bytes.
 
 The byte sequences below show the example with ADS1115 ADDR grounded. **Use the seven-bit address you actually confirm** with the Part 1 address probe when implementing the lab.
 
@@ -76,7 +100,7 @@ The byte sequences below show the example with ADS1115 ADDR grounded. **Use the 
 <a id="level-1-boundary"></a>
 ### Boundary
 
-Level 1 controls MSSP registers and sends or receives **one raw byte** at a time. It does not interpret slave addresses, register pointers, byte counts, or ADS1115 commands. A caller checks `i2c_status` after each operation. Level 1 never automatically issues STOP after an error. All five operation flowcharts use the shared `I2CWait` routine. How that routine is entered and returned from is an implementation choice.
+Level 1 controls MSSP registers and sends or receives **one raw byte** at a time. It does not interpret slave addresses, register pointers, byte counts, or ADS1115 commands. A caller checks `i2c_status` after each operation. Level 1 never automatically issues STOP after an error.
 
 | Routine | Input | Output / behavior |
 | --- | --- | --- |
@@ -87,7 +111,7 @@ Level 1 controls MSSP registers and sends or receives **one raw byte** at a time
 | `I2CAck` | None | Master ACK: request another read byte |
 | `I2CNack` | None | Master NACK: finish reading |
 | `I2CStop` | None | Generate STOP |
-| `I2CWait` | MSSP operation in progress | Wait for `SSPIF` with a bounded loop |
+| `I2CWait` | MSSP operation in progress | Wait for `SSPIF` with a bounded loop and timeout |
 
 The interface uses these status values: `0` = OK; `1` = NACK; `2` = timeout (SCL high); `3` = bus low before START; `4` = timeout (SCL low). Codes `2` and `4` describe the observed condition at timeout, not the cause. These routines do not detect bus collisions or recover a stuck bus.
 
@@ -99,7 +123,7 @@ The interface uses these status values: `0` = OK; `1` = NACK; `2` = timeout (SCL
 | 3 | `I2C_BUS_LOW` | SCL or SDA low before START |
 | 4 | `I2C_SCL_LOW` | Wait expired with SCL low |
 
-SCL is RC3, SDA is RC4; both require suitable external pull-ups. Calls change W, STATUS flags, and bank selection and are not reentrant. The caller is responsible for valid operation order.
+SCL is RC3, SDA is RC4; both require suitable external pull-ups. Calls change W, STATUS flags, and bank selection. The caller is responsible for valid operation order.
 
 
 [Back to top](#top)
@@ -164,7 +188,7 @@ START
 
 The master must transmit address and data bytes using the same hardware operation. This routine writes W to `SSPBUF`, waits for transmission, and checks the slave's ACK bit. Level 1 does not shift or interpret the byte.
 
-**Use:** Call after START or a previously ACKed byte. **Input:** The exact eight-bit bus byte in W (for ADS1115 address `0x48`, use `0x90` for write or `0x91` for read). **Output:** `i2c_status` is OK, NACK, TIMEOUT, or SCL_LOW.
+**Use:** Call after START or a previously ACKed byte. **Input:** The raw eight-bit bus byte in W. **Output:** `i2c_status` is OK, NACK, TIMEOUT, or SCL_LOW.
 
 ```mermaid
 flowchart TD
@@ -195,7 +219,7 @@ Send Byte
 
 After the master sends a read address, it must clock a byte in from the slave. This routine enables MSSP reception, waits for eight bits, and copies `SSPBUF` into RAM.
 
-**Use:** Call after an ACKed read address or after acknowledging a previous received byte. **Input:** None. **Output:** On success, `i2c_byte` contains the received byte and `i2c_status` is OK; on failure, the previous `i2c_byte` is unchanged and status reports the timeout.
+**Use:** Call after an ACKed read address or after acknowledging a previous received data byte. **Input:** None. **Output:** On success, `i2c_byte` contains the received byte and `i2c_status` is OK; on failure, the previous `i2c_byte` is unchanged and `i2c_status` is TIMEOUT or SCL_LOW.
 
 ```mermaid
 flowchart TD
@@ -255,7 +279,7 @@ Send NACK
 
 A completed transaction needs STOP to release the bus. This routine requests the MSSP STOP condition and waits for its completion.
 
-**Use:** Call while the master still controls an active transaction, normally after the final byte or an ordinary NACK. **Input:** None. **Output:** `i2c_status` is OK, TIMEOUT, or SCL_LOW; a timeout does not prove the bus was released.
+**Use:** Call while the master still controls an active transaction, normally after the final byte or an ordinary NACK. **Input:** None. **Output:** `i2c_status` is OK, TIMEOUT, or SCL_LOW; a timeout does not prove the bus was released. There may be a problem with the bus or a slave may still be holding SCL low.
 
 ```mermaid
 flowchart TD
@@ -276,9 +300,9 @@ STOP
 <a id="level-1-shared-wait"></a>
 ### Shared wait
 
-MSSP operations take time to complete. This common routine polls `SSPIF` with a 255-count limit and checks SCL only if the limit expires. It avoids a separate polling loop in every Level 1 routine.
+MSSP operations take time to complete. In I²C master mode `SSPIF` is set after various operations, including START, STOP, end of receive, and ACK/NACK, however; simply waiting for `SSPIF` to be set can lead to indefinite blocking and may be irecoverable without a device reset. This common routine polls `SSPIF` with a 255-count limit and checks SCL only if the limit expires. It avoids a separate polling loop in every Level 1 routine.
 
-**Use:** Called internally after requesting an MSSP operation. **Input:** Operation started, `SSPIF` cleared, and `i2c_status` initialized by the caller. **Output:** Status is unchanged on completion; on timeout it becomes TIMEOUT or SCL_LOW.
+**Use:** Called internally by level 1 routines after requesting an MSSP operation. **Input:** Caller starts operation, clears `SSPIF`, and initializes `i2c_status`. **Output:** Status is unchanged on completion; on timeout `i2c_status` becomes TIMEOUT or SCL_LOW.
 
 ```mermaid
 flowchart TD
@@ -313,7 +337,7 @@ Wait
 ### Limits and verification
 
 - A valid call sequence and a single-master bus are assumed. No collision handling, automatic recovery, retries, or repeated START are included. This design uses STOP followed by a new START.
-- The software counter is an iteration limit, not a calibrated millisecond timeout. A stalled transfer leaves transaction state uncertain. Do not claim STOP or recovery will succeed after such a failure.
+- The software counter is an iteration limit, not a calibrated millisecond timeout. A stalled transfer leaves transaction state uncertain.
 - Test the operation order, ACK/NACK responses, timeout conditions, and STOP behavior on hardware before relying on the interface.
 
 [Back to top](#top)
