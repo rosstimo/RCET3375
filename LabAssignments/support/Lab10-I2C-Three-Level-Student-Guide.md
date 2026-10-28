@@ -23,41 +23,19 @@ This is **one suggested way** to organize an I²C master, not a required impleme
     - [Limits and verification](#limits-and-verification)
   - [Level 2: Transactions](#level-2-transactions)
     - [Boundary and interface](#boundary-and-interface)
-      - [Shared RAM interface](#shared-ram-interface)
     - [Initialize through Level 2: `I2CTransactionInit`](#initialize-through-level-2-i2ctransactioninit)
-      - [Flowchart](#flowchart)
-      - [Pseudocode](#pseudocode)
     - [Write transaction: `I2CWriteTransaction`](#write-transaction-i2cwritetransaction)
-      - [Flowchart](#flowchart-1)
-      - [Pseudocode](#pseudocode-1)
     - [Read transaction: `I2CReadTransaction`](#read-transaction-i2creadtransaction)
-      - [Flowchart](#flowchart-2)
-      - [Pseudocode](#pseudocode-2)
     - [Finish transaction: `I2CFinishTransaction`](#finish-transaction-i2cfinishtransaction)
-      - [Flowchart](#flowchart-3)
-      - [Pseudocode](#pseudocode-3)
     - [Application and verification](#application-and-verification)
   - [Level 3: ADS1115 application](#level-3-ads1115-application)
     - [Boundary and interface](#boundary-and-interface-1)
-      - [Hardware and memory setup](#hardware-and-memory-setup)
     - [Startup: `Setup`](#startup-setup)
-      - [Flowchart](#flowchart-4)
-      - [Pseudocode](#pseudocode-4)
     - [Main loop and configuration failure](#main-loop-and-configuration-failure)
-      - [Flowchart](#flowchart-5)
-      - [Pseudocode](#pseudocode-5)
     - [Configure ADS1115: `ConfigureADS1115`](#configure-ads1115-configureads1115)
-      - [Flowchart](#flowchart-6)
-      - [Pseudocode](#pseudocode-6)
-      - [I²C transaction sequence](#ic-transaction-sequence)
     - [Read conversion: `ReadConversion`](#read-conversion-readconversion)
-      - [Flowchart](#flowchart-7)
-      - [Pseudocode](#pseudocode-7)
-      - [I²C transaction sequence](#ic-transaction-sequence-1)
     - [Display result: `ShowResult`](#display-result-showresult)
-      - [Flowchart](#flowchart-8)
-      - [Pseudocode](#pseudocode-8)
-    - [Limits and verification](#limits-and-verification-1)
+    - [Limits and verification](#timits-and-verification-1)
   - [References](#references)
 
 ## Philosophy: why three levels?
@@ -352,7 +330,7 @@ Wait
 
 Level 2 assembles whole I²C transactions using [Level 1 MSSP operations](#level-1-mssp-operations). It encodes a seven-bit address, sends or receives bytes, decides which response to send after a received byte, and finishes the transaction.
 
-Level 2 does not touch MSSP registers or interpret ADS1115 register values. Level 3 chooses the device, data, destination buffer, and when to communicate.
+Level 2 does not touch MSSP registers or MSSP bits/flags directly.
 
 | Subroutine | Action |
 | --- | --- |
@@ -368,7 +346,7 @@ Level 2 does not touch MSSP registers or interpret ADS1115 register values. Leve
 | `i2c_count` | `0x38` | Input: number of data bytes; decreases after each completed data byte |
 | `i2c_result` | `0x39` | Output: transaction status |
 
-`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. These interfaces work whether the routines are kept in one source file or split into several. Buffers must fit in contiguous bank 0 GPRs without overlapping working variables. The caller supplies a valid buffer and count. Level 2 changes W, STATUS, bank selection, FSR, and IRP; it is not reentrant.
+`i2c_status` and `i2c_byte` belong to Level 1. The application uses only the Level 2 entry points and `i2c_result`, including `I2CTransactionInit` rather than calling `I2CInit` directly. Buffers must fit in contiguous bank GPRs without overlapping working variables. The caller supplies a valid buffer and count. Level 2 changes W, STATUS, bank selection, FSR.
 
 The seven-bit address `0x48` is sent as `0x90` for write or `0x91` for read. Level 1 sends these already encoded bytes unchanged.
 
