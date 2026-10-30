@@ -176,7 +176,7 @@ Standard-mode I²C specifies a **maximum 1 µs rise time**, and its LOW-level cu
 
 ```text
 MSSP:
-    Set up I2C master operation at 100 kHz
+    Set up I²C master operation at 100 kHz
     Enable the peripheral for SDA and SCL
 
 Timer:
