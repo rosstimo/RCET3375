@@ -522,7 +522,7 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 **Both master and slave firmware work together:** the master initiates each required transaction and handles the results; the slave responds at its assigned address, supports the stated pointer map, reads RB5:RB0, updates the DLG7137, and returns valid two-byte ADC results. The clock-stretching experiment is documented, and all captures, voltage comparisons, source, flowcharts, and checkoff evidence are complete.
 
-> **Still being developed:** The generic UART-to-I²C bridge, simultaneous ADS1115/PIC operation, and deliberate communication-fault/recovery tests are planned.
+**Part 3 ends with I²C communication between the two PICs.** UART firmware, PC communication, and the UART-to-I²C bridge begin in Part 4; none are required for Part 3. Simultaneous ADS1115/PIC operation and deliberate communication-fault/recovery tests are also reserved for Part 4.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
@@ -533,15 +533,15 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 ### Goal
 
-Finish the host GUI and multi-device communication system. The master communicates with both the external sensor and the PIC slave; the PIC slave provides an ADC channel and one servo.
+Introduce UART communication on the master PIC and build a UART-to-I²C bridge between the PC and the I²C bus. Extend that bridge into the host GUI and multi-device communication system. The master communicates with both the external sensor and the PIC slave; the PIC slave provides an ADC channel and one servo.
 
 ### Before Lab
 
-Prepare the complete UART and PIC-slave application packet definitions, integration flowcharts, system schematic, log layouts and failure-test plan. Reuse the ADC and servo behavior from Lab 08 Part 4.
+Begin with the working Part 3 master and slave I²C projects. Prepare UART command/response definitions for the PC-to-master-to-I²C bridge, plus the PIC-slave application packet definitions, integration flowcharts, system schematic, log layouts and failure-test plan. Reuse the ADC and servo behavior from Lab 08 Part 4.
 
 ### In the Lab
 
-Integrate sensor polling, slave ADC measurements, servo commands, GUI controls, device status, and error handling. Record sensor readings with year/month/day/hour/minute/second timestamps in files rotated hourly. Keep a separate timestamped UART/I²C error log with new files every 24 hours. Log each serial disconnect and verified reconnect once per transition. Verify recovery and servo timing during ongoing communication.
+First implement and verify a basic UART-to-I²C bridge: the PC sends a command over UART, the master performs the corresponding I²C transaction, and the master returns the data or transaction result over UART. Then integrate sensor polling, slave ADC measurements, servo commands, GUI controls, device status, and error handling. Record sensor readings with year/month/day/hour/minute/second timestamps in files rotated hourly. Keep a separate timestamped UART/I²C error log with new files every 24 hours. Log each serial disconnect and verified reconnect once per transition. Verify recovery and servo timing during ongoing communication.
 
 ### Evidence
 
@@ -553,7 +553,7 @@ Show both sensors, servo control, live GUI operation, logged data and errors, an
 
 ### Complete When
 
-The complete system runs with both slaves, correctly reports errors, preserves servo timing and meets the logging and reconnection requirements.
+The master provides a working PC/UART-to-I²C bridge, and the complete system runs with both slaves, correctly reports errors, preserves servo timing and meets the logging and reconnection requirements.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
