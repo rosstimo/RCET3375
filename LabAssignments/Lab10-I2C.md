@@ -15,7 +15,7 @@ PIC16F883 | pic-as | MSSP / I2C | UART | Multi-device communication
 - [Equipment and materials](#equipment)
 - [Part 1 - I2C Master and Bus Timing](#part-1)
 - [Part 2 - I2C Master with an ADS1115 Sensor Slave](#part-2)
-- [Part 3 - Reusable PIC I2C Slave Routines](#part-3)
+- [Part 3 - PIC I2C Slave: Inputs, Display, and ADC](#part-3)
 - [Part 4 - UART-to-I2C System Integration](#part-4)
 - [Part 5 - Mastery: Three-Axis Servo Control](#part-5)
 - [Submission and checkoff](#submission)
@@ -396,33 +396,139 @@ The ADS1115 is correctly addressed and configured; the PIC repeatedly reads vali
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
 <a id="part-3"></a>
-## Part 3 - Reusable PIC I2C Slave Routines
+## Part 3 - PIC I2C Slave: Inputs, Display, and ADC
 
-> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
+> **Draft, not released:** The slave interface and first hardware tests are being verified. Do not begin Part 3 until these instructions are released.
 
 ### Goal
 
-Configure a second PIC16F883 as an interrupt-driven I2C slave. Read PORTB, write available PORTC outputs, and report slave status using reusable communication routines.
+Configure a second PIC16F883 as a **7-bit I2C slave** at address \`0x20\`. Extend the Part 2 master to read digital inputs, display a character, and retrieve a 10-bit ADC measurement from the slave. Use a small **register-pointer interface** similar in concept to the ADS1115.
+
+The slave must service I2C events without long delays. **Polling the MSSP event flag is acceptable; interrupts are not required.** Keep the hardware communication routines reusable and separate from the application behavior.
 
 ### Before Lab
 
-Document slave MSSP setup, addressing, interrupt behavior, clock stretching, errors and recovery. Define the minimal slave command/status interface and flowcharts. Investigate general call, masked addresses, and effects on every connected slave.
+- Bring a working **Part 1/Part 2 master** and create a **separate MPLAB X project** for the slave PIC. Make sure the correct project is selected as *Main Project* before building and programming each PIC.
+- Draw the two-PIC schematic: separate 4 MHz oscillators, 5 V supplies, MCLR/programming connections, **RC3/SCL (pin 14)**, **RC4/SDA (pin 15)**, common ground, and the effective SDA/SCL pull-ups. Account for pull-ups already installed on connected boards; do not assume every device needs another pair.
+- Use the [PIC16F883 data sheet](https://ww1.microchip.com/downloads/en/DeviceDoc/40001291H.pdf) to document the MSSP **7-bit slave-mode** setup, address matching, SSPBUF, ACK/NACK, receive/transmit events, SSPIF, CKP/clock stretching, SSPOV and WCOL. Explain which device controls the final ACK/NACK of a read.
+- Prepare flowcharts for slave initialization and servicing an I2C event. Include receive-address, receive-data, transmit-data, and error paths. Extend these flowcharts as new behavior is introduced.
+
+Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STANDARD.md) for SFR documentation, schematic updates, source, flowcharts, measurements, and lab-book evidence. Complete the additional documentation when you reach each device or peripheral.
+
+### Suggested software organization (optional)
+
+One approach is to separate the slave software into **Level 1 (MSSP hardware events)**, **Level 2 (pointer and read/write transactions)**, and **Level 3 (PORTB, display, ADC)**. This is a suggested design, not a required file layout. A single PIC-AS source file or multiple \`.S\` modules are acceptable if the responsibilities are clear. Do not put executable routines in \`.inc\` files.
 
 ### In the Lab
 
-Use the Part 2 master and GUI to read the slave's PORTB inputs and write its PORTC outputs. Reserve RC3 and RC4 for I2C. Use PORTA diagnostic signals as needed. Handle master reads/writes, ACK/NACK, overflow, collision and communication recovery. Make slave errors available through a status read. Examine safe broadcast/general-call behavior.
+**1. Verify the slave address.** Assemble the minimum slave circuit and connect it to the existing master SDA/SCL bus. Confirm the slave PIC is programmed and powered. Configure its MSSP for the **7-bit address \`0x20\`**.
+
+Use the Part 1 master address probe, first with the assigned address and then with an unrelated address. Capture an ACK for the correct address and a NACK for the other address. The 7-bit address and complete transmitted bytes are different:
+
+\`\`\`text
+START → 0x20 + W (0x40) → slave ACK → STOP
+START → other address + W → NACK → STOP
+\`\`\`
+
+**2. Test one received byte and one transmitted byte.** Extend the slave to accept a byte after its address. First write \`0xA5\` and check both slave ACKs. Next have the slave return a fixed byte \`0x5A\` to a master read. For the one-byte read, the **master** sends NACK after receiving the byte.
+
+\`\`\`text
+Write test: START → 0x40 → ACK → 0xA5 → ACK → STOP
+Read test:  START → 0x41 → ACK → 0x5A → PIC NACK → STOP
+\`\`\`
+
+Keep these tests small. Verify them on the oscilloscope before adding the register-pointer logic.
+
+**3. Add the register-pointer interface.** A slave write begins with a pointer byte. The pointer selects a logical register; optional following bytes write that register. A later master read returns data from the selected register. For now, use **STOP followed by a new START**, as in Part 2. Retain the selected pointer across STOP.
+
+For an initial diagnostic, temporarily echo the selected pointer on a read. Test at least two different values such as \`0xA5\` and \`0x3C\`. Then implement the following application register map:
+
+| Pointer | Function | Direction | Data |
+| --- | --- | --- | --- |
+| \`0x00\` | PORTB switches | Read | One byte, RB5:RB0 |
+| \`0x01\` | DLG7137 display | Write | One 7-bit ASCII character |
+| \`0x02\` | PIC ADC at AN2 | Read | Two bytes, high then low |
+| \`0x04\` | MSSP fault status | Read | One byte |
+
+Document how your code handles an unsupported pointer or an unexpected number of data bytes. Do not require a repeated START for these tests.
+
+**4. Read switches and status.** Connect six DIP switches from **slave RB0-RB5** to GND. Enable suitable pull-ups so an open switch reads \`1\` and a closed switch reads \`0\`. Reserve **RB6/RB7** for PICkit programming. Return only bits 5:0 for pointer \`0x00\`.
+
+Add pointer \`0x04\` as a one-byte communication-status register. Report sticky MSSP hardware fault flags: **bit 6 = SSPOV** (receive overflow), **bit 7 = WCOL** (write collision). The expected status in a normal test after reset is \`0x00\`. Record and investigate any nonzero status; deliberate fault injection is not required in this draft.
+
+\`\`\`text
+Select PORTB: START → 0x40 → ACK → 0x00 → ACK → STOP
+Read PORTB:   START → 0x41 → ACK → switch byte → PIC NACK → STOP
+
+Select status: START → 0x40 → ACK → 0x04 → ACK → STOP
+Read status:   START → 0x41 → ACK → status byte → PIC NACK → STOP
+\`\`\`
+
+Change several DIP-switch patterns. Compare the actual switch positions, returned six-bit value, and oscilloscope decode. Keep the status read working as you add later features.
+
+**5. Write a character to the DLG7137.** Use the **DLG7137 single-character display** from Lab 02. It accepts seven-bit ASCII; the slave must drive its data lines and pulse its active-low WR input. **RC3 and RC4 remain dedicated to I2C**, so do not reuse the original PORTC wiring unchanged.
+
+Use this connection map for the slave:
+
+| DLG7137 signal | Display pin | Slave PIC signal (physical pin) |
+| --- | ---: | --- |
+| D0, D1, D2 | 8, 9, 10 | RC0 (11), RC1 (12), RC2 (13) |
+| D3, D4, D5 | 11, 12, 13 | RC5 (16), RC6 (17), RC7 (18) |
+| D6 | 14 | RA0 (2) |
+| WR, active LOW | 4 | RA1 (3) |
+| CE, active LOW | 3 | GND |
+| LT, BL0, BL1 | 2, 6, 5 | +5 V |
+| VCC, GND | 1, 7 | +5 V, GND |
+
+Check the [DLG7137 data sheet](https://www.mouser.com/catalog/specsheets/00034177_0.pdf) for orientation, control pins, power, and write timing. Document the wiring and decoupling. A write to pointer \`0x01\` followed by ASCII \`0x41\` should display **A**:
+
+\`\`\`text
+START → 0x40 → ACK → 0x01 → ACK → 0x41 → ACK → STOP
+\`\`\`
+
+Stage the received character and update the display outside the time-sensitive I2C event handler. Repeat with a different printable ASCII character. Confirm the PORTB and status reads still work.
+
+**6. Read the slave's ADC.** Connect a potentiometer between the slave's **VDD and GND**, with the wiper on **RA2/AN2 (pin 4)**. Configure the PIC's **10-bit ADC**, VDD/VSS references, and right-justified result. Use a timer to sample periodically without waiting in a long blocking loop.
+
+Pointer \`0x02\` returns a **consistent two-byte sample**: upper two ADC bits in the first byte, lower eight bits in the second. Take a snapshot so the two bytes cannot come from different conversions.
+
+\`\`\`text
+Select ADC: START → 0x40 → ACK → 0x02 → ACK → STOP
+Read ADC:   START → 0x41 → ACK → ADC high → PIC ACK → ADC low → PIC NACK → STOP
+\`\`\`
+
+Combine the received bytes and estimate the input voltage using the measured supply voltage:
+
+\`\`\`math
+\begin{aligned}
+\mathrm{ADC}_{10} &= ((\mathrm{high}\mathbin{\&}0x03)\ll 8)\;|\;\mathrm{low} \\
+V_{\mathrm{AN2}} &\approx \frac{\mathrm{ADC}_{10}}{1023}V_{\mathrm{DD}}
+\end{aligned}
+\`\`\`
+
+Measure the actual AN2 voltage with a DMM at **GND, approximately midpoint, and VDD** settings. Compare each measurement with the I2C result (approximately 0, 512, and 1023 counts, respectively). Allow time for a valid conversion after reset. Verify that the scope shows the master's ACK between data bytes and NACK after the last byte.
 
 ### Evidence
 
-Provide the slave interface and firmware/flowcharts, working PORTB/PORTC transactions, a slave-status/error test and labeled oscilloscope diagnostics.
+Include the updated two-PIC and display schematics, relevant MSSP/GPIO/ADC SFR documentation, source files, and flowcharts. Provide labeled I2C captures or decode records for:
+
+- Correct-address ACK and incorrect-address NACK; the initial single-byte write and fixed-byte read.
+- Pointer write followed by a separate read, with two different pointer values.
+- PORTB read for multiple switch patterns and a normal status read.
+- Display write containing pointer \`0x01\` and ASCII character, plus evidence of the visible character.
+- Two-byte ADC read, showing PIC ACK after the high byte and PIC NACK after the low byte, with measured-voltage comparisons at all three potentiometer settings.
+
+Label the SDA/SCL channels, 7-bit slave address, transmitted address byte, START/STOP, data and ACK/NACK source. If you use a timer diagnostic signal, document its pin and measured interval.
 
 ### Demonstrate
 
-Read changing PORTB inputs, update PORTC outputs, read error status, and show the slave recovers after a communication fault. Explain general-call and group-address precautions.
+Show the master addressing the second PIC, changing the reported DIP-switch value, reading status, displaying two characters, and reading ADC data at the potentiometer extremes. Explain why the slave register pointer remains selected between transactions and why the master ACKs the first ADC byte but NACKs the last.
 
 ### Complete When
 
-The slave's reusable interrupt routines reliably support master reads, writes, status and error handling.
+The second PIC responds at its assigned address, supports the stated pointer map, reads RB5:RB0, updates the DLG7137, and returns valid two-byte ADC results. All captures, voltage comparisons, source, flowcharts, and checkoff evidence are complete.
+
+> **Still being developed:** The generic UART-to-I2C bridge, simultaneous ADS1115/PIC operation, and deliberate communication-fault/recovery tests are planned follow-on work. They are **not requirements of this draft**.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
