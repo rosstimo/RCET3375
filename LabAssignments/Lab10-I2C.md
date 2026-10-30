@@ -522,7 +522,7 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 **Both master and slave firmware work together:** the master initiates each required transaction and handles the results; the slave responds at its assigned address, supports the stated pointer map, reads RB5:RB0, updates the DLG7137, and returns valid two-byte ADC results. The clock-stretching experiment is documented, and all captures, voltage comparisons, source, flowcharts, and checkoff evidence are complete.
 
-**Part 3 ends with I²C communication between the two PICs.** UART firmware, PC communication, and the UART-to-I²C bridge begin in Part 4; none are required for Part 3. Simultaneous ADS1115/PIC operation and deliberate communication-fault/recovery tests are also reserved for Part 4.
+**Part 3 ends with I²C communication between the two PICs.** Simultaneous ADS1115/PIC operation and deliberate communication-fault/recovery tests are reserved for Part 4.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
