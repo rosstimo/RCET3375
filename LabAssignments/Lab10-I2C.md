@@ -402,13 +402,13 @@ The ADS1115 is correctly addressed and configured; the PIC repeatedly reads vali
 
 ### Goal
 
-Configure a second PIC16F883 as a **7-bit I2C slave** at address `0x20`. Extend the Part 2 master to read digital inputs, display a character, and retrieve a 10-bit ADC measurement from the slave. Use a small **register-pointer interface** similar in concept to the ADS1115.
+Part 3 requires **two PIC16F883 programs: I2C master code and I2C slave code**, running on separate PICs. Develop the slave at **7-bit address `0x20`** and extend your Part 2 master code to test the slave, read its digital inputs, write display characters, and retrieve 10-bit ADC measurements. The slave uses a small **register-pointer interface** similar in concept to the ADS1115.
 
 The slave must service I2C events without long delays. **Polling the MSSP event flag is acceptable; interrupts are not required.** Keep the hardware communication routines reusable and separate from the application behavior.
 
 ### Before Lab
 
-- Bring a working **Part 1/Part 2 master** and create a **separate MPLAB X project** for the slave PIC. Make sure the correct project is selected as *Main Project* before building and programming each PIC.
+- Bring your working **Part 1/Part 2 master source code**. Continue developing it in a **master MPLAB X project**, and create a **separate slave MPLAB X project**. You will write, build, program, and test **both master and slave firmware** throughout Part 3. Select the correct *Main Project* before programming each PIC.
 - Draw the two-PIC schematic: separate 4 MHz oscillators, 5 V supplies, MCLR/programming connections, **RC3/SCL (pin 14)**, **RC4/SDA (pin 15)**, common ground, and the effective SDA/SCL pull-ups. Account for pull-ups already installed on connected boards; do not assume every device needs another pair.
 - Use the [PIC16F883 data sheet](https://ww1.microchip.com/downloads/en/DeviceDoc/40001291H.pdf) to document the MSSP **7-bit slave-mode** setup, address matching, SSPBUF, ACK/NACK, receive/transmit events, SSPIF, CKP/clock stretching, SSPOV and WCOL. Explain which device controls the final ACK/NACK of a read.
 - Prepare flowcharts for slave initialization and servicing an I2C event. Include receive-address, receive-data, transmit-data, and error paths. Extend these flowcharts as new behavior is introduced.
@@ -417,9 +417,11 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 ### Suggested software organization (optional)
 
-One approach is to separate the slave software into **Level 1 (MSSP hardware events)**, **Level 2 (pointer and read/write transactions)**, and **Level 3 (PORTB, display, ADC)**. This is a suggested design, not a required file layout. A single PIC-AS source file or multiple `.S` modules are acceptable if the responsibilities are clear. Do not put executable routines in `.inc` files.
+One approach is to separate the **slave code** into **Level 1 (MSSP hardware events)**, **Level 2 (pointer and read/write transactions)**, and **Level 3 (PORTB, display, ADC)**. The **master code** can reuse your Part 2 I2C routines, with new application logic to send each test transaction and receive its results. This is a suggested design, not a required file layout. Each PIC project may use one PIC-AS `.S` file or multiple `.S` modules if responsibilities are clear. Do not put executable routines in `.inc` files.
 
 ### In the Lab
+
+**For every step, develop and test both sides of the I2C link:** the **master** must initiate the required transactions and process any returned data or status; the **slave** must recognize its address and handle the corresponding requests. Do not submit only the slave firmware or rely on an unchanged Part 2 master for the completed Part 3 assignment.
 
 **1. Verify the slave address.** Assemble the minimum slave circuit and connect it to the existing master SDA/SCL bus. Confirm the slave PIC is programmed and powered. Configure its MSSP for the **7-bit address `0x20`**.
 
@@ -430,7 +432,7 @@ START → 0x20 + W (0x40) → slave ACK → STOP
 START → other address + W → NACK → STOP
 ```
 
-**2. Test one received byte and one transmitted byte.** Extend the slave to accept a byte after its address. First write `0xA5` and check both slave ACKs. Next have the slave return a fixed byte `0x5A` to a master read. For the one-byte read, the **master** sends NACK after receiving the byte.
+**2. Test one received byte and one transmitted byte.** Extend the slave to accept a byte after its address and **modify the master to perform both tests**. First write `0xA5` and check both slave ACKs. Next have the slave return a fixed byte `0x5A` to a master read. For the one-byte read, the **master** sends NACK after receiving the byte.
 
 ```text
 Write test: START → 0x40 → ACK → 0xA5 → ACK → STOP
@@ -510,7 +512,7 @@ Measure the actual AN2 voltage with a DMM at **GND, approximately midpoint, and 
 
 ### Evidence
 
-Include the updated two-PIC and display schematics, relevant MSSP/GPIO/ADC SFR documentation, source files, and flowcharts. Provide labeled I2C captures or decode records for:
+Include the updated two-PIC and display schematics, relevant MSSP/GPIO/ADC SFR documentation, **complete PIC-AS source and MPLAB X projects for both the master and slave**, and flowcharts showing the master transaction sequences and slave behavior. Provide labeled I2C captures or decode records for:
 
 - Correct-address ACK and incorrect-address NACK; the initial single-byte write and fixed-byte read.
 - Pointer write followed by a separate read, with two different pointer values.
@@ -526,7 +528,7 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 ### Complete When
 
-The second PIC responds at its assigned address, supports the stated pointer map, reads RB5:RB0, updates the DLG7137, and returns valid two-byte ADC results. All captures, voltage comparisons, source, flowcharts, and checkoff evidence are complete.
+**Both master and slave firmware work together:** the master initiates each required transaction and handles the results; the slave responds at its assigned address, supports the stated pointer map, reads RB5:RB0, updates the DLG7137, and returns valid two-byte ADC results. All captures, voltage comparisons, source, flowcharts, and checkoff evidence are complete.
 
 > **Still being developed:** The generic UART-to-I2C bridge, simultaneous ADS1115/PIC operation, and deliberate communication-fault/recovery tests are planned follow-on work. They are **not requirements of this draft**.
 
