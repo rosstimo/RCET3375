@@ -137,7 +137,7 @@ t &= -\tau\ln\left(1-\frac{V(t)}{V_{\mathrm{DD}}}\right)
 ```
 
 <p align="center">
-  <img src="images/Lab10-I²C-Rise-Time.svg" alt="RC charging curve showing 30% and 70% crossings and rise time equal to 0.8473 times the RC time constant." width="75%">
+  <img src="images/Lab10-I2C-Rise-Time.svg" alt="RC charging curve showing 30% and 70% crossings and rise time equal to 0.8473 times the RC time constant." width="75%">
 </p>
 
 
@@ -265,7 +265,7 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 ### Suggested implementation (optional)
 
-The [three-level I²C software design guide](support/Lab10-I²C-Three-Level-Student-Guide.md) offers **one possible implementation** with flowcharts, pseudocode, and I²C transaction sequences. It is a reference, **not required program structure**. You may adapt it or develop your own implementation that meets the lab requirements; no particular routine layout or number of source files is required.
+The [three-level I²C software design guide](support/Lab10-I2C-Three-Level-Student-Guide.md) offers **one possible implementation** with flowcharts, pseudocode, and I²C transaction sequences. It is a reference, **not required program structure**. You may adapt it or develop your own implementation that meets the lab requirements; no particular routine layout or number of source files is required.
 
 ### In the Lab
 
