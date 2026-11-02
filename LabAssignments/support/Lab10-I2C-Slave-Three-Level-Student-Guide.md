@@ -113,23 +113,30 @@ The tested configuration does not enable general call or **receive-side** clock 
 
 ```mermaid
 flowchart TD
-    Begin([Begin I2CSlaveCheckEvent]) --> Reset["Set event = NONE"]
+    Begin(["Begin I2CSlaveCheckEvent"]) --> Reset["Set event = NONE"]
     Reset --> Pending{"New MSSP event?"}
-    Pending -->|No| Exit([Return])
-    Pending -->|Yes| Clear["Clear completion flag; inspect MSSP faults"]
-    Clear --> Fault{"Overflow or collision?"}
-    Fault -->|Yes| SaveFault["Save fault; event = FAULT"]
+
+    Pending -->|"No: SSPIF = 0"| Exit(["Return"])
+    Pending -->|"Yes: SSPIF = 1"| Clear["Clear SSPIF; inspect MSSP faults"]
+
+    Clear --> Fault{"Hardware fault?"}
+    Fault -->|"Yes: SSPOV = 1 or WCOL = 1"| SaveFault["Save error; event = FAULT"]
+    Fault -->|"No: SSPOV = 0 and WCOL = 0"| Buffer{"Received byte available?"}
+
+    Buffer -->|"Yes: BF = 1"| Read["Save flags; read SSPBUF into slave_byte"]
+    Buffer -->|"No: BF = 0"| Clock{"Master requests another byte?"}
+
+    Read --> Data{"Received data byte?"}
+    Data -->|"Yes: D/A = 1"| WriteData["Event = DATA_W"]
+    Data -->|"No: D/A = 0"| Direction{"Addressed for reading?"}
+
+    Direction -->|"Yes: R/W = 1"| ReadAddress["Event = ADDR_R"]
+    Direction -->|"No: R/W = 0"| WriteAddress["Event = ADDR_W"]
+
+    Clock -->|"Yes: CKP = 0"| Next["Event = TX_NEXT"]
+    Clock -->|"No: CKP = 1"| End["Event = TX_END"]
+
     SaveFault --> Exit
-    Fault -->|No| Buffer{"Received buffer contains a byte?"}
-    Buffer -->|Yes| Read["Save receive flags and take byte from buffer"]
-    Read --> Data{"Was it a data byte?"}
-    Data -->|Yes| WriteData["Event = DATA_W"]
-    Data -->|No| Direction{"Read address?"}
-    Direction -->|Yes| ReadAddress["Event = ADDR_R"]
-    Direction -->|No| WriteAddress["Event = ADDR_W"]
-    Buffer -->|No| Clock{"CKP indicates another byte requested?"}
-    Clock -->|Yes| Next["Event = TX_NEXT"]
-    Clock -->|No| End["Event = TX_END"]
     WriteData --> Exit
     ReadAddress --> Exit
     WriteAddress --> Exit
