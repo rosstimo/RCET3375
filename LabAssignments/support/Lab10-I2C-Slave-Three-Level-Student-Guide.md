@@ -220,10 +220,10 @@ Level 2 uses only Level 1 hardware routines. It interprets write bytes as a regi
 
 ```mermaid
 flowchart TD
-    Begin(["Begin SlaveProtocolInit"]) --> Hardware[[Call Level 1 I2CSlaveInit]]
-    Hardware --> State["Clear pointer, offset, and sticky fault"]
-    State --> Expect["Expect a register pointer on the next addressed write"]
-    Expect --> Exit(["Return"])
+    Begin([Begin SlaveProtocolInit]) --> Hardware[[Call Level 1 I2CSlaveInit]]
+    Hardware --> Clear["Clear pointer, offset, and sticky fault"]
+    Clear --> Expect["Expect the first write byte to select a pointer"]
+    Expect --> Exit([Return])
 ```
 
 ```text
@@ -240,24 +240,22 @@ Initialize the protocol.
 
 ```mermaid
 flowchart TD
-    Begin(["Begin SlaveProtocolService"]) --> Event[[Call Level 1 I2CSlaveCheckEvent]]
+    Begin([Begin SlaveProtocolService]) --> Event[[Call Level 1 I2CSlaveCheckEvent]]
     Event --> Kind{"Level 1 event?"}
-    Kind -->|"ADDR_W: slave_event = 1"| AddressWrite["Reset slave_offset; set slave_expect_pointer = 1"]
-    AddressWrite --> None["Set W = SLAVE_APP_NONE"]
-    Kind -->|"DATA_W: slave_event = 2"| Pointer{"Expecting a register pointer?"}
-    Pointer -->|"Yes: slave_expect_pointer != 0"| Select["Set slave_pointer = slave_byte; clear expectation and offset"]
-    Select --> None
-    Pointer -->|"No: slave_expect_pointer = 0"| Write["Set W = SLAVE_APP_WRITE_BYTE"]
-    Kind -->|"ADDR_R: slave_event = 3"| AddressRead["Reset slave_offset"]
-    AddressRead --> Read["Set W = SLAVE_APP_READ_BYTE"]
-    Kind -->|"TX_NEXT: slave_event = 4"| Limit{"Offset already 255?"}
-    Limit -->|"Yes: slave_offset = 0xFF"| Read
-    Limit -->|"No: slave_offset != 0xFF"| Advance["Increment slave_offset"]
+    Kind -->|NONE or TX_END| None["Return NONE"]
+    Kind -->|ADDR_W| Expect["Reset offset; expect a new pointer"]
+    Expect --> None
+    Kind -->|DATA_W| Pointer{"Expecting pointer?"}
+    Pointer -->|Yes| Select["Save received pointer; reset offset; return NONE"]
+    Pointer -->|No| Write["Return WRITE_BYTE"]
+    Kind -->|ADDR_R| Reset["Reset offset"]
+    Reset --> Read["Return READ_BYTE"]
+    Kind -->|TX_NEXT| Advance["Advance offset, maximum 255"]
     Advance --> Read
-    Kind -->|"FAULT: slave_event = 6"| Latch["OR slave_error into slave_fault_latch"]
-    Latch --> Fault["Set W = SLAVE_APP_FAULT"]
-    Kind -->|"NONE or TX_END: slave_event = 0 or 5"| None
-    None --> Exit(["Return"])
+    Kind -->|FAULT| Latch["Add hardware error to sticky fault"]
+    Latch --> Fault["Return FAULT"]
+    None --> Exit([Common return])
+    Select --> Exit
     Write --> Exit
     Read --> Exit
     Fault --> Exit
@@ -285,9 +283,9 @@ The selected pointer survives STOP. The byte offset stops increasing at `0xFF` i
 
 ```mermaid
 flowchart TD
-    Begin(["Begin SlaveProtocolWriteConsumed"]) --> Limit{"Offset already 255?"}
-    Limit -->|"Yes: slave_offset = 0xFF"| Exit(["Return"])
-    Limit -->|"No: slave_offset != 0xFF"| Advance["Increment slave_offset"]
+    Begin([Begin SlaveProtocolWriteConsumed]) --> Limit{"Offset already 255?"}
+    Limit -->|Yes| Exit([Return])
+    Limit -->|No| Advance["Increment offset"]
     Advance --> Exit
 ```
 
@@ -305,9 +303,9 @@ This is a **software completion notification**, not an ACK bit on the I²C bus. 
 
 ```mermaid
 flowchart TD
-    Begin(["Begin SlaveProtocolSupplyByte"]) --> Send[[Call Level 1 I2CSlaveSendByte]]
-    Send --> Latch["OR slave_error into slave_fault_latch"]
-    Latch --> Exit(["Return"])
+    Begin([Begin SlaveProtocolSupplyByte]) --> Send[[Call Level 1 I2CSlaveSendByte]]
+    Send --> Fault["OR immediate hardware error into sticky fault"]
+    Fault --> Exit([Return])
 ```
 
 ```text
