@@ -6,7 +6,7 @@
 
 PIC16F883 | pic-as | MSSP / I²C | UART | Multi-device communication
 
-> **Release status:** Part 1 is the current assignment. Part 2 is being developed and is not released. Parts 3–5 remain draft outlines.
+> **Release status:** Parts 1–3 are available. Parts 4–5 remain in development and are not released.
 
 ## Contents
 
@@ -398,8 +398,6 @@ The ADS1115 is correctly addressed and configured; the PIC repeatedly reads vali
 <a id="part-3"></a>
 ## Part 3 - PIC I²C Slave: Inputs, Display, and ADC
 
-> **Draft, not released:** The slave interface and first hardware tests are being verified. Do not begin Part 3 until these instructions are released.
-
 ### Goal
 
 Part 3 requires **two PIC16F883 programs: I²C master code and I²C slave code**, running on separate PICs. Develop the slave at **7-bit address `0x20`** and extend your Part 2 master code to test the slave, read its digital inputs, write display characters, and retrieve 10-bit ADC measurements. The slave uses a small **register-pointer interface** similar in concept to the ADS1115.
@@ -417,7 +415,7 @@ Follow the [Lab Standard](https://github.com/rosstimo/RCET3375/blob/main/LAB_STA
 
 ### Suggested software organization (optional)
 
-One approach is to separate the **slave code** into **Level 1 (MSSP hardware events)**, **Level 2 (pointer and read/write transactions)**, and **Level 3 (PORTB, display, ADC)**. The **master code** can reuse your Part 2 I²C routines, with new application logic to send each test transaction and receive its results. This is a suggested design, not a required file layout. Each PIC project may use one PIC-AS `.S` file or multiple `.S` modules if responsibilities are clear. Do not put executable routines in `.inc` files.
+One approach is to separate the **slave code** into **Level 1 (MSSP hardware events)**, **Level 2 (pointer and read/write transactions)**, and **Level 3 (PORTB, display, ADC)**. The [three-level I²C slave design guide](support/Lab10-I2C-Slave-Three-Level-Student-Guide.md) provides optional flowcharts, pseudocode, and transaction examples. The **master code** can reuse your Part 2 I²C routines, with new application logic to send each test transaction and receive its results. This is a suggested design, not a required file layout. Each PIC project may use one PIC-AS `.S` file or multiple `.S` modules if responsibilities are clear. Do not put executable routines in `.inc` files.
 
 ### In the Lab
 
@@ -436,7 +434,7 @@ START → other address + W → NACK → STOP
 
 ```text
 Write test: START → 0x40 → ACK → 0xA5 → ACK → STOP
-Read test:  START → 0x41 → ACK → 0x5A → PIC NACK → STOP
+Read test:  START → 0x41 → ACK → 0x5A → Master NACK → STOP
 ```
 
 Keep these tests small. Verify them on the oscilloscope before adding the register-pointer logic.
@@ -460,10 +458,10 @@ Add pointer `0x04` as a one-byte device-status register. **Include I²C-related 
 
 ```text
 Select PORTB: START → 0x40 → ACK → 0x00 → ACK → STOP
-Read PORTB:   START → 0x41 → ACK → switch byte → PIC NACK → STOP
+Read PORTB:   START → 0x41 → ACK → switch byte → Master NACK → STOP
 
 Select status: START → 0x40 → ACK → 0x04 → ACK → STOP
-Read status:   START → 0x41 → ACK → status byte → PIC NACK → STOP
+Read status:   START → 0x41 → ACK → status byte → Master NACK → STOP
 ```
 
 Change several DIP-switch patterns. Compare the actual switch positions, returned six-bit value, and oscilloscope decode. Keep the status read working as you add later features.
@@ -488,7 +486,7 @@ Pointer `0x02` returns a **consistent two-byte sample**: upper two ADC bits in t
 
 ```text
 Select ADC: START → 0x40 → ACK → 0x02 → ACK → STOP
-Read ADC:   START → 0x41 → ACK → ADC high → PIC ACK → ADC low → PIC NACK → STOP
+Read ADC:   START → 0x41 → ACK → ADC high → Master ACK → ADC low → Master NACK → STOP
 ```
 
 Combine the received bytes and estimate the input voltage using the measured supply voltage:
@@ -510,7 +508,7 @@ Include the updated two-PIC and display schematics, relevant MSSP/GPIO/ADC SFR d
 - Pointer write followed by a separate read, with two different pointer values.
 - PORTB read for multiple switch patterns and a status read, plus clock-stretching captures for each tested delay. Record measured SCL LOW times, returned data, and master success, timeout, or other observed behavior.
 - Display write containing pointer `0x01` and ASCII character, plus evidence of the visible character.
-- Two-byte ADC read, showing PIC ACK after the high byte and PIC NACK after the low byte, with measured-voltage comparisons at all three potentiometer settings.
+- Two-byte ADC read, showing Master ACK after the high byte and Master NACK after the low byte, with measured-voltage comparisons at all three potentiometer settings.
 
 Label the SDA/SCL channels, 7-bit slave address, transmitted address byte, START/STOP, data and ACK/NACK source. If you use a timer or any other diagnostic signals, document its pin and measured interval.
 
