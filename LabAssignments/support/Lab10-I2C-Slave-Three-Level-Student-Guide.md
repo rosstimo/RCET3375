@@ -2,9 +2,9 @@
 
 **Optional design example | PIC16F883 | Lab 10 Part 3**
 
-This guide suggests a way to organize a PIC16F883 **I²C slave**. It is not a required implementation. The [Lab 10 assignment](https://github.com/rosstimo/RCET3375/blob/main/LabAssignments/Lab10-I2C.md#part-3) defines the required behavior and evidence; you may organize your code differently if it meets those requirements.
+This guide suggests a way to organize a PIC16F883 **I²C slave**. It is not a required implementation. The [Lab 10 assignment](../Lab10-I2C.md) defines the required behavior and evidence; you may organize your code differently if it meets those requirements.
 
-The example is based on a tested **7-bit slave address of `0x20`** and an MSSP interface polled from the main loop. It focuses on the reusable I²C software, not a particular set of slave registers. It contains flowcharts and pseudocode, rather than complete PIC-AS routines. Keep any `.S` modules and application code organized as you prefer; a three-level design does not require three separate files.
+The example is based on a tested **7-bit slave address of `0x20`** and an MSSP interface polled from the main loop. It focuses on reusable I²C software. The required Part 3 register map is used only to illustrate the transactions later in this guide. It contains flowcharts and pseudocode, rather than complete PIC-AS routines. Keep any `.S` modules and application code organized as you prefer; a three-level design does not require three separate files.
 
 ## Contents
 
@@ -36,7 +36,7 @@ flowchart TD
 
 **Calls only point downward.** Level 2 does not call Level 3. Instead, it returns an action code, and Level 3 decides what to do next. That keeps the same Level 1 and Level 2 usable with different applications.
 
-In the diagrams, `[[Call ...]]` identifies a call to a lower-level routine. A diagram represents **one routine** with a single entry and one common return. Exact branch labels and implementation details remain your choice.
+In the diagrams, `[[Call ...]]` identifies a call to a lower-level routine. Each Level 1 and Level 2 routine diagram has a single entry and one common return. The Level 3 service-loop diagram runs continuously. Exact branch labels and implementation details remain your choice.
 
 ## Shared state and interface
 
@@ -348,17 +348,21 @@ Repeat forever:
 
 The separate read and write application routines are permitted to use other peripherals. They should not directly read or write the MSSP registers. For multi-byte application values, ensure both bytes belong to the same sample; Level 2 cannot provide that consistency on its own.
 
+The verification application exposes sticky MSSP faults through status pointer `0x04`. It does not automatically clear hardware faults or recover the bus, and it does not take a separate recovery action when Level 2 returns `SLAVE_APP_FAULT`.
+
 ## Bus transaction examples
 
-These examples assume a seven-bit slave address of `0x20`. The master sends address byte `0x40` for write and `0x41` for read. Sample register pointers such as `0x10` and `0x11` are generic, not defined application registers.
+These examples use the assigned Part 3 register map: `0x00` for PORTB switches, `0x01` for the ASCII display, `0x02` for the ADC, and `0x04` for device status. The seven-bit slave address is `0x20`, so the master sends address byte `0x40` for write and `0x41` for read. Level 3 interprets the pointers; Level 2 treats them as ordinary bytes.
 
 | Master transaction | What Level 2 does | Level 3 action |
 | --- | --- | --- |
 | `START, 0x40, ACK, STOP` | Recognize addressed write and expect pointer | None |
-| `START, 0x40, ACK, 0x10, ACK, STOP` | Save selected pointer `0x10` | None |
-| `START, 0x41, ACK, byte, NACK, STOP` | Reset offset, return `READ_BYTE`, then `NONE` | Supply byte for pointer `0x10`, offset 0 |
-| `START, 0x40, ACK, 0x11, ACK, 0x5A, ACK, STOP` | Save pointer `0x11`, return `WRITE_BYTE` for `0x5A` | Consume one write byte; notify Level 2 |
-| `START, 0x41, ACK, high, ACK, low, NACK, STOP` | Request offsets 0 and 1 | Supply two successive application bytes |
+| `START, 0x40, ACK, 0x00, ACK, STOP` | Save selected pointer `0x00` | None |
+| `START, 0x41, ACK, switches, NACK, STOP` | Reset offset, return `READ_BYTE`, then `NONE` | Return RB5:RB0 at pointer `0x00` |
+| `START, 0x40, ACK, 0x01, ACK, 0x41, ACK, STOP` | Select pointer `0x01`, then return `WRITE_BYTE` | Stage ASCII `0x41` (A); notify Level 2 that the payload was consumed |
+| `START, 0x40, ACK, 0x02, ACK, STOP` | Select pointer `0x02` | None |
+| `START, 0x41, ACK, high, ACK, low, NACK, STOP` | Request offsets 0 and 1 | Return a consistent ADC sample at pointer `0x02` |
+| `START, 0x40, ACK, 0x04, ACK, STOP`, then a one-byte read | Select pointer `0x04`, then request offset 0 | Return the device-status byte |
 
 The **master** controls the number of bytes read by choosing ACK after an intermediate byte and NACK after the final byte. A register pointer can be written in one transaction and read in a later transaction, even with STOP between them.
 
@@ -368,7 +372,7 @@ An unsupported pointer is an application decision. The slave hardware has usuall
 
 At nominal 100 kHz, a bus byte and its ACK/NACK occupy approximately 90 µs. With the example's **receive stretching disabled**, the foreground polling loop must retrieve a received byte before the next one arrives. A long application handler can cause an overflow; this interface is not a receive queue.
 
-During a **slave read**, the MSSP can hold SCL LOW until software supplies the next byte. The Part 3 experiment deliberately delays one application read to show this behavior and investigate the master's timeout. A master timeout is not proof that the slave has released the bus, and a master-side cleanup attempt cannot guarantee recovery from a slave that still holds a line LOW.
+During a **slave read**, the MSSP can hold SCL LOW until software supplies the next byte. The Part 3 clock-stretching experiment adds delays to the application PORTB read before supplying the byte. This demonstrates how long the slave holds SCL LOW and helps investigate the master's timeout. A master timeout is not proof that the slave has released the bus, and a master-side cleanup attempt cannot guarantee recovery from a slave that still holds a line LOW.
 
 The interface reports hardware faults and preserves sticky fault information. It does not automatically retry, send a STOP (only the master can generate STOP), clear every fault, or recover an electrically stuck bus. A later interrupt-driven design must preserve interrupted context, protect shared application data, and assign SSPIF handling to one owner. Do not enable receive clock stretching without testing an explicit clock-release path.
 
@@ -378,6 +382,6 @@ When implementing this design, verify correct and incorrect address responses, p
 
 - [PIC16F882/883/884/886/887 Data Sheet (Microchip)](https://ww1.microchip.com/downloads/en/DeviceDoc/40001291H.pdf), especially MSSP slave mode, `SSPCON`, `SSPSTAT`, `SSPBUF`, `SSPADD`, `SSPIF`, and `CKP`.
 - [PIC16F88X Silicon Errata (Microchip)](https://ww1.microchip.com/downloads/en/DeviceDoc/80000302J.pdf), especially the slave-transmit ACK/NACK behavior.
-- [RCET3375 Lab 10 assignment](https://github.com/rosstimo/RCET3375/blob/main/LabAssignments/Lab10-I2C.md), Part 3.
+- [RCET3375 Lab 10 assignment](../Lab10-I2C.md), Part 3.
 
 [Back to top](#lab-10-three-level-ic-slave-software-design)
