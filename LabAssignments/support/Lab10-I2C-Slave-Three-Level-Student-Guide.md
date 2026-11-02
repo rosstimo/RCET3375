@@ -368,15 +368,17 @@ These examples use the assigned Part 3 register map: `0x00` for PORTB switches, 
 
 | Master transaction | What Level 2 does | Level 3 action |
 | --- | --- | --- |
-| `START, 0x40, ACK, STOP` | Recognize addressed write and expect pointer | None |
-| `START, 0x40, ACK, 0x00, ACK, STOP` | Save selected pointer `0x00` | None |
-| `START, 0x41, ACK, switches, NACK, STOP` | Reset offset, return `READ_BYTE`, then `NONE` | Return RB5:RB0 at pointer `0x00` |
-| `START, 0x40, ACK, 0x01, ACK, 0x41, ACK, STOP` | Select pointer `0x01`, then return `WRITE_BYTE` | Stage ASCII `0x41` (A); notify Level 2 that the payload was consumed |
-| `START, 0x40, ACK, 0x02, ACK, STOP` | Select pointer `0x02` | None |
-| `START, 0x41, ACK, high, ACK, low, NACK, STOP` | Request offsets 0 and 1 | Return a consistent ADC sample at pointer `0x02` |
-| `START, 0x40, ACK, 0x04, ACK, STOP`, then a one-byte read | Select pointer `0x04`, then request offset 0 | Return the device-status byte |
+| `START → 0x40 → Slave ACK → STOP` | Recognize addressed write and expect pointer | None |
+| `START → 0x40 → Slave ACK → 0x00 → Slave ACK → STOP` | Save selected pointer `0x00` | None |
+| `START → 0x41 → Slave ACK → switches → Master NACK → STOP` | Reset offset, return `READ_BYTE`, then `NONE` | Return RB5:RB0 at pointer `0x00` |
+| `START → 0x40 → Slave ACK → 0x01 → Slave ACK → 0x41 → Slave ACK → STOP` | Select pointer `0x01`, then return `WRITE_BYTE` | Stage ASCII `0x41` (A); notify Level 2 that the payload was consumed |
+| `START → 0x40 → Slave ACK → 0x02 → Slave ACK → STOP` | Select pointer `0x02` | None |
+| `START → 0x41 → Slave ACK → high → Master ACK → low → Master NACK → STOP` | Request offsets 0 and 1 | Return a consistent ADC sample at pointer `0x02` |
+| Select: `START → 0x40 → Slave ACK → 0x04 → Slave ACK → STOP`; read: `START → 0x41 → Slave ACK → status → Master NACK → STOP` | Select pointer `0x04`, then request offset 0 | Return the device-status byte |
 
-The **master** controls the number of bytes read by choosing ACK after an intermediate byte and NACK after the final byte. A register pointer can be written in one transaction and read in a later transaction, even with STOP between them.
+The **slave** ACKs matching addresses and received write bytes. During reads, the **master** ACKs intermediate data bytes and NACKs the final byte. A register pointer can be written in one transaction and read in a later transaction, even with STOP between them.
+
+The value `0x41` has two different roles in these examples: immediately after START it is the read-address byte for slave `0x20`, but after display pointer `0x01` it is the ASCII data byte for **A**.
 
 An unsupported pointer is an application decision. The slave hardware has usually **already ACKed** the address or received data by the time the program sees an event; software cannot retroactively NACK an unsupported register.
 
