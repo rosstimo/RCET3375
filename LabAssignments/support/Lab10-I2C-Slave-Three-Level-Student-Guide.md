@@ -87,12 +87,12 @@ Level 1 is the only layer that directly operates MSSP registers and flags. In th
 
 ```mermaid
 flowchart TD
-    Begin(["Begin I2CSlaveInit"]) --> Pins["Configure bus pins as digital inputs: ANSEL = 0, ANSELH = 0; TRISC3 = 1, TRISC4 = 1"]
-    Pins --> Reset["Reset MSSP: SSPCON = 0, SSPSTAT = 0, SSPCON2 = 0"]
-    Reset --> Address["Load shifted 7-bit address: SSPADD = 0x40 (address 0x20)"]
-    Address --> State["Clear SSPIF and stored slave_byte, slave_event, slave_error, slave_flags"]
-    State --> Enable["Enable 7-bit slave and release SCL: SSPCON = 0x36 (SSPEN = 1, CKP = 1)"]
-    Enable --> Exit(["Return"])
+    Begin([Begin I2CSlaveInit]) --> Pins["Configure SDA and SCL as digital inputs"]
+    Pins --> Clear["Disable and reset MSSP configuration"]
+    Clear --> Address["Load the shifted seven-bit slave address"]
+    Address --> Status["Clear pending flag and stored event/error state"]
+    Status --> Enable["Enable seven-bit MSSP slave mode"]
+    Enable --> Exit([Return])
 ```
 
 ```text
