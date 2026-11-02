@@ -4,7 +4,7 @@
 
 This guide suggests a way to organize a PIC16F883 **I²C slave**. It is not a required implementation. The [Lab 10 assignment](../Lab10-I2C.md) defines the required behavior and evidence; you may organize your code differently if it meets those requirements.
 
-The example is based on a tested **7-bit slave address of `0x20`** and an MSSP interface polled from the main loop. It focuses on reusable I²C software. The required Part 3 register map is used only to illustrate the transactions later in this guide. It contains flowcharts and pseudocode, rather than complete PIC-AS routines. Keep any `.S` modules and application code organized as you prefer; a three-level design does not require three separate files.
+The example uses a **7-bit slave address of `0x20`** and an MSSP interface polled from the main loop. It focuses on reusable I²C software. The required Part 3 register map is used only to illustrate the transactions later in this guide. It contains flowcharts and pseudocode, rather than complete PIC-AS routines. Keep any `.S` modules and application code organized as you prefer; a three-level design does not require three separate files.
 
 ## Contents
 
@@ -40,7 +40,7 @@ In the diagrams, `[[Call ...]]` identifies a call to a lower-level routine. Each
 
 ## Shared state and interface
 
-These names illustrate the verified design, not a required RAM map.
+These names illustrate one possible design, not a required RAM map.
 
 | State | Written by | Read by | Meaning |
 | --- | --- | --- | --- |
@@ -99,13 +99,13 @@ flowchart TD
 Initialize the I²C slave.
     Configure the bus pins as digital inputs.
     Reset the peripheral configuration.
-    Configure the slave address and normal clock release.
+    Configure the slave address and enable receive clock stretching.
     Clear pending event and error state.
     Enable the peripheral.
     Return.
 ```
 
-The tested configuration does not enable general call or **receive-side** clock stretching. The application can later enable a specific analog pin without changing Level 1's bus responsibilities.
+Leave general-call reception disabled. Enable receive clock stretching with `SSPCON2.SEN = 1`; Level 1 must release SCL (`CKP = 1`) after retrieving an address-write or data-write byte. For a read address, keep SCL LOW until the transmit byte is loaded. The application can later enable a specific analog pin without changing Level 1's bus responsibilities.
 
 ### Check one event: `I2CSlaveCheckEvent`
 
@@ -136,10 +136,12 @@ flowchart TD
     Clock -->|"Yes: CKP = 0"| Next["Event = TX_NEXT"]
     Clock -->|"No: CKP = 1"| End["Event = TX_END"]
 
-    SaveFault --> Exit
-    WriteData --> Exit
+    SaveFault --> FaultRelease["Drain BF; clear SSPOV/WCOL; release SCL (CKP = 1)"]
+    FaultRelease --> Exit
+    WriteData --> ReceiveRelease["Release received-byte stretch (CKP = 1)"]
     ReadAddress --> Exit
-    WriteAddress --> Exit
+    WriteAddress --> ReceiveRelease
+    ReceiveRelease --> Exit
     Next --> Exit
     End --> Exit
 ```
@@ -149,16 +151,19 @@ Check for an I²C event.
     Start with event NONE.
     If no new event is pending, return.
     Clear the event notification.
-    If the peripheral reports a fault, capture it and report FAULT.
+    If the peripheral reports a fault:
+        Capture the error, discard any unread byte, clear hardware fault flags, and release SCL.
+        Report FAULT; the interrupted transaction is invalid.
     Otherwise, if a received byte is available:
         Save its flags and remove it from the buffer.
         Classify it as address-write, address-read, or data-write.
+        Release SCL for received writes; keep a read address stretched until a byte is supplied.
     Otherwise, classify the completed slave transmission:
         Master ACK requests another byte; master NACK ends the read.
     Return.
 ```
 
-On a **receive** event, reading `SSPBUF` clears its buffer-full indication. On a transmit-completion event, do not read it as though another byte had arrived. The PIC16F88X slave-transmit erratum makes the `CKP` state important when distinguishing a master's ACK from NACK.
+On a **receive** event, reading `SSPBUF` clears its buffer-full indication. Level 1 then releases SCL for incoming writes so the master can continue. On a transmit-completion event, do not read `SSPBUF` as though another byte had arrived. The PIC16F88X slave-transmit erratum makes `CKP` important when distinguishing a master's ACK from NACK.
 
 ### Supply a byte: `I2CSlaveSendByte`
 
@@ -168,7 +173,7 @@ On a **receive** event, reading `SSPBUF` clears its buffer-full indication. On a
 flowchart TD
     Begin(["Begin I2CSlaveSendByte"]) --> Load["Write caller's byte in W to SSPBUF"]
     Load --> Collision{"Write collision?"}
-    Collision -->|"Yes: WCOL = 1"| Fault["Record collision: slave_error = 0x80"]
+    Collision -->|"Yes: WCOL = 1"| Fault["Save slave_error = 0x80; clear WCOL; release SCL"]
     Collision -->|"No: WCOL = 0"| Release["Release SCL: CKP = 1"]
     Fault --> Exit(["Return"])
     Release --> Exit
@@ -177,7 +182,7 @@ flowchart TD
 ```text
 Supply one byte for the master to read.
     Place the caller's byte in the transmit buffer.
-    If the write collided with an active transfer, record a fault.
+    If the write collided with an active transfer, record the error, clear WCOL, and release SCL; the failed byte is invalid.
     Otherwise release the clock so transmission can continue.
     Return.
 ```
@@ -186,7 +191,7 @@ Do not queue another byte after `SLAVE_TX_END`. The master provides the read ACK
 
 ### Clear hardware faults: `I2CSlaveClearFaults`
 
-**Purpose:** Clear the MSSP's receive-overflow and write-collision indicators after an explicit recovery decision. This routine does not retry a transaction.
+**Purpose:** Manually clear any remaining receive-overflow and write-collision indicators. This routine does not retry a transaction or release SCL; the normal Level 1 event-fault path already attempts both fault cleanup and clock release.
 
 ```mermaid
 flowchart TD
@@ -206,7 +211,7 @@ Clear the recorded hardware fault condition.
     Return.
 ```
 
-Clearing flags alone is not proof that the bus has recovered. For example, a slave stuck holding SCL low may need a separate, verified recovery procedure.
+Clearing flags does not repair a disrupted transaction. Even when Level 1 releases SCL, the master may still need to abandon or retry the transfer. The separate clear-fault routine does not itself release SCL.
 
 [Back to top](#lab-10-three-level-ic-slave-software-design)
 
@@ -295,7 +300,7 @@ After the application consumes a received payload byte:
     Return.
 ```
 
-This is a **software completion notification**, not an ACK bit on the I²C bus. With receive stretching disabled in the tested Level 1, this routine does not hold or release SCL.
+This is a **software completion notification**, not an ACK bit on the I²C bus. Level 1 releases receive-side stretching when it retrieves a byte; this Level 2 routine does not hold or release SCL.
 
 ### Supply a read byte: `SlaveProtocolSupplyByte`
 
@@ -355,7 +360,7 @@ Repeat forever:
 
 The separate read and write application routines are permitted to use other peripherals. They should not directly read or write the MSSP registers. For multi-byte application values, ensure both bytes belong to the same sample; Level 2 cannot provide that consistency on its own.
 
-The verification application exposes sticky MSSP faults through status pointer `0x04`. It does not automatically clear hardware faults or recover the bus, and it does not take a separate recovery action when Level 2 returns `SLAVE_APP_FAULT`.
+The example application exposes sticky MSSP faults through status pointer `0x04`. Level 1 attempts hardware fault cleanup and SCL release, but Level 3 does not automatically retry a failed transaction when Level 2 returns `SLAVE_APP_FAULT`.
 
 ## Bus transaction examples
 
@@ -377,13 +382,11 @@ An unsupported pointer is an application decision. The slave hardware has usuall
 
 ## Clock stretching and fault boundaries
 
-At nominal 100 kHz, a bus byte and its ACK/NACK occupy approximately 90 µs. With the example's **receive stretching disabled**, the foreground polling loop must retrieve a received byte before the next one arrives. A long application handler can cause an overflow; this interface is not a receive queue.
+At nominal 100 kHz, a bus byte and its ACK/NACK occupy approximately 90 µs without stretching. With `SSPCON2.SEN = 1`, the slave can hold SCL LOW after receiving a byte while Level 1 waits to retrieve it. Level 1 reads `SSPBUF`, then releases SCL for writes. **This does not wait for Level 3 to finish processing the byte.** The design still handles only one event at a time; it is not a receive queue.
 
 During a **slave read**, the MSSP can hold SCL LOW until software supplies the next byte. The Part 3 clock-stretching experiment adds delays to the application PORTB read before supplying the byte. This demonstrates how long the slave holds SCL LOW and helps investigate the master's timeout. A master timeout is not proof that the slave has released the bus, and a master-side cleanup attempt cannot guarantee recovery from a slave that still holds a line LOW.
 
-The interface reports hardware faults and preserves sticky fault information. It does not automatically retry, send a STOP (only the master can generate STOP), clear every fault, or recover an electrically stuck bus. A later interrupt-driven design must preserve interrupted context, protect shared application data, and assign SSPIF handling to one owner. Do not enable receive clock stretching without testing an explicit clock-release path.
-
-When implementing this design, verify correct and incorrect address responses, pointer persistence, a one-byte read ending in NACK, multiple read bytes ending in NACK, a payload write, and normal status reporting with a logic analyzer or oscilloscope. Use the lab assignment for the required applications, measurements, and demonstration conditions.
+The interface reports hardware faults and preserves sticky fault information. Level 1 attempts to clear SSPOV/WCOL and release SCL after a fault, but it cannot guarantee recovery of the failed transaction or an electrically stuck bus. It does not automatically retry or generate STOP (only the master can generate STOP). A later interrupt-driven design must preserve interrupted context, protect shared application data, and assign SSPIF handling to one owner.
 
 ## References
 
