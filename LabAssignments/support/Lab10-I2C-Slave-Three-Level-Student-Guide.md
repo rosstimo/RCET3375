@@ -87,12 +87,12 @@ Level 1 is the only layer that directly operates MSSP registers and flags. In th
 
 ```mermaid
 flowchart TD
-    Begin([Begin I2CSlaveInit]) --> Pins["Configure SDA and SCL as digital inputs"]
-    Pins --> Clear["Disable and reset MSSP configuration"]
-    Clear --> Address["Load the shifted seven-bit slave address"]
-    Address --> Status["Clear pending flag and stored event/error state"]
-    Status --> Enable["Enable seven-bit MSSP slave mode"]
-    Enable --> Exit([Return])
+    Begin(["Begin I2CSlaveInit"]) --> Pins["Configure bus pins as digital inputs: ANSEL = 0, ANSELH = 0; TRISC3 = 1, TRISC4 = 1"]
+    Pins --> Reset["Reset MSSP: SSPCON = 0, SSPSTAT = 0, SSPCON2 = 0"]
+    Reset --> Address["Load shifted 7-bit address: SSPADD = 0x40 (address 0x20)"]
+    Address --> State["Clear SSPIF and stored slave_byte, slave_event, slave_error, slave_flags"]
+    State --> Enable["Enable 7-bit slave and release SCL: SSPCON = 0x36 (SSPEN = 1, CKP = 1)"]
+    Enable --> Exit(["Return"])
 ```
 
 ```text
@@ -166,11 +166,11 @@ On a **receive** event, reading `SSPBUF` clears its buffer-full indication. On a
 
 ```mermaid
 flowchart TD
-    Begin([Begin I2CSlaveSendByte]) --> Load["Load caller's byte into transmit buffer"]
+    Begin(["Begin I2CSlaveSendByte"]) --> Load["Write caller's byte in W to SSPBUF"]
     Load --> Collision{"Write collision?"}
-    Collision -->|Yes| Fault["Record WCOL error"]
-    Collision -->|No| Release["Release SCL so the master can read"]
-    Fault --> Exit([Return])
+    Collision -->|"Yes: WCOL = 1"| Fault["Record collision: slave_error = 0x80"]
+    Collision -->|"No: WCOL = 0"| Release["Release SCL: CKP = 1"]
+    Fault --> Exit(["Return"])
     Release --> Exit
 ```
 
@@ -190,12 +190,12 @@ Do not queue another byte after `SLAVE_TX_END`. The master provides the read ACK
 
 ```mermaid
 flowchart TD
-    Begin([Begin I2CSlaveClearFaults]) --> Full{"Unread receive byte?"}
-    Full -->|Yes| Drain["Discard stale byte"]
-    Full -->|No| Clear["Clear overflow and collision flags"]
+    Begin(["Begin I2CSlaveClearFaults"]) --> Full{"Unread receive byte?"}
+    Full -->|"Yes: BF = 1"| Drain["Read SSPBUF and discard stale byte"]
+    Full -->|"No: BF = 0"| Clear["Clear hardware errors: SSPOV = 0, WCOL = 0"]
     Drain --> Clear
-    Clear --> Saved["Clear saved immediate error"]
-    Saved --> Exit([Return])
+    Clear --> Saved["Clear immediate stored error: slave_error = 0"]
+    Saved --> Exit(["Return"])
 ```
 
 ```text
