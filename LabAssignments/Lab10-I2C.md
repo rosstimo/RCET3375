@@ -527,31 +527,153 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 <a id="part-4"></a>
 ## Part 4 - UART-to-I²C System Integration
 
-> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
+> **Review draft, not yet released:** Part 4 is ready for instructor review. Do not begin until the release notice at the top of this assignment is updated.
 
 ### Goal
 
-Introduce UART communication on the master PIC and build a UART-to-I²C bridge between the PC and the I²C bus. Extend that bridge into the host GUI and multi-device communication system. The master communicates with both the external sensor and the PIC slave; the PIC slave provides an ADC channel and one servo.
+Make the master PIC a general-purpose **PC/UART-to-I²C bridge**. Use the host application to identify and communicate with both the **ADS1115** from Part 2 and the **PIC16F883 slave at address `0x20`** from Part 3. Extend the slave with **one servo**, display both ADC measurements and the servo control in the GUI, and record measurements and communication errors.
+
+Part 4 requires **three working programs**: master PIC firmware, slave PIC firmware, and a PC host application. Reuse your tested Part 2/3 I²C routines and the UART/servo concepts from [Lab 08 Part 4](Lab08-UART.md#part-4). Implement and check one feature at a time.
+
+**Transaction scope:** One 100 kHz I²C master, ordinary **7-bit addresses `0x08` through `0x77`**, and one host request at a time. Use separate STOP-terminated writes and reads. **Repeated START, 10-bit addresses, general call, and multi-master operation are not required for Part 4.** The host must be able to test another standard 7-bit device without adding device-specific code to the master PIC, provided the device supports these transactions.
+
+### Hardware and software boundaries
+
+- **Master PIC:** Keep the 4 MHz crystal, PICkit, RC3/SCL, RC4/SDA, and existing I²C routines. Add the Lab 08 UART interface at **9600 baud, 8 data bits, no parity, 1 stop bit**, using a MAX232 or equivalent with correct RS-232/TTL level conversion. Keep a diagnostic signal to show when an I²C transaction is active.
+- **I²C bus:** Connect both the ADS1115 module and Part 3 PIC slave, with common ground and appropriate SDA/SCL pull-ups. Identify **each device's actual 7-bit address**. Check the ADS1115 module's power and logic-voltage limits before connecting the 5 V PIC; account for pull-ups already on breakouts and use level shifting if necessary.
+- **Slave PIC:** Retain the Part 3 register-pointer interface, switches, display, status, and AN2 ADC. Add one servo with a stable 20 ms frame. Provide suitable servo power and common ground; do not power a servo from a PIC output pin.
+- **Pin and timer conflicts:** Part 3 uses **RC2 for a DLG7137 data bit**, whereas the PIC16F883 **CCP1 output is RC2**. If using CCP1 for servo timing, move that display connection to a suitable output and update its software mapping; do not drive the same pin with both functions. Part 3 also uses Timer1 for periodic ADC sampling, while the Lab 07/08 servo implementation uses Timer1 for its 20 ms timing. Reassign or derive the ADC sampling schedule so neither function interferes with the other. Document the resulting pin and timer ownership.
+- **Program organization:** Maintain separate MPLAB X projects for the master and slave. Separate peripheral operations, complete I²C transactions, and application/GUI behavior clearly. One or multiple PIC-AS `.S` files are acceptable; executable routines do not belong in `.inc` files.
 
 ### Before Lab
 
-Begin with the working Part 3 master and slave I²C projects. Prepare UART command/response definitions for the PC-to-master-to-I²C bridge, plus the PIC-slave application packet definitions, integration flowcharts, system schematic, log layouts and failure-test plan. Reuse the ADC and servo behavior from Lab 08 Part 4.
+Prepare or reference the [Lab Standard](../LAB_STANDARD.md) documents, then add:
+
+1. A **complete system schematic** showing the PC serial interface, MAX232, master PIC, both I²C slaves, each power supply, pull-ups and logic levels, slave display, switches, AN2 sensor, and servo. Identify the changed slave display wiring and every reused or reassigned timer/pin.
+2. Master and slave **flowcharts**: UART frame reception and reply, command validation, I²C request/result handling, slave register write/read, servo target validation and next-frame update, and timeout/error paths. Document relevant EUSART, MSSP, GPIO, ADC, Timer1/CCP1 (or your selected servo timing) registers.
+3. A **host packet table**, including command, request length, payload bytes, successful response, and failure response. Use the protocol below or demonstrate an equivalent compatible packet contract.
+4. A GUI sketch with **port identification**, both sensor readings, servo slider, device status, raw I²C test controls, transaction history, and connection/error indications. Plan how only one outstanding serial request will be handled at a time.
+5. A data/error logging plan with filenames, field names, units, timestamps, file-rotation rules, and a test for forced communication loss and reconnection. State how you will verify hourly and 24-hour file rotation without waiting an entire day.
+
+### UART bridge packet contract
+
+Keep the Lab 08 framing. Every complete frame is:
+
+```text
+0x24  COMMAND  PAYLOAD_LENGTH  [PAYLOAD BYTES...]
+```
+
+The UART payload is limited to **24 bytes**. Use the following commands in the master and GUI. Hexadecimal examples below are **raw bytes**, not ASCII text representing hex values.
+
+| Command | Request payload | Successful response | Requirement |
+| --- | --- | --- | --- |
+| `I` (`0x49`) | Empty | `24 49 02 33 75` | Recognize the bridge before issuing device commands |
+| `P` (`0x50`) | `AA` | `24 50 01 00` | Probe address `AA`; return the I²C status |
+| `W` (`0x57`) | `AA DATA...` | `24 57 01 00` | Write **1–23 data bytes** after the address |
+| `R` (`0x52`) | `AA NN` | `24 52 (NN+1) 00 DATA...` | Read **1–23 bytes**, return status followed by data |
+| `E` (`0x45`) | Response only | `24 45 01 EE` | Report an invalid application request |
+
+`AA` is the **7-bit slave address**, not the transmitted address/R-W byte. `NN` is the requested read count. The status byte for `P`, `W`, and `R` is:
+
+| I²C status | Meaning |
+| --- | --- |
+| `00` | Transaction successful |
+| `01` | Address or data NACK |
+| `02` | Timeout |
+| `03` | Bus not idle / bus LOW |
+| `04` | SCL held LOW |
+
+For `R`, an unsuccessful transaction returns **`24 52 01 SS`** with **no data bytes**. Application error `EE` uses `01` for wrong length or count, `02` for unknown command, and `03` for an address outside `0x08..0x77`. Reject invalid requests before starting I²C activity. A NACK is an I²C result, not an application-format error.
+
+**The master must not interpret register addresses or sensor values.** `W` sends the supplied data exactly as given. `R` reads from the device's currently selected register/state; it does not send a register pointer. The host may issue a separate pointer `W` followed by `R` when the slave preserves its pointer across STOP.
+
+Examples using the PIC slave at `0x20`:
+
+| Task | Host TX | Expected response |
+| --- | --- | --- |
+| Identify bridge | `24 49 00` | `24 49 02 33 75` |
+| Probe PIC slave | `24 50 01 20` | `24 50 01 00` |
+| Display ASCII A (pointer `0x01`) | `24 57 03 20 01 41` | `24 57 01 00` |
+| Select slave ADC pointer `0x02` | `24 57 02 20 02` | `24 57 01 00` |
+| Read the slave ADC's two bytes | `24 52 02 20 02` | `24 52 03 00 HH LL` |
+| Reject a zero-byte read | `24 52 02 20 00` | `24 45 01 01` |
+
+The `HH LL` bytes are measurements, not fixed values. Choose the ADS1115 address from your **actual Part 2 probe results** rather than assuming an address printed on a breakout.
+
+### Slave servo extension
+
+Keep the existing Part 3 register pointers. Add **`0x05` for a two-byte servo target**, high byte then low byte. For the Lab 07/08 Timer1/CCP1 implementation, the value is the **absolute CCP1 compare value** used in [Lab 08 Part 4](Lab08-UART.md#part-4).
+
+| Slave pointer | Function | Direction | Data |
+| --- | --- | --- | --- |
+| `0x00` | PORTB switches | Read | One byte, RB5:RB0 |
+| `0x01` | DLG7137 | Write | One printable 7-bit ASCII byte |
+| `0x02` | AN2 ADC | Read | Consistent high byte, then low byte |
+| `0x04` | Slave/application status | Read | Existing I²C faults plus any new servo/application fault indication |
+| `0x05` | Servo target | Write | Two bytes, compare high then low |
+
+Using a 4 MHz oscillator, Timer1 with 1 µs ticks and a 20 ms frame starting at `0xB1E0`, the required servo range is:
+
+| Servo position | HIGH pulse | Absolute CCP1 match |
+| --- | ---: | --- |
+| 0° | 500 µs | `0xB3D4` |
+| 90° | 1500 µs | `0xB7BC` |
+| 180° | 2500 µs | `0xBBA4` |
+
+The GUI maps a **0°–180° slider in 1° increments** to the corresponding 500–2500 µs pulse width and absolute compare value. For example, a centered 1500 µs command to slave `0x20` is a raw I²C write of pointer `0x05` plus the two compare bytes:
+
+```text
+Host request:  24 57 04 20 05 B7 BC
+Bridge reply:  24 57 01 00
+```
+
+The I²C success reply reports that the bytes were acknowledged; **it does not prove the servo accepted the target**. The slave must validate the full two-byte value, reject values outside the allowed range without changing the last accepted target, and make application acceptance/failure observable through the status register. Do not apply a half-received target.
+
+Start at **1500 µs**. Store a valid new target for the **next** 20 ms frame; never change the pulse in progress. Keep I²C service responsive while the servo runs. Avoid blocking delays, prolonged interrupt masking, and work in an I²C event path that could disrupt servo timing.
 
 ### In the Lab
 
-First implement and verify a basic UART-to-I²C bridge: the PC sends a command over UART, the master performs the corresponding I²C transaction, and the master returns the data or transaction result over UART. Then integrate sensor polling, slave ADC measurements, servo commands, GUI controls, device status, and error handling. Record sensor readings with year/month/day/hour/minute/second timestamps in files rotated hourly. Keep a separate timestamped UART/I²C error log with new files every 24 hours. Log each serial disconnect and verified reconnect once per transition. Verify recovery and servo timing during ongoing communication.
+**1. Bring up the UART bridge.** Add UART to the Part 3 master and confirm the `I` identity response from the host. Test `P` at the PIC slave's address and at an unoccupied address. Capture START, address, ACK or NACK, and STOP on SDA/SCL. Document the master’s UART TX/RX connections and diagnostics.
+
+**2. Implement generic writes, reads, and errors.** Make `W` and `R` operate through your reusable I²C transaction routines, using bounded buffers. From the host, write two different characters to the slave display; read PORTB while changing a DIP switch; select and read the two-byte AN2 ADC at GND, midpoint, and VDD settings. Compare returned values with actual switches and measured voltage. Test an unoccupied-address NACK, a zero-byte read, an address-only write, and a 24-byte read request that must be rejected. Test the **accepted maximum of 23 read data bytes and 23 written data bytes**. Verify the last write data byte actually reaches the slave. Show an invalid request causes no I²C bus traffic. Preserve all previously working `I` and `P` responses.
+
+**3. Bring both I²C slaves online.** Attach the ADS1115 and PIC slave to the bus together. Probe each at its confirmed address. From the host, read the ADS1115 Config register, apply your Part 2 continuous-conversion setup, and read its Conversion register using separate pointer `W` and `R` commands. Move the ADS1115 potentiometer through its range and check measured volts against its configured full-scale range. Then read the PIC slave AN2 ADC and PORTB without reprogramming the master. Keep both devices responding; a missing device must not prevent access to the other. Compare sensor-reading intervals with your Part 2 ALERT/RDY observations.
+
+**4. Add and verify the slave servo.** Resolve the RC2/display pin conflict and ADC/servo timer conflict. Keep all Part 3 registers working. Verify the 500, 1500, and 2500 µs pulse widths and approximately 20 ms frame on the oscilloscope **before connecting the servo motor**. Send valid servo targets over host UART → master I²C → slave pointer `0x05`; read the slave status to confirm acceptance. Send one compare value below the minimum and one above the maximum and show the previous valid pulse remains unchanged. Confirm a new valid command takes effect at a later frame boundary.
+
+**5. Extend the host GUI.** Reuse your Lab 08 serial host application or build an equivalent. The GUI must:
+
+- Automatically search available serial ports at **9600 8N1**, accept only the exact `I` reply, and show the verified port and connection state. Do not send I²C commands to an unidentified port.
+- Offer raw **probe, write, and read controls** for any supported 7-bit address, with data entered/displayed as hexadecimal bytes. Display exact TX/RX frames, decoded result, and timestamp in a scrollable history.
+- Poll and display **both ADC channels at approximately 1-second intervals** (ADS1115 AIN0 and slave AN2), using the correct conversion/scaling for each device and measured references. Display useful status from the PIC slave.
+- Show a 0°–180° servo slider, initially **90°**. Send the centered command **once after first identification at program startup**. Thereafter send a servo command only when the slider changes; do not automatically resend on reconnect.
+- Reassemble frames when UART reads arrive in fragments. Keep **one request awaiting a response at a time**, enforce a documented response timeout, and keep the GUI responsive while polling, logging, or reconnecting.
+
+**6. Add data and error logging.** Use timestamps containing **year, month, day, hour, minute, and second**, with a stated local/UTC time basis. Create **one sensor-data file for each hour**, rotating at the hour boundary, with timestamps, both device addresses, raw ADC codes, calculated engineering units, and any validity/status flags. Maintain a **separate UART/I²C error log**, rotating to a new file every **24 hours**, with timestamp, device/port, request context, error code, and recovery result. Record each verified disconnect and reconnect **once per transition**, not repeatedly on every failed poll. Demonstrate both rotations using a controlled test clock or time-boundary simulation rather than changing the computer's system clock.
+
+**7. Test failures and simultaneous operation.** While the GUI polls both sensors and the servo operates, temporarily make one I²C slave unavailable using a safe power-off/disconnect procedure. Verify the other device remains accessible and that the host records the NACK or timeout and recovery. Disconnect the host USB-RS-232 adapter, confirm **COM ERR** or equivalent disconnected state and unavailable measurements, and automatically rediscover/verify the bridge after reconnecting (attempt about once per second). Do not queue device commands while disconnected. Include a second unrelated serial port in the discovery test. Record each transition once and avoid duplicate logs. Restore normal operation and verify a fresh reading from each device.
+
+**8. Verify operation under load.** Run repeated host sensor requests while changing the servo position. Observe the servo output and SDA/SCL with the oscilloscope. Confirm the servo stays within the specified pulse and 20 ms frame limits, that both devices continue responding, and that failures are surfaced rather than silently reported as valid sensor values.
 
 ### Evidence
 
-Provide the final firmware and GUI, packet definitions, schematics, scope captures, sensor and error log samples, file-rotation evidence, and disconnect/reconnect tests.
+Submit the following, with the [Lab Standard](../LAB_STANDARD.md) records and diagrams:
+
+- Updated **master and slave PIC-AS projects** and **host GUI source/project**, with build instructions and documented UART/I²C packet format and error meanings.
+- Complete system schematic, pull-up and voltage compatibility checks, changed display/servo pinout, timer ownership, relevant SFR maps, and master/slave/GUI flowcharts.
+- Host **TX/RX records** for the bridge identity, two device probes, display writes, switch reads, PIC ADC at three input settings, ADS1115 Config and Conversion reads, and successful/failed maximum-length transactions.
+- Labeled scope captures of both devices' I²C activity, 23-byte read/write boundaries, a rejected malformed command without bus activity, and servo pulse timing before/after a command and during ongoing host transactions.
+- GUI screenshots of both live sensors, servo setting, device status, raw command controls, packet history, and connected/disconnected/recovered states.
+- Samples of **hourly sensor files** and **24-hour error files**, including evidence of rotations and a single recorded event for each disconnection/reconnection. Show deliberate NACK/timeout behavior and recovery.
+- Servo valid/invalid target tests with measured pulse widths and evidence that the last accepted target stays in effect after an invalid request.
 
 ### Demonstrate
 
-Show both sensors, servo control, live GUI operation, logged data and errors, and recovery from deliberately interrupted I²C and UART communication.
+Identify the bridge automatically, probe and communicate with **both the ADS1115 and PIC slave**, show switch and two ADC readings responding to actual inputs, and control one servo from the GUI without affecting I²C reliability. Demonstrate a raw transaction against the bus, NACK handling, a disconnected/reconnected serial adapter, logging/rotation, and stable servo timing while both devices are active.
 
 ### Complete When
 
-The master provides a working PC/UART-to-I²C bridge, and the complete system runs with both slaves, correctly reports errors, preserves servo timing and meets the logging and reconnection requirements.
+The PC host can send generic UART-directed `P`, `W` and `R` transactions; the master can access **both slaves without device-specific master code**; the PIC slave preserves its Part 3 behavior while driving a servo with a stable 20 ms frame; the GUI presents both sensors, status, and servo controls; and the required logs, timing evidence, failure/recovery demonstrations, and complete source projects are ready for instructor checkoff. **The repeated-START `X` command is not required.**
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
