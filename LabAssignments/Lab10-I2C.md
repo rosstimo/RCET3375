@@ -634,12 +634,12 @@ For maximum-length tests, select a PIC-slave register capable of returning multi
 
 ### In the Lab
 
-1. **UART identity.** Add UART to your working master project. Using PicSerialTool or your Lab 08 host application, send `24 49 00` and verify `24 49 02 33 75`. Handle UART packets that arrive in multiple chunks.
+1. **Start the host GUI and UART link.** Extend your Lab 08 host application or create a new GUI with serial-port communication and raw hex transmission. Add UART to the working master project. From your GUI, send `24 49 00` and verify `24 49 02 33 75`. Handle responses that arrive in multiple serial reads.
 2. **Address probes.** Use `P` to probe the PIC slave at `0x20` and an unoccupied address. Confirm ACK/NACK with decoded START, address, and STOP on the scope.
 3. **Generic write/read.** Implement write command `57` and read command `52` using your existing I²C transaction routines and bounded buffers. Send `24 57 03 20 01 41` to display **A**. Write pointer `0x00`, read PORTB and change a switch. Write pointer `0x02`, read the two-byte PIC ADC and compare with the potentiometer voltage.
 4. **Second I²C device.** Connect the ADS1115 and PIC slave at the same time. Probe each at its verified address. From the host, select and read ADS1115 Config and Conversion registers using separate write (`57`) and read (`52`) calls, reusing Part 2 setup if needed. Change the ADS1115 input voltage. Confirm you can switch between devices **without changing the bridge firmware**.
 5. **Limits and errors.** Test NACK for both write (`57`) and read (`52`) at an unoccupied address. Reject a zero-byte read, address-only write, and 24-byte read request with application error `01`. Confirm an invalid request causes no I²C traffic. Successfully read **23 bytes** and write **23 data bytes**, checking the complete response and final byte received.
-6. **Build the host GUI.** Implement the requirements below. Use it to repeat the PIC and ADS1115 transactions, run the full address scan, save and replay commands, then test disconnection and recovery.
+6. **Complete the host GUI.** Add the remaining features below. Use your GUI to repeat the PIC and ADS1115 transactions, scan all addresses, save and replay commands, then test automatic connection and recovery.
 
 ### Host GUI requirements
 
