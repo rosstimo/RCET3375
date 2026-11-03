@@ -531,7 +531,7 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 ### Goal
 
-Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge**. The host chooses a 7-bit device address, sends raw bytes, reads raw bytes, and receives transaction status. Test it with the **Part 3 PIC slave** and **Part 2 ADS1115**, without changing either slave's firmware or adding peripherals.
+Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge** controlled by a student-built GUI. The GUI sends custom byte sequences, reads responses, discovers I²C devices, and records communication. Test it with the **Part 3 PIC slave** and **Part 2 ADS1115**, without changing either slave's firmware or adding peripherals.
 
 Use the 4 MHz master, **100 kHz I²C**, and **9600 8N1 UART** with a MAX232 or equivalent RS-232/TTL interface. Support one host request at a time and ordinary 7-bit addresses from `0x08` through `0x77`. Separate STOP-terminated writes and reads are sufficient. Repeated START, general call, 10-bit addresses, and multi-master operation are **not required**.
 
@@ -542,6 +542,7 @@ Follow the [Lab Standard](../LAB_STANDARD.md). Prepare:
 - An updated schematic showing the PC serial adapter, MAX232, master PIC, both existing I²C devices, common ground, power, pull-ups, and compatible logic levels. Account for pull-ups on the ADS1115 breakout.
 - Flowcharts for receiving a UART frame, validating the request, performing an I²C transaction, and returning the result. Document the EUSART and MSSP registers you use.
 - A command/response packet table and test cases for ACK, NACK, malformed requests, and transfer-length limits.
+- A GUI plan covering hex/text entry, saved transmissions, live UART/I²C logs, a 128-address scan, and automatic bridge identification/reconnection.
 
 Reuse the Part 3 master routines and UART framing from [Lab 08](Lab08-UART.md). Keep UART transport, I²C transactions, and bridge application behavior separate. Any clear PIC-AS source-file organization is acceptable.
 
@@ -638,19 +639,32 @@ For maximum-length tests, select a PIC-slave register capable of returning multi
 3. **Generic write/read.** Implement write command `57` and read command `52` using your existing I²C transaction routines and bounded buffers. Send `24 57 03 20 01 41` to display **A**. Write pointer `0x00`, read PORTB and change a switch. Write pointer `0x02`, read the two-byte PIC ADC and compare with the potentiometer voltage.
 4. **Second I²C device.** Connect the ADS1115 and PIC slave at the same time. Probe each at its verified address. From the host, select and read ADS1115 Config and Conversion registers using separate write (`57`) and read (`52`) calls, reusing Part 2 setup if needed. Change the ADS1115 input voltage. Confirm you can switch between devices **without changing the bridge firmware**.
 5. **Limits and errors.** Test NACK for both write (`57`) and read (`52`) at an unoccupied address. Reject a zero-byte read, address-only write, and 24-byte read request with application error `01`. Confirm an invalid request causes no I²C traffic. Successfully read **23 bytes** and write **23 data bytes**, checking the complete response and final byte received.
-6. **Host interface.** Provide a usable PicSerialTool workflow, a modified Lab 08 GUI, or equivalent software for choosing the serial port and 7-bit address, issuing probe (`50`), write (`57`), and read (`52`), and seeing raw TX/RX frames and decoded results. Keep one outstanding request at a time and detect response timeouts.
+6. **Build the host GUI.** Implement the requirements below. Use it to repeat the PIC and ADS1115 transactions, run the full address scan, save and replay commands, then test disconnection and recovery.
+
+### Host GUI requirements
+
+Build a graphical application, extending Lab 08 or using your own design:
+
+- **Custom transmission:** Select a 7-bit I²C address and probe, read count, or write data. Enter write data as **hex bytes** (for example, `01 41`) or as **text**; encode text as UTF-8 and show the resulting hex bytes before sending. Send exactly those bytes, with no automatic terminator. Allow manual entry of complete raw UART hex frames for debugging. Validate byte syntax and the bridge's 23-byte write limit rather than silently truncating or splitting requests.
+- **Saved transmissions:** Name, save, select, edit, delete, and retransmit command sequences. Preserve them across application restarts, including address, operation, payload/read count, and hex/text mode.
+- **Live history and file logging:** Display and append **every UART TX and RX frame** to a log file. Include timestamps (date and time), direction, port, raw hex bytes, and decoded command/status where applicable. Also log **all detected UART and I²C errors**, including malformed/unexpected frames, serial exceptions, response timeouts, NACK, bus faults, and application error replies. Record disconnection and reconnection events with timestamps; distinguish failures from successful responses. Log errors detected by the PIC that the host cannot observe directly through a documented UART report or diagnostic record.
+- **I²C address discovery:** Provide a Scan button that iterates through **all 128 seven-bit values, `00`–`7F`**, using the probe command (`50`). Display a list of **acknowledged slave addresses** in hexadecimal and show progress. The bridge currently accepts normal individual addresses `08`–`77`; its application error `03` for reserved values `00`–`07` and `78`–`7F` means **reserved/not probed on the I²C bus**, not NACK. Clearly distinguish ACK, NACK, reserved, and communication errors. Do not issue special-purpose bus transactions to reserved addresses.
+- **Automatic connection:** At startup, search available serial ports at **9600 8N1** and accept the bridge only after the exact identity reply `24 49 02 33 75` to `24 49 00`. Check bridge connectivity approximately **once per second** while connected, show connected/disconnected status and port, and retry discovery approximately every second after communication loss. Reconnect automatically, including if the port name changes. Never send device commands to an unidentified port.
+- **Serial coordination:** Allow only **one outstanding command** at a time, including address scans and connectivity checks. Reassemble fragmented UART replies, enforce a response timeout, and keep the GUI responsive. Queue or defer the one-second identity check while another request is active.
+
+For the scan, iterate the entire 7-bit address space in the GUI even though reserved addresses are rejected by the existing bridge. This keeps the scan comprehensive without modifying the verified address-safety behavior.
 
 ### Evidence
 
-Include the master MPLAB X project, host interface or command workflow, updated schematic, EUSART/MSSP documentation, flowcharts, and packet table. Save UART TX/RX logs and labeled I²C captures showing ACK/NACK, a display write, switch/ADC reads, both devices responding, maximum transfer sizes, and rejection of an invalid request without bus traffic.
+Include the master MPLAB X project, **host GUI source/project**, updated schematic, EUSART/MSSP documentation, flowcharts, and packet table. Provide timestamped log-file excerpts with UART TX/RX packets, UART and I²C errors, and disconnect/reconnect events. Show saved commands being selected and retransmitted, the scan results for all 128 address values, and live connection status. Include labeled I²C captures for ACK/NACK, display write, switch/ADC reads, both devices responding, maximum transfer sizes, and rejection of an invalid request without bus traffic.
 
 ### Demonstrate
 
-Use the host to probe, write, and read **both existing I²C devices** without reflashing the master. Show changing input data and explain the packet format, address handling, and how the bridge reports errors.
+From the GUI, send typed hex bytes and typed text, save and retransmit a command, and display the list of acknowledged I²C addresses. Probe, write, and read **both existing devices** without reflashing the master. Show timestamped file logs, a forced I²C NACK, and automatic bridge connection at startup and after a serial disconnection.
 
 ### Complete When
 
-The master handles identity (`49`), probe (`50`), write (`57`), and read (`52`) requests and reports data or errors correctly. Both existing devices work through the same bridge, and the host commands, source, and evidence are ready for checkoff. **No slave firmware additions or repeated-START `X` command are required.**
+The master handles identity (`49`), probe (`50`), write (`57`), and read (`52`) requests and reports data or errors correctly. The GUI provides custom hex/text transmission, persistent saved commands, timestamped TX/RX and error logs, a full 128-value address scan, one-second bridge status checks, and automatic startup/reconnection. Both existing slaves work through the same bridge. **No slave firmware additions or repeated-START `X` command are required.**
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
