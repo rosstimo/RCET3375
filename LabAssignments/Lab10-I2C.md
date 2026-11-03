@@ -535,6 +535,8 @@ Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge** controll
 
 Use the 4 MHz master, **100 kHz I²C**, and **9600 8N1 UART** with a MAX232 or equivalent RS-232/TTL interface. Support one host request at a time and ordinary 7-bit addresses from `0x08` through `0x77`. Separate STOP-terminated writes and reads are sufficient. Repeated START, general call, 10-bit addresses, and multi-master operation are **not required**.
 
+**The packet tables below specify the interface you must implement in Part 4.** They are not supplied firmware or required PIC-AS subroutines. Choose your own routines, buffers, and error-handling structure while producing the specified externally visible behavior.
+
 ### Before Lab
 
 Follow the [Lab Standard](../LAB_STANDARD.md). Prepare:
@@ -548,7 +550,7 @@ Reuse the Part 3 master routines and UART framing from [Lab 08](Lab08-UART.md). 
 
 ### UART packet format
 
-UART packets contain **raw hexadecimal bytes**, not text characters. Each begins with `24`, followed by the command byte, payload-length byte, and that number of payload bytes. Maximum payload length: **`18` (24 bytes)**.
+UART packets contain **binary byte values**, shown here in hexadecimal. They are not transmitted as printable hexadecimal digits. Each begins with `24`, followed by the command byte, payload-length byte, and that number of payload bytes. For this assignment, implement a maximum UART payload length of **`18` (24 bytes)**.
 
 | Command byte | Operation | Host payload | Response payload |
 | --- | --- | --- | --- |
@@ -558,7 +560,7 @@ UART packets contain **raw hexadecimal bytes**, not text characters. Each begins
 | `52` | Raw read | `AA NN` | `SS DD...` on success; `SS` on failure |
 | `45` | Error response only | None | `EE` |
 
-Raw writes carry 1–23 data bytes; raw reads request 1–23 bytes. Every response includes the full `24`, command, length, and payload. An unsuccessful read returns `24 52 01 SS` with **no data bytes**. The bridge must reject malformed requests before initiating I²C.
+Raw writes carry 1–23 data bytes; raw reads request 1–23 bytes. Every response includes the full `24`, command, length, and payload. An unsuccessful read returns `24 52 01 SS` with **no data bytes**. Reject malformed requests before initiating I²C. These are Part 4 packet requirements, not limits assumed from an existing implementation.
 
 | I²C status | Meaning | Application error | Meaning |
 | --- | --- | --- | --- |
@@ -567,6 +569,8 @@ Raw writes carry 1–23 data bytes; raw reads request 1–23 bytes. Every respon
 | `02` | Timeout | `03` | Invalid address |
 | `03` | Bus LOW / not idle | | |
 | `04` | SCL held LOW | | |
+
+**Keep the UART receive-error reports from Lab 08 Part 3:** framing error `24 45 02 01 00` and overrun error `24 45 02 02 00`. These have **two payload bytes**; the new Part 4 application-error response `24 45 01 EE` has **one payload byte**. Your GUI must distinguish them using the packet length. Use a documented recovery path after either UART error.
 
 **Legend for the transaction tables**
 
@@ -590,7 +594,7 @@ The bridge sends the host's write bytes unchanged and reads bytes without interp
 
 ### Expected UART TX/RX and I²C transactions
 
-**UART TX:** host → bridge. **UART RX:** bridge → host. The PIC slave has 7-bit address `20`, so its I²C address bytes are `40` for write and `41` for read.
+**UART TX:** host → bridge. **UART RX:** bridge → host. The Part 3 PIC slave has assigned 7-bit address `20`, so its I²C address bytes are `40` for write and `41` for read. The examples using `21` as an absent address assume **no device responds at `21` on your bus**; choose another unused ordinary address if necessary.
 
 | Test | UART TX | UART RX | Expected I²C transaction |
 | --- | --- | --- | --- |
@@ -630,31 +634,31 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 | Read 23 bytes | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
 | Write 23 data bytes | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
 
-For maximum-length tests, select a PIC-slave register capable of returning multiple bytes and confirm the final written byte reaches the display. An invalid UART request must produce **no I²C bus activity**.
+**Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. Do not assume its one-byte PORTB and display operations support 23 bytes, and do not modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer only with a device that supports it. An invalid UART request must produce **no I²C bus activity**.
 
 ### In the Lab
 
 1. **Start the host GUI and UART link.** Extend your Lab 08 host application or create a new GUI with serial-port communication and raw hex transmission. Add UART to the working master project. From your GUI, send `24 49 00` and verify `24 49 02 33 75`. Handle responses that arrive in multiple serial reads.
-2. **Address probes.** Use `P` to probe the PIC slave at `0x20` and an unoccupied address. Confirm ACK/NACK with decoded START, address, and STOP on the scope.
+2. **Address probes.** Implement probe command `50`. Probe the PIC slave at `20` and an address you have confirmed is unoccupied. Confirm ACK/NACK with decoded START, address, and STOP on the scope.
 3. **Generic write/read.** Implement write command `57` and read command `52` using your existing I²C transaction routines and bounded buffers. Send `24 57 03 20 01 41` to display **A**. Write pointer `0x00`, read PORTB and change a switch. Write pointer `0x02`, read the two-byte PIC ADC and compare with the potentiometer voltage.
 4. **Second I²C device.** Connect the ADS1115 and PIC slave at the same time. Probe each at its verified address. From the host, select and read ADS1115 Config and Conversion registers using separate write (`57`) and read (`52`) calls, reusing Part 2 setup if needed. Change the ADS1115 input voltage. Confirm you can switch between devices **without changing the bridge firmware**.
-5. **Limits and errors.** Test NACK for both write (`57`) and read (`52`) at an unoccupied address. Reject a zero-byte read, address-only write, and 24-byte read request with application error `01`. Confirm an invalid request causes no I²C traffic. Successfully read **23 bytes** and write **23 data bytes**, checking the complete response and final byte received.
+5. **Limits and errors.** Test NACK for both write (`57`) and read (`52`) at an unoccupied address. Reject a zero-byte read, address-only write, and 24-byte read request with application error `01`. Confirm an invalid request causes no I²C traffic. Verify that count `17` (23 bytes) is within your supported buffer and protocol range. Only attempt a complete 23-byte bus transfer if the connected slave supports it; otherwise document the upper-limit validation without changing Part 3 slave firmware.
 6. **Complete the host GUI.** Add the remaining features below. Use your GUI to repeat the PIC and ADS1115 transactions, scan all addresses, save and replay commands, then test automatic connection and recovery.
 
 ### Host GUI requirements
 
 Build a graphical application, extending Lab 08 or using your own design:
 
-- **Custom transmission:** Select a 7-bit I²C address and probe, read count, or write data. Enter write data as **hex bytes** (for example, `01 41`) or as **text**; encode text as UTF-8 and show the resulting hex bytes before sending. Send exactly those bytes, with no automatic terminator. Allow manual entry of complete raw UART hex frames for debugging. Validate byte syntax and the bridge's 23-byte write limit rather than silently truncating or splitting requests.
+- **Custom transmission:** Select an I²C address and probe, read count, or write data. Enter write data as **hex bytes** (for example, `01 41`) or as **text**; encode text as UTF-8 and show the resulting hex bytes before sending. Both modes supply the **data portion of a framed write request**, not unframed UART traffic. Send exactly the encoded bytes, with no automatic terminator. Provide a separate optional control for manually sending complete raw UART frames. Validate byte syntax and the **encoded** 23-byte write limit rather than silently truncating or splitting requests.
 - **Saved transmissions:** Name, save, select, edit, delete, and retransmit command sequences. Preserve them across application restarts, including address, operation, payload/read count, and hex/text mode.
-- **Live history and file logging:** Display and append **every UART TX and RX frame** to a log file. Include timestamps (date and time), direction, port, raw hex bytes, and decoded command/status where applicable. Also log **all detected UART and I²C errors**, including malformed/unexpected frames, serial exceptions, response timeouts, NACK, bus faults, and application error replies. Record disconnection and reconnection events with timestamps; distinguish failures from successful responses. Log errors detected by the PIC that the host cannot observe directly through a documented UART report or diagnostic record.
+- **Live history and file logging:** Display and append **every UART TX and RX frame** to a log file. Include timestamps (date and time), direction, port, raw hex bytes, and decoded command/status where applicable. Log **all errors detected by the GUI or reported by the bridge**, including UART receive-error reports, malformed/unexpected frames, serial exceptions, response timeouts, I²C NACK/bus faults, and application-error replies. Timestamp each error and each disconnect/reconnect event. Internal PIC errors can only be logged by the host when the PIC reports them; do not label unreported internal faults as successfully logged.
 - **I²C address discovery:** Provide a Scan button that examines **all 128 seven-bit address values, `00`–`7F`**, and shows progress and a list of acknowledged slave addresses in hexadecimal. The ranges `00`–`07` and `78`–`7F` are reserved for special I²C purposes. Mark those values **Reserved** without sending an I²C transaction. For each ordinary address `08`–`77`, send a probe command (`50`) and classify the result as **ACK**, **NACK**, or **communication error**. Do not treat a skipped reserved address as a NACK.
 - **Automatic connection:** At startup, search available serial ports at **9600 8N1** and accept the bridge only after the exact identity reply `24 49 02 33 75` to `24 49 00`. Check bridge connectivity approximately **once per second** while connected, show connected/disconnected status and port, and retry discovery approximately every second after communication loss. Reconnect automatically, including if the port name changes. Never send device commands to an unidentified port.
 - **Serial coordination:** Allow only **one outstanding command** at a time, including address scans and connectivity checks. Reassemble fragmented UART replies, enforce a response timeout, and keep the GUI responsive. Queue or defer the one-second identity check while another request is active.
 
 ### Evidence
 
-Include the master MPLAB X project, **host GUI source/project**, updated schematic, EUSART/MSSP documentation, flowcharts, and packet table. Provide timestamped log-file excerpts with UART TX/RX packets, UART and I²C errors, and disconnect/reconnect events. Show saved commands being selected and retransmitted, the scan results for all 128 address values, and live connection status. Include labeled I²C captures for ACK/NACK, display write, switch/ADC reads, both devices responding, maximum transfer sizes, and rejection of an invalid request without bus traffic.
+Include the master MPLAB X project, **host GUI source/project**, updated schematic, EUSART/MSSP documentation, flowcharts, and packet table. Provide timestamped log-file excerpts with UART TX/RX packets, UART and I²C errors, and disconnect/reconnect events. Show saved commands being selected and retransmitted, the scan results for all 128 address values, and live connection status. Include labeled I²C captures for ACK/NACK, display write, switch/ADC reads, both devices responding, and rejection of an invalid request without bus traffic. Document the maximum allowed packet length and any actual 23-byte device transfer only if supported by your hardware.
 
 ### Demonstrate
 
