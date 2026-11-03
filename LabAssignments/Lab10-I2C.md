@@ -531,11 +531,11 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 
 ### Goal
 
-Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge** controlled by a student-built GUI. The GUI sends custom byte sequences, reads responses, discovers I²C devices, and records communication. Test it with the **Part 3 PIC slave** and **Part 2 ADS1115**, without changing either slave's firmware or adding peripherals.
+Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge** controlled by a student-built GUI. The GUI sends custom byte sequences, reads responses, discovers I²C devices, and records communication. Test it with the **Part 3 PIC slave** and **Part 2 ADS1115**.
 
-Use the 4 MHz master, **100 kHz I²C**, and **9600 8N1 UART** with a MAX232 or equivalent RS-232/TTL interface. Support one host request at a time and ordinary 7-bit addresses from `0x08` through `0x77`. Separate STOP-terminated writes and reads are sufficient. Repeated START, general call, 10-bit addresses, and multi-master operation are **not required**.
+Use the 4 MHz master, **100 kHz I²C**, and **9600 8N1 UART** with a MAX232 or equivalent RS-232/TTL interface. Support one host request at a time and ordinary 7-bit addresses. Separate STOP-terminated writes and reads are sufficient. Repeated START, general call, 10-bit addresses, and multi-master operation are **not required**.
 
-**The packet tables below specify the interface you must implement in Part 4.** They are not supplied firmware or required PIC-AS subroutines. Choose your own routines, buffers, and error-handling structure while producing the specified externally visible behavior.
+**The packet tables below specify the interface you must implement in Part 4.** Choose your own routines, buffers, and error-handling structure while producing the specified externally visible behavior.
 
 ### Before Lab
 
@@ -550,7 +550,7 @@ Reuse the Part 3 master routines and UART framing from [Lab 08](Lab08-UART.md). 
 
 ### UART packet format and error packets
 
-UART packets contain **binary bytes**, shown here in hexadecimal, not printable hexadecimal digits. Each frame is `24`, one command byte, a one-byte payload length, then that many payload bytes. Implement a maximum accepted payload of **`18` (24 bytes)**. The receiver must reject invalid lengths without overflowing its buffer or initiating I²C traffic.
+UART packets contain **binary bytes**, shown here in hexadecimal. Each frame is `24`, one command byte, a one-byte payload length, then that many payload bytes. Implement a maximum accepted payload of **24 bytes**. The bridge must reject invalid lengths without overflowing its buffer or initiating I²C traffic.
 
 | Command byte | Operation | Host payload | Successful reply payload |
 | --- | --- | --- | --- |
@@ -568,7 +568,6 @@ Raw writes contain 1–23 data bytes; raw reads request 1–23 bytes. Successful
 | --- | --- |
 | `24 45 02 01 00` | UART framing error, retained from Lab 08 |
 | `24 45 02 02 00` | UART receive overrun, retained from Lab 08 |
-| `24 45 02 03 01` | Lab 08 invalid-servo-command error, retained but **not used** in Part 4 |
 | `24 45 02 04 SS` | New I²C error; `SS` identifies the cause |
 | `24 45 02 05 EE` | New bridge request/validation error; `EE` identifies the cause |
 
@@ -642,7 +641,7 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 | 23-byte read (device supports it) | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
 | 23-byte write (device supports it) | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
 
-**Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. Do not assume its one-byte PORTB and display operations support 23 bytes, and do not modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer only with a device that supports it. An invalid UART request must produce **no I²C bus activity**.
+**Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. You do not have to modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer if the slave device that supports it. Document the result. An invalid UART request must produce **no I²C bus activity**.
 
 ### In the Lab
 
@@ -657,9 +656,9 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 
 Build a graphical application, extending Lab 08 or using your own design:
 
-- **Custom transmission and lengths:** Select an I²C address, probe, read count, or write data. Enter write data as **hex bytes** (for example, `01 41`) or **text** encoded as UTF-8; display the actual bytes and length before sending. Both modes supply the data portion of a framed write, not unframed UART text. Allow students to deliberately test **zero, short, maximum and oversized payload lengths** and read counts, including values outside the bridge's accepted range. Show a warning but do **not** silently truncate, split, or prevent a deliberate boundary test. Provide an advanced raw-frame mode for testing declared-length mismatches and unsupported commands. Reject input that cannot be represented as bytes; never write beyond the host's buffer.
+- **Custom transmission and lengths:** Select an I²C address, probe, read count, or write data. Enter write data as **hex bytes** (for example, `01 41`) or **text** encoded as UTF-8; display the actual bytes and length before sending. Both modes supply the data portion of a framed write, not unframed UART text. Allow users to deliberately test **zero, short, maximum and oversized payload lengths** and read counts, including values outside the bridge's accepted range. Show a warning but do **not** truncate, split, or prevent a deliberate boundary test. Provide an advanced raw-frame mode for testing declared-length mismatches and unsupported commands. Reject input that cannot be represented as bytes.
 - **Saved transmissions:** Name, save, select, edit, delete, and retransmit command sequences. Preserve them across application restarts, including address, operation, payload/read count, and hex/text mode.
-- **Timestamped history and file logging:** Display and append **every UART transmission and every received reply/error frame** to a log file, including automatic identity checks and address scans. Include timestamp (date and time), direction, port, raw hex bytes, payload length, and decoded response when available. Also log **all errors detected by the GUI or reported by the bridge**, including Lab 08 framing/overrun packets, new I²C error packets, invalid requests, serial exceptions, malformed/incomplete replies and response timeouts. Timestamp disconnection/reconnection events and indicate which request failed. The host cannot record internal PIC faults that were never reported; distinguish such limitations from observable errors.
+- **Timestamped history and file logging:** Display and append **every UART transmission and every received reply/error frame** to a log file, including automatic identity checks and address scans. Include timestamp (date and time), direction, port, raw hex bytes, payload length, and decoded response when available. Also log **all errors detected by the GUI or reported by the bridge**, including Lab 08 framing/overrun packets, new I²C error packets, invalid requests, serial exceptions, malformed/incomplete replies and response timeouts. Timestamp disconnection/reconnection events and indicate which request failed.
 - **I²C address discovery:** Provide a Scan button that examines **all 128 seven-bit address values, `00`–`7F`**, and shows progress and a list of acknowledged slave addresses in hexadecimal. The ranges `00`–`07` and `78`–`7F` are reserved for special I²C purposes. Mark those values **Reserved** without sending an I²C transaction. For each ordinary address `08`–`77`, send a probe command (`50`) and classify the result as **ACK**, **NACK**, or **communication error**. Do not treat a skipped reserved address as a NACK.
 - **Automatic connection:** At startup, search available serial ports at **9600 8N1** and accept the bridge only after the exact identity reply `24 49 02 33 75` to `24 49 00`. Check bridge connectivity approximately **once per second** while connected, show connected/disconnected status and port, and retry discovery approximately every second after communication loss. Reconnect automatically, including if the port name changes. Never send device commands to an unidentified port.
 - **Serial coordination:** Allow only **one outstanding command** at a time, including address scans and connectivity checks. Reassemble fragmented UART replies, enforce a response timeout, and keep the GUI responsive. Queue or defer the one-second identity check while another request is active.
@@ -674,7 +673,7 @@ From the GUI, send typed hex bytes and text of varying lengths, save and retrans
 
 ### Complete When
 
-The master handles identity (`49`), probe (`50`), write (`57`) and read (`52`) requests and preserves the Lab 08 UART errors while reporting additional I²C and bridge request errors. The GUI allows varied payload lengths, saves commands, logs every UART TX/RX frame and observed/reported error with timestamps, scans all 128 address values, and reconnects automatically. Both existing slaves work through the same bridge. **No slave firmware additions or repeated-START `X` command are required.**
+The master handles identity (`49`), probe (`50`), write (`57`) and read (`52`) requests and preserves the Lab 08 UART errors while reporting additional I²C and bridge request errors. The GUI allows varied payload lengths, saves commands, logs every UART TX/RX frame and observed/reported error with timestamps, scans all 128 address values, and reconnects automatically. Both existing slaves work through the same bridge.
 
 [Back to top](#top) · [Lab assignments](https://github.com/rosstimo/RCET3375/tree/main/LabAssignments)
 
