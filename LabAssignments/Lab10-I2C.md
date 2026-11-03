@@ -562,7 +562,7 @@ UART packets contain **binary bytes**, shown here in hexadecimal. Each frame is 
 
 Raw writes contain 1–23 data bytes; raw reads request 1–23 bytes. Successful replies include the full `24`, command, length, and payload. **On failure, return one error packet instead of a successful command reply.** The bridge sends the host's write bytes unchanged and does not interpret I²C device registers. A pointer write and subsequent read are separate requests.
 
-**Preserve the Lab 08 UART errors and application-error meaning. Add I²C and bridge-validation error categories without reusing their codes.** Every error packet has five bytes: `24 45 02`, error category, detail.
+**Preserve the Lab 08 UART framing and overrun error packets. Add separate I²C and bridge-validation error categories without reusing those codes.** Every error packet has five bytes: `24 45 02`, error category, detail.
 
 | Complete error packet | Meaning |
 | --- | --- |
@@ -641,7 +641,7 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 | 23-byte read (device supports it) | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
 | 23-byte write (device supports it) | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
 
-**Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. You do not have to modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer if the slave device that supports it. Document the result. An invalid UART request must produce **no I²C bus activity**.
+**Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. You do not have to modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer if a connected slave supports it. Document the result. An invalid UART request must produce **no I²C bus activity**.
 
 ### In the Lab
 
