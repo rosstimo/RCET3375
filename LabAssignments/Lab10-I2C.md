@@ -567,7 +567,23 @@ Raw writes carry 1–23 data bytes; raw reads request 1–23 bytes. Every respon
 | `03` | Bus LOW / not idle | | |
 | `04` | SCL held LOW | | |
 
-**Legend for every table below:** `AA` = 7-bit I²C address; `NN` = read count; `SS` = I²C status; `EE` = application error; `VV` = PORTB switch byte; `HH` = high result byte; `LL` = low result byte; `DD` = one varying data byte. `× N` means repeat the preceding byte or sequence N times; it is not part of the packet. All other two-digit values are literal hexadecimal bytes. On the I²C bus, **START** and **STOP** are bus conditions, while **ACK** and **NACK** are the ninth-bit responses, not data bytes.
+**Legend for the transaction tables**
+
+| Symbol | Meaning |
+| --- | --- |
+| `AA` | 7-bit I²C device address |
+| `NN` | Number of bytes requested by a read |
+| `SS` | I²C transaction status |
+| `EE` | Application error code |
+| `VV` | PORTB switch data byte |
+| `HH` | High byte of a measurement or register value |
+| `LL` | Low byte of a measurement or register value |
+| `DD` | One data byte whose value may vary |
+| `× N` | Repeat the preceding byte or sequence N times; not transmitted |
+| **START** / **STOP** | I²C bus start and stop conditions |
+| **ACK** / **NACK** | I²C ninth-bit responses, not data bytes |
+
+All other two-digit values are literal hexadecimal bytes.
 
 The bridge sends the host's write bytes unchanged and reads bytes without interpreting device registers. When a device retains a register pointer across STOP, the host can send a pointer-only write followed by a separate read.
 
