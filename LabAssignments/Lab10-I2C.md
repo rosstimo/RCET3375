@@ -577,6 +577,48 @@ A failed read returns `24 52 01 SS` with **no data bytes**. Reject invalid reque
 
 **Do not interpret device registers in the master.** `W` transmits exactly the supplied data; `R` reads from the device's selected register/state. When a device retains its register pointer across STOP, the host can issue a pointer `W` followed by `R`.
 
+### Expected serial packets and I²C activity
+
+**UART TX** = host to bridge; **UART RX** = bridge to host. All bytes are hex. For I²C, `S` = START, `P` = STOP, `A` = ACK, `N` = NACK. `0x20` is sent on the bus as `40` (write) or `41` (read). The receiving device supplies each ACK/NACK: the **slave** for writes, the **master** for read data.
+
+| Test | UART TX | UART RX | I²C bus |
+| --- | --- | --- | --- |
+| Identity | `24 49 00` | `24 49 02 33 75` | None |
+| Probe PIC at `0x20` | `24 50 01 20` | `24 50 01 00` | `S 40 A P` |
+| Probe absent `0x21` | `24 50 01 21` | `24 50 01 01` | `S 42 N P` |
+| Display ASCII A | `24 57 03 20 01 41` | `24 57 01 00` | `S 40 A 01 A 41 A P` |
+| Select PORTB | `24 57 02 20 00` | `24 57 01 00` | `S 40 A 00 A P` |
+| Read PORTB | `24 52 02 20 01` | `24 52 02 00 VV` | `S 41 A VV N P` |
+| Select PIC ADC | `24 57 02 20 02` | `24 57 01 00` | `S 40 A 02 A P` |
+| Read PIC ADC | `24 52 02 20 02` | `24 52 03 00 HH LL` | `S 41 A HH A LL N P` |
+
+`VV` and `HH LL` depend on the switches and analog input. Pointer writes and reads are **separate UART requests**, each producing its own I²C START/STOP.
+
+For the ADS1115 examples, **`0x48`** is an example 7-bit address (`90` write / `91` read). Substitute the actual address found in Part 2.
+
+| Test | UART TX | UART RX | I²C bus |
+| --- | --- | --- | --- |
+| Probe ADS1115 | `24 50 01 48` | `24 50 01 00` | `S 90 A P` |
+| Select Config | `24 57 02 48 01` | `24 57 01 00` | `S 90 A 01 A P` |
+| Read Config | `24 52 02 48 02` | `24 52 03 00 HH LL` | `S 91 A HH A LL N P` |
+| Select Conversion | `24 57 02 48 00` | `24 57 01 00` | `S 90 A 00 A P` |
+| Read Conversion | `24 52 02 48 02` | `24 52 03 00 HH LL` | `S 91 A HH A LL N P` |
+
+**Errors and limits:**
+
+| Test | UART TX | UART RX | I²C bus |
+| --- | --- | --- | --- |
+| Write NACK at `0x21` | `24 57 02 21 00` | `24 57 01 01` | `S 42 N P`; no data |
+| Read NACK at `0x21` | `24 52 02 21 01` | `24 52 01 01` | `S 43 N P`; no data |
+| Zero-byte read | `24 52 02 20 00` | `24 45 01 01` | None |
+| Address-only write | `24 57 01 20` | `24 45 01 01` | None |
+| Read 24 bytes (invalid) | `24 52 02 20 18` | `24 45 01 01` | None |
+| Invalid address | `24 50 01 00` | `24 45 01 03` | None |
+| Read 23 bytes | `24 52 02 20 17` | `24 52 18 00` + 23 data bytes | `S 41 A`, 22 × (data + `A`), last data + `N P` |
+| Write 23 data bytes | `24 57 18 20 01` + 21 × `41` + `42` | `24 57 01 00` | `S 40 A 01 A`, 21 × (`41 A`), `42 A P` |
+
+For the 23-byte read, select a slave register that returns multiple bytes and keep its inputs stable. The last write byte should visibly reach the slave. An invalid UART request must cause **no I²C activity**.
+
 ### In the Lab
 
 1. **UART identity.** Add UART to your working master project. Using PicSerialTool or your Lab 08 host application, send `24 49 00` and verify `24 49 02 33 75`. Handle UART packets that arrive in multiple chunks.
