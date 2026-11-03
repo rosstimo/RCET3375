@@ -631,8 +631,8 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 | Zero-byte read | `24 52 02 20 00` | `24 45 01 01` | None |
 | Address-only write | `24 57 01 20` | `24 45 01 01` | None |
 | Invalid 24-byte read | `24 52 02 20 18` | `24 45 01 01` | None |
-| Read 23 bytes | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
-| Write 23 data bytes | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
+| 23-byte read (device supports it) | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
+| 23-byte write (device supports it) | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
 
 **Upper-limit examples are conditional:** the last two rows show what a successful 23-byte transaction would look like **if the selected slave supports that many consecutive bytes**. Part 3 does not require such streaming behavior. Do not assume its one-byte PORTB and display operations support 23 bytes, and do not modify the slave solely for these tests. Verify the bridge's length validation at the boundary; demonstrate a complete maximum-length transfer only with a device that supports it. An invalid UART request must produce **no I²C bus activity**.
 
