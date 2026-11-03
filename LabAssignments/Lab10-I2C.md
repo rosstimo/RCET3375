@@ -638,6 +638,7 @@ For the ADS1115 examples, `48` is a **sample** 7-bit address, with I²C address 
 | Zero-byte read | `24 52 02 20 00` | `24 45 02 05 01` | None |
 | Address-only write | `24 57 01 20` | `24 45 02 05 01` | None |
 | Invalid 24-byte read | `24 52 02 20 18` | `24 45 02 05 01` | None |
+| Write with 24 data bytes (oversized) | `24 57 19 20 01` + `41` × 23 | `24 45 02 05 01` | None |
 | 23-byte read (device supports it) | `24 52 02 20 17` | `24 52 18 00` + `DD` × 23 | START, `41`, ACK, (`DD`, ACK) × 22, `DD`, NACK, STOP |
 | 23-byte write (device supports it) | `24 57 18 20 01` + `41` × 21 + `42` | `24 57 01 00` | START, `40`, ACK, `01`, ACK, (`41`, ACK) × 21, `42`, ACK, STOP |
 
