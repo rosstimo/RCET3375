@@ -6,8 +6,6 @@
 
 PIC16F883 | pic-as | MSSP / I²C | UART | Multi-device communication
 
-> **Release status:** Parts 1–3 are available. Parts 4–5 remain in development and are not released.
-
 ## Contents
 
 - [Purpose](#purpose)
@@ -527,8 +525,6 @@ Show the master addressing the second PIC, changing the reported DIP-switch valu
 <a id="part-4"></a>
 ## Part 4 - UART-to-I²C Bridge
 
-> **Review draft, not yet released:** Do not begin until the release notice at the top of this assignment is updated.
-
 ### Goal
 
 Turn the **master PIC16F883** into a generic **PC/UART-to-I²C bridge** controlled by a student-built GUI. The GUI sends custom byte sequences, reads responses, discovers I²C devices, and records communication. Test it with the **Part 3 PIC slave** and **Part 2 ADS1115**.
@@ -679,8 +675,6 @@ The master handles identity (`49`), probe (`50`), write (`57`) and read (`52`) r
 
 <a id="part-5"></a>
 ## Part 5 - Mastery: Three-Axis Servo Control
-
-> **Update in progress:** This part is being revised. Requirements may change. Do not begin this part until the updated instructions are released.
 
 ### Goal
 
